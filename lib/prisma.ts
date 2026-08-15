@@ -3,7 +3,11 @@ import { PrismaNeon } from "@prisma/adapter-neon";
 import { Pool, neonConfig } from "@neondatabase/serverless";
 import ws from "ws";
 
-neonConfig.webSocketConstructor = ws;
+if (process.env.NODE_ENV === "production") {
+  neonConfig.poolQueryViaFetch = true;
+} else {
+  neonConfig.webSocketConstructor = ws;
+}
 
 const globalForPrisma = global as unknown as { prisma?: PrismaClient };
 
