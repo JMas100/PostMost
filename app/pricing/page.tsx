@@ -2,8 +2,8 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { PLANS, formatPrice, getPlan, Plan } from "@/lib/plans";
-import { Button, buttonVariants } from "@/components/ui/button";
-import { cn } from "@/lib/utils";
+import { Button } from "@/components/ui/button";
+import { PlanCheckoutButton } from "@/components/checkout-button";
 import { Check } from "lucide-react";
 import Link from "next/link";
 
@@ -30,13 +30,14 @@ function PlanCard({ plan, current }: { plan: Plan; current: boolean }) {
         <Button disabled className="w-full">
           Current plan
         </Button>
-      ) : (
-        <Link
-          href="/settings/billing"
-          className={cn(buttonVariants({ variant: "default" }), "w-full")}
-        >
-          Choose {plan.name}
+      ) : plan.id === "free" ? (
+        <Link href="/settings/billing" className="w-full">
+          <Button className="w-full">Get started</Button>
         </Link>
+      ) : (
+        <PlanCheckoutButton planId={plan.id} className="w-full">
+          Choose {plan.name}
+        </PlanCheckoutButton>
       )}
     </div>
   );

@@ -1,8 +1,9 @@
-import { getBilling, updatePlan } from "@/lib/actions/billing";
+import { getBilling } from "@/lib/actions/billing";
 import { formatPrice, PLANS } from "@/lib/plans";
-import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
+import { PlanCheckoutButton } from "@/components/checkout-button";
+import { BillingPortalButton } from "@/components/billing-portal-button";
 import { redirect } from "next/navigation";
 
 function getLimitLabel(value: number, limit: number) {
@@ -10,25 +11,47 @@ function getLimitLabel(value: number, limit: number) {
   return `${value} / ${limit}`;
 }
 
-export default async function BillingPage() {
+export default async function BillingPage({ searchParams }: { searchParams: { success?: string; canceled?: string } }) {
   const billing = await getBilling();
   if (!billing) redirect("/login");
 
-  const { plan, usage } = billing;
+  const { plan, usage, stripeCustomerId, subscriptionStatus } = billing;
   const resetAt = usage?.resetAt ? new Date(usage.resetAt) : new Date();
 
   return (
     <main className="mx-auto max-w-4xl px-4 py-8">
       <h1 className="mb-6 text-2xl font-bold">Billing & usage</h1>
 
+      {searchParams?.success && (
+        <div className="mb-4 rounded-lg bg-green-50 p-4 text-sm text-green-700">
+          Payment successful. Your subscription is being processed.
+        </div>
+      )}
+      {searchParams?.canceled && (
+        <div className="mb-4 rounded-lg bg-gray-50 p-4 text-sm text-gray-700">
+          Checkout canceled. You can try again when you&apos;re ready.
+        </div>
+      )}
+
       <Card className="mb-6">
         <CardHeader>
           <CardTitle>Current plan</CardTitle>
         </CardHeader>
         <CardContent>
-          <p className="text-lg font-semibold">{plan.name}</p>
-          <p className="text-gray-600">{plan.description}</p>
-          <p className="mt-2 text-2xl font-bold">{formatPrice(plan.priceMonthly)}<span className="text-base font-normal text-gray-500">/mo</span></p>
+          <div className="flex items-start justify-between">
+            <div>
+              <p className="text-lg font-semibold">{plan.name}</p>
+              <p className="text-gray-600">{plan.description}</p>
+              <p className="mt-2 text-2xl font-bold">
+                {formatPrice(plan.priceMonthly)}
+                <span className="text-base font-normal text-gray-500">/mo</span>
+              </p>
+              {subscriptionStatus && (
+                <p className="mt-1 text-sm text-gray-500">Stripe status: {subscriptionStatus}</p>
+              )}
+            </div>
+            {stripeCustomerId && <BillingPortalButton />}
+          </div>
         </CardContent>
       </Card>
 
@@ -64,30 +87,29 @@ export default async function BillingPage() {
           <CardTitle>Change plan</CardTitle>
         </CardHeader>
         <CardContent>
-          <form action={updatePlan} className="space-y-4">
-            <div className="grid gap-4 sm:grid-cols-2">
-              {PLANS.map((p) => (
-                <label
-                  key={p.id}
-                  className={`cursor-pointer rounded-xl border p-4 transition hover:border-gray-400 ${p.id === plan.id ? "border-blue-600 bg-blue-50" : ""}`}
-                >
-                  <input
-                    type="radio"
-                    name="plan"
-                    value={p.id}
-                    defaultChecked={p.id === plan.id}
-                    className="sr-only"
-                  />
-                  <div className="flex items-center justify-between">
-                    <span className="font-semibold">{p.name}</span>
-                    <span className="text-sm text-gray-600">{formatPrice(p.priceMonthly)}/mo</span>
-                  </div>
-                  <p className="mt-1 text-xs text-gray-500">{p.description}</p>
-                </label>
-              ))}
-            </div>
-            <Button type="submit">Update plan</Button>
-          </form>
+          <div className="grid gap-4 sm:grid-cols-2">
+            {PLANS.map((p) => (
+              <div
+                key={p.id}
+                className={`rounded-xl border p-4 transition ${p.id === plan.id ? "border-blue-600 bg-blue-50" : ""}`}
+              >
+                <div className="flex items-center justify-between">
+                  <span className="font-semibold">{p.name}</span>
+                  <span className="text-sm text-gray-600">{formatPrice(p.priceMonthly)}/mo</span>
+                </div>
+                <p className="mt-1 text-xs text-gray-500">{p.description}</p>
+                {p.id === plan.id ? (
+                  <p className="mt-4 text-sm font-medium text-blue-600">Current plan</p>
+                ) : p.id === "free" ? (
+                  <p className="mt-4 text-sm text-gray-500">Free plan active by default</p>
+                ) : (
+                  <PlanCheckoutButton planId={p.id} className="mt-4">
+                    Choose {p.name}
+                  </PlanCheckoutButton>
+                )}
+              </div>
+            ))}
+          </div>
         </CardContent>
       </Card>
     </main>
