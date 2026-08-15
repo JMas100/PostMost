@@ -80,8 +80,7 @@ export function ListingForm() {
     });
 
     Promise.all(readers).then((urls) => {
-      const filtered = photoUrls.filter((u) => u.trim() !== "");
-      setPhotoUrls([...filtered, ...urls]);
+      setPhotoUrls((prev) => [...prev.filter((u) => u.trim() !== ""), ...urls]);
       if (fileInputRef.current) fileInputRef.current.value = "";
     });
   }
