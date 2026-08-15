@@ -83,11 +83,11 @@ export const PLANS: Plan[] = [
     priceMonthly: 9999,
     description: "For consignment shops and high-volume sellers.",
     listingsPerMonth: -1,
-    aiCreditsPerMonth: -1,
+    aiCreditsPerMonth: 2000,
     marketplaces: 999,
     features: [
       "Unlimited listings",
-      "Unlimited AI photo analyses",
+      "2,000 AI photo analyses per month",
       "Custom integrations",
       "Dedicated support",
       "White-label options",
