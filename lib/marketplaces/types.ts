@@ -18,6 +18,7 @@ export interface PlatformAccount {
   accessToken?: string | null;
   refreshToken?: string | null;
   externalId?: string | null;
+  tokenExpiresAt?: Date | null;
   settings?: Record<string, unknown>;
 }
 
@@ -30,6 +31,14 @@ export interface PostResult {
   raw?: Record<string, unknown>;
 }
 
+export interface OAuthTokenResult {
+  accessToken: string;
+  refreshToken?: string;
+  tokenExpiresAt?: Date;
+  externalId?: string;
+  displayName?: string;
+}
+
 export interface MarketplaceAdapter {
   name: string;
   id: string;
@@ -39,5 +48,6 @@ export interface MarketplaceAdapter {
   authFields?: { key: string; label: string; type: string }[];
   post(listing: ListingData, account: PlatformAccount): Promise<PostResult>;
   delist?(externalId: string, account: PlatformAccount): Promise<{ success: boolean; error?: string }>;
-  getAuthUrl?(): string;
+  getAuthUrl?(opts?: { codeVerifier?: string }): string;
+  exchangeCode?(code: string, ctx?: { codeVerifier?: string }): Promise<OAuthTokenResult>;
 }

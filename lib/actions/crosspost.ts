@@ -5,7 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { getAdapter } from "@/lib/marketplaces";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
-import { Photo } from "@prisma/client";
+import { processPendingCrossPostJobs } from "@/lib/jobs/crosspost-runner";
 
 const PlatformListingStatus = {
   PENDING: "PENDING",
@@ -44,32 +44,6 @@ export async function crossPost(listingId: string, platformIds: string[]) {
     }
 
     const account = accountByPlatform.get(platformId);
-    const listingData = {
-      title: listing.title,
-      description: listing.description,
-      price: listing.price,
-      quantity: listing.quantity,
-      condition: listing.condition,
-      category: listing.category,
-      brand: listing.brand,
-      size: listing.size,
-      color: listing.color,
-      material: listing.material,
-      sku: listing.sku,
-      tags: listing.tags ? listing.tags.split(",").map((t) => t.trim()) : undefined,
-      photos: listing.photos.map((p: Photo) => p.url),
-    };
-
-    const payload = JSON.stringify({ listingId, platformId, accountId: account?.id });
-    const job = await prisma.crossPostJob.create({
-      data: {
-        userId,
-        listingId,
-        platform: platformId,
-        status: "PENDING",
-        payload,
-      },
-    });
 
     await prisma.platformListing.upsert({
       where: { listingId_platform: { listingId, platform: platformId } },
@@ -84,60 +58,15 @@ export async function crossPost(listingId: string, platformIds: string[]) {
       },
     });
 
-    const accountData = account
-      ? {
-          accessToken: account.accessToken,
-          refreshToken: account.refreshToken,
-          externalId: account.externalId,
-          settings: account.settings ? JSON.parse(account.settings) : {},
-        }
-      : { accessToken: null };
-
-    // Run async so the UI gets immediate feedback.
-    (async () => {
-      await prisma.crossPostJob.update({
-        where: { id: job.id },
-        data: { status: "RUNNING", startedAt: new Date() },
-      });
-      try {
-        const result = await adapter.post(listingData, accountData);
-        await prisma.crossPostJob.update({
-          where: { id: job.id },
-          data: {
-            status: result.success ? "COMPLETED" : "FAILED",
-            result: JSON.stringify(result),
-            error: result.error || null,
-            completedAt: new Date(),
-          },
-        });
-        await prisma.platformListing.update({
-          where: { listingId_platform: { listingId, platform: platformId } },
-          data: {
-            status: result.success ? PlatformListingStatus.POSTED : PlatformListingStatus.FAILED,
-            externalId: result.externalId || null,
-            externalUrl: result.externalUrl || null,
-            errorMessage: result.error || null,
-            postedAt: result.success ? new Date() : null,
-          },
-        });
-        if (result.success) {
-          await prisma.listing.update({
-            where: { id: listingId },
-            data: { status: "ACTIVE" },
-          });
-        }
-      } catch (err) {
-        const message = err instanceof Error ? err.message : "Unknown error";
-        await prisma.crossPostJob.update({
-          where: { id: job.id },
-          data: { status: "FAILED", error: message, completedAt: new Date() },
-        });
-        await prisma.platformListing.update({
-          where: { listingId_platform: { listingId, platform: platformId } },
-          data: { status: PlatformListingStatus.FAILED, errorMessage: message },
-        });
-      }
-    })();
+    await prisma.crossPostJob.create({
+      data: {
+        userId,
+        listingId,
+        platform: platformId,
+        status: "PENDING",
+        payload: JSON.stringify({ listingId, platformId, accountId: account?.id }),
+      },
+    });
 
     results.push({
       platformId,
@@ -145,6 +74,9 @@ export async function crossPost(listingId: string, platformIds: string[]) {
       message: `Queued on ${adapter.name}${account ? "" : " (no account connected)"}`,
     });
   }
+
+  // Process the jobs in the background so the UI returns immediately.
+  void processPendingCrossPostJobs(listingId);
 
   revalidatePath(`/listings/${listingId}`);
   revalidatePath("/listings");
