@@ -3,13 +3,14 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { signOut } from "next-auth/react";
-import { LayoutDashboard, Package, Settings, LogOut, Menu, CreditCard, Sparkles, FileText, LayoutTemplate } from "lucide-react";
+import { LayoutDashboard, Package, Settings, LogOut, Menu, CreditCard, Sparkles, FileText, LayoutTemplate, BarChart3 } from "lucide-react";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { cn } from "@/lib/utils";
 
 const nav = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
+  { href: "/analytics", label: "Analytics", icon: BarChart3 },
   { href: "/listings", label: "Listings", icon: Package },
   { href: "/listings/drafts", label: "Drafts", icon: FileText },
   { href: "/templates", label: "Templates", icon: LayoutTemplate },
