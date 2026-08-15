@@ -133,8 +133,12 @@ export function ListingForm() {
     }
     const result = await createListing({ ...data, photos: validPhotos });
     if (result.error) {
-      toast.error("Failed to create listing");
+      toast.error(typeof result.error === "string" ? result.error : "Failed to create listing");
       console.error(result.error);
+      return;
+    }
+    if (!result.listing) {
+      toast.error("Listing creation failed");
       return;
     }
     toast.success("Listing created");

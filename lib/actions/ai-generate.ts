@@ -1,6 +1,9 @@
 "use server";
 
 import { generateListingFromImage, GeneratedListing } from "@/lib/ai/generate-listing";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth";
+import { canUseAI, incrementAIUsage } from "@/lib/actions/usage";
 
 export async function generateListingFromPhoto(imageBase64: string): Promise<{
   success: boolean;
@@ -8,7 +11,20 @@ export async function generateListingFromPhoto(imageBase64: string): Promise<{
   error?: string;
 }> {
   try {
+    const session = await getServerSession(authOptions);
+    const userId = session?.user?.id;
+    if (!userId) {
+      return { success: false, error: "You must be logged in to use AI generation." };
+    }
+
+    const usage = await canUseAI(userId);
+    if (!usage.allowed) {
+      return { success: false, error: usage.reason };
+    }
+
     const listing = await generateListingFromImage(imageBase64);
+    await incrementAIUsage(userId);
+
     return { success: true, listing };
   } catch (err) {
     const message = err instanceof Error ? err.message : "Failed to analyze image";

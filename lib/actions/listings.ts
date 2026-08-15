@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { listingSchema, ListingFormData } from "@/lib/schemas/listing";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
+import { canCreateListing, incrementListingUsage } from "@/lib/actions/usage";
 
 function getUserId(session: { user?: { id?: string } } | null) {
   if (!session?.user?.id) throw new Error("Unauthorized");
@@ -38,6 +39,12 @@ export async function createListing(data: ListingFormData) {
     return { error: parsed.error.format() };
   }
   const { photos, tags, ...rest } = parsed.data;
+
+  const usage = await canCreateListing(userId);
+  if (!usage.allowed) {
+    return { error: usage.reason };
+  }
+
   const listing = await prisma.listing.create({
     data: {
       ...rest,
@@ -49,6 +56,9 @@ export async function createListing(data: ListingFormData) {
     },
     include: { photos: true, platformListings: true },
   });
+
+  await incrementListingUsage(userId);
+
   revalidatePath("/listings");
   revalidatePath("/dashboard");
   return { success: true, listing };

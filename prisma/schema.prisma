@@ -10,16 +10,19 @@ datasource db {
 }
 
 model User {
-  id            String    @id @default(cuid())
-  email         String    @unique
-  name          String?
-  password      String?
-  image         String?
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
-  listings      Listing[]
-  accounts      MarketplaceAccount[]
-  jobs          CrossPostJob[]
+  id                String         @id @default(cuid())
+  email             String         @unique
+  name              String?
+  password          String?
+  image             String?
+  plan              String         @default("free")
+  stripeCustomerId  String?
+  createdAt         DateTime       @default(now())
+  updatedAt         DateTime       @updatedAt
+  listings          Listing[]
+  accounts          MarketplaceAccount[]
+  jobs              CrossPostJob[]
+  usage             UserUsage?
 }
 
 model Listing {
@@ -90,6 +93,17 @@ model PlatformListing {
   updatedAt       DateTime @updatedAt
 
   @@unique([listingId, platform])
+}
+
+model UserUsage {
+  id                  String   @id @default(cuid())
+  userId              String   @unique
+  user                User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  listingsThisMonth   Int      @default(0)
+  aiCreditsUsed       Int      @default(0)
+  resetAt             DateTime @default(now())
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
 }
 
 model CrossPostJob {
