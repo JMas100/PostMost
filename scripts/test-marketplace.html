@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Test Marketplace</title>
+  <style>
+    body { font-family: system-ui, sans-serif; max-width: 480px; margin: 2rem auto; padding: 1rem; }
+    label { display: block; margin-top: 1rem; font-weight: 600; }
+    input, textarea, button { width: 100%; padding: 0.5rem; margin-top: 0.25rem; box-sizing: border-box; }
+    #success { display: none; color: green; font-weight: bold; margin-top: 1rem; }
+  </style>
+</head>
+<body>
+  <h1>Test Marketplace</h1>
+  <form id="listing-form">
+    <label>Title <input type="text" name="title" required /></label>
+    <label>Price <input type="number" name="price" required /></label>
+    <label>Description <textarea name="description" rows="4" required></textarea></label>
+    <label>Photos <input type="file" name="photos" accept="image/*" multiple /></label>
+    <button type="submit" style="margin-top:1rem">List item</button>
+  </form>
+  <div id="success">Listing submitted successfully!</div>
+  <script>
+    document.getElementById('listing-form').addEventListener('submit', (e) => {
+      e.preventDefault();
+      document.getElementById('success').style.display = 'block';
+      location.hash = 'success';
+    });
+  </script>
+</body>
+</html>

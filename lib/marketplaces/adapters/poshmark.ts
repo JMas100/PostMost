@@ -1,19 +1,11 @@
-import { MarketplaceAdapter, ListingData, PlatformAccount, PostResult } from "../types";
+import { createManualAdapter } from "../automation/create-adapter";
 
-export const poshmarkAdapter: MarketplaceAdapter = {
-  name: "Poshmark",
+export const poshmarkAdapter = createManualAdapter({
   id: "poshmark",
-  supportsApi: false,
-  supportsAutomation: true,
-  authType: "manual",
-  authFields: [{ key: "username", label: "Username", type: "text" }],
-  async post(_listing: ListingData, _account: PlatformAccount): Promise<PostResult> {
-    return {
-      success: false,
-      error: "Poshmark has no public listing API. Real posting requires Playwright automation with stored credentials.",
-    };
-  },
-  async delist(_externalId: string, _account: PlatformAccount) {
-    return { success: false, error: "Poshmark delisting requires Playwright automation." };
-  },
-};
+  name: "Poshmark",
+  loginUrl: "https://poshmark.com/login",
+  listingUrl: "https://poshmark.com/create-listing",
+  usernameSelector: "input[name=\"login_form[username_email]\"]",
+  passwordSelector: "input[name=\"login_form[password]\"]",
+  submitSelector: "button[type=\"submit\"]",
+});

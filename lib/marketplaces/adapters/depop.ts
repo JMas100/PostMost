@@ -1,19 +1,11 @@
-import { MarketplaceAdapter, ListingData, PlatformAccount, PostResult } from "../types";
+import { createManualAdapter } from "../automation/create-adapter";
 
-export const depopAdapter: MarketplaceAdapter = {
-  name: "Depop",
+export const depopAdapter = createManualAdapter({
   id: "depop",
-  supportsApi: false,
-  supportsAutomation: true,
-  authType: "manual",
-  authFields: [{ key: "username", label: "Username", type: "text" }],
-  async post(_listing: ListingData, _account: PlatformAccount): Promise<PostResult> {
-    return {
-      success: false,
-      error: "Depop has no public listing API. Real posting requires Playwright automation.",
-    };
-  },
-  async delist(_externalId: string, _account: PlatformAccount) {
-    return { success: false, error: "Depop delisting requires Playwright automation." };
-  },
-};
+  name: "Depop",
+  loginUrl: "https://www.depop.com/login/",
+  listingUrl: "https://www.depop.com/products/create/",
+  usernameSelector: "input[type=\"email\"]",
+  passwordSelector: "input[type=\"password\"]",
+  submitSelector: "button[type=\"submit\"]",
+});

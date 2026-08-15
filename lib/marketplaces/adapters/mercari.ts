@@ -1,19 +1,11 @@
-import { MarketplaceAdapter, ListingData, PlatformAccount, PostResult } from "../types";
+import { createManualAdapter } from "../automation/create-adapter";
 
-export const mercariAdapter: MarketplaceAdapter = {
-  name: "Mercari",
+export const mercariAdapter = createManualAdapter({
   id: "mercari",
-  supportsApi: false,
-  supportsAutomation: true,
-  authType: "manual",
-  authFields: [{ key: "username", label: "Username", type: "text" }],
-  async post(_listing: ListingData, _account: PlatformAccount): Promise<PostResult> {
-    return {
-      success: false,
-      error: "Mercari has no public listing API. Real posting requires Playwright automation.",
-    };
-  },
-  async delist(_externalId: string, _account: PlatformAccount) {
-    return { success: false, error: "Mercari delisting requires Playwright automation." };
-  },
-};
+  name: "Mercari",
+  loginUrl: "https://www.mercari.com/us/login/",
+  listingUrl: "https://www.mercari.com/sell/",
+  usernameSelector: "input[type=\"email\"]",
+  passwordSelector: "input[type=\"password\"]",
+  submitSelector: "button[type=\"submit\"]",
+});

@@ -1,19 +1,11 @@
-import { MarketplaceAdapter, ListingData, PlatformAccount, PostResult } from "../types";
+import { createManualAdapter } from "../automation/create-adapter";
 
-export const vintedAdapter: MarketplaceAdapter = {
-  name: "Vinted",
+export const vintedAdapter = createManualAdapter({
   id: "vinted",
-  supportsApi: false,
-  supportsAutomation: true,
-  authType: "manual",
-  authFields: [{ key: "username", label: "Username", type: "text" }],
-  async post(_listing: ListingData, _account: PlatformAccount): Promise<PostResult> {
-    return {
-      success: false,
-      error: "Vinted has no public listing API. Real posting requires Playwright automation.",
-    };
-  },
-  async delist(_externalId: string, _account: PlatformAccount) {
-    return { success: false, error: "Vinted delisting requires Playwright automation." };
-  },
-};
+  name: "Vinted",
+  loginUrl: "https://www.vinted.com/login",
+  listingUrl: "https://www.vinted.com/items/new",
+  usernameSelector: "input[type=\"email\"]",
+  passwordSelector: "input[type=\"password\"]",
+  submitSelector: "button[type=\"submit\"]",
+});

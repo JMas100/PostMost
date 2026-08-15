@@ -1,19 +1,11 @@
-import { MarketplaceAdapter, ListingData, PlatformAccount, PostResult } from "../types";
+import { createManualAdapter } from "../automation/create-adapter";
 
-export const grailedAdapter: MarketplaceAdapter = {
-  name: "Grailed",
+export const grailedAdapter = createManualAdapter({
   id: "grailed",
-  supportsApi: false,
-  supportsAutomation: true,
-  authType: "manual",
-  authFields: [{ key: "username", label: "Username", type: "text" }],
-  async post(_listing: ListingData, _account: PlatformAccount): Promise<PostResult> {
-    return {
-      success: false,
-      error: "Grailed has no public listing API. Real posting requires Playwright automation.",
-    };
-  },
-  async delist(_externalId: string, _account: PlatformAccount) {
-    return { success: false, error: "Grailed delisting requires Playwright automation." };
-  },
-};
+  name: "Grailed",
+  loginUrl: "https://www.grailed.com/users/sign_in",
+  listingUrl: "https://www.grailed.com/sell/new",
+  usernameSelector: "input[type=\"email\"]",
+  passwordSelector: "input[type=\"password\"]",
+  submitSelector: "button[type=\"submit\"]",
+});
