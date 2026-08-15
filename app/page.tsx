@@ -1,6 +1,7 @@
 import Link from "next/link";
-import { Button } from "@/components/ui/button";
+import { buttonVariants } from "@/components/ui/button";
 import { ArrowRight, Layers, Zap, Shield } from "lucide-react";
+import { cn } from "@/lib/utils";
 import { PLATFORMS } from "@/lib/marketplaces/platforms";
 
 export default function HomePage() {
@@ -9,11 +10,11 @@ export default function HomePage() {
       <header className="flex items-center justify-between border-b px-6 py-4">
         <span className="text-xl font-bold">PostMost</span>
         <div className="flex gap-3">
-          <Link href="/login">
-            <Button variant="ghost">Sign in</Button>
+          <Link href="/login" className={buttonVariants({ variant: "ghost" })}>
+            Sign in
           </Link>
-          <Link href="/login">
-            <Button>Get started</Button>
+          <Link href="/login" className={buttonVariants()}>
+            Get started
           </Link>
         </div>
       </header>
@@ -28,10 +29,8 @@ export default function HomePage() {
             Mercari, Depop, Facebook Marketplace, and more — with automatic inventory sync and delisting.
           </p>
           <div className="mt-10 flex justify-center gap-4">
-            <Link href="/login">
-              <Button size="lg">
-                Start free <ArrowRight className="ml-2 h-4 w-4" />
-              </Button>
+            <Link href="/login" className={cn(buttonVariants({ size: "lg" }), "inline-flex")}>
+              Start free <ArrowRight className="ml-2 h-4 w-4" />
             </Link>
           </div>
         </section>

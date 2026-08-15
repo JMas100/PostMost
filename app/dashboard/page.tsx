@@ -6,7 +6,7 @@ import { Shell } from "@/components/sidebar";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Package, DollarSign, Activity } from "lucide-react";
 import Link from "next/link";
-import { Button } from "@/components/ui/button";
+import { buttonVariants } from "@/components/ui/button";
 
 export default async function DashboardPage() {
   const session = await getServerSession(authOptions);
@@ -73,8 +73,8 @@ export default async function DashboardPage() {
 
         <div className="flex items-center justify-between">
           <h2 className="text-xl font-semibold">Recent Listings</h2>
-          <Link href="/listings/new">
-            <Button>Create listing</Button>
+          <Link href="/listings/new" className={buttonVariants()}>
+            Create listing
           </Link>
         </div>
 

@@ -4,7 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { authOptions } from "@/lib/auth";
 import { Shell } from "@/components/sidebar";
 import { Card, CardContent } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
+import { buttonVariants } from "@/components/ui/button";
 import Link from "next/link";
 import { PlatformBadge } from "@/components/platform-badge";
 
@@ -23,8 +23,8 @@ export default async function ListingsPage() {
       <div className="space-y-6">
         <div className="flex items-center justify-between">
           <h1 className="text-3xl font-bold">Listings</h1>
-          <Link href="/listings/new">
-            <Button>Create listing</Button>
+          <Link href="/listings/new" className={buttonVariants()}>
+            Create listing
           </Link>
         </div>
 
@@ -32,8 +32,8 @@ export default async function ListingsPage() {
           <Card>
             <CardContent className="py-12 text-center text-muted-foreground">
               <p className="mb-4">You don&apos;t have any listings yet.</p>
-              <Link href="/listings/new">
-                <Button>Create your first listing</Button>
+              <Link href="/listings/new" className={buttonVariants()}>
+                Create your first listing
               </Link>
             </CardContent>
           </Card>
