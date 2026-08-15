@@ -1,0 +1,67 @@
+body {
+  width: 320px;
+  margin: 0;
+  padding: 16px;
+  font-family: system-ui, sans-serif;
+  font-size: 14px;
+}
+
+h1 {
+  font-size: 16px;
+  margin: 0 0 12px;
+}
+
+#empty {
+  color: #666;
+  font-size: 13px;
+}
+
+.listing {
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  padding: 12px;
+  margin-bottom: 12px;
+}
+
+.listing-title {
+  font-weight: 600;
+  margin-bottom: 4px;
+}
+
+.listing-price {
+  color: #2563eb;
+  font-weight: 600;
+  margin-bottom: 8px;
+}
+
+.platforms {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+button.platform {
+  background: #111827;
+  color: #fff;
+  border: none;
+  border-radius: 4px;
+  padding: 6px 10px;
+  cursor: pointer;
+  font-size: 12px;
+}
+
+button.platform:hover {
+  background: #374151;
+}
+
+button.platform:disabled {
+  background: #9ca3af;
+  cursor: not-allowed;
+}
+
+#status {
+  margin-top: 10px;
+  font-size: 12px;
+  color: #059669;
+  min-height: 16px;
+}

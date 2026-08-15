@@ -10,6 +10,7 @@ import { JobStatus } from "@/components/job-status";
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import CrossPostForm from "./cross-post-form";
+import { ExtensionPublisher } from "./extension-publisher";
 
 export default async function ListingDetailPage({ params }: { params: { id: string } }) {
   const session = await getServerSession(authOptions);
@@ -21,6 +22,22 @@ export default async function ListingDetailPage({ params }: { params: { id: stri
   });
 
   if (!listing) redirect("/listings");
+
+  const extensionListing = {
+    id: listing.id,
+    title: listing.title,
+    description: listing.description,
+    price: Number(listing.price),
+    quantity: listing.quantity,
+    condition: listing.condition,
+    category: listing.category,
+    brand: listing.brand,
+    size: listing.size,
+    color: listing.color,
+    material: listing.material,
+    sku: listing.sku,
+    photos: listing.photos.map((p) => ({ id: p.id, url: p.url })),
+  };
 
   return (
     <Shell>
@@ -74,6 +91,15 @@ export default async function ListingDetailPage({ params }: { params: { id: stri
               </CardHeader>
               <CardContent>
                 <CrossPostForm listingId={listing.id} />
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle>Browser extension</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <ExtensionPublisher listing={extensionListing} />
               </CardContent>
             </Card>
 
