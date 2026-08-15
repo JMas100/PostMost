@@ -87,7 +87,7 @@ export default async function BillingPage({ searchParams }: { searchParams: { su
           <CardTitle>Change plan</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="grid gap-4 sm:grid-cols-2">
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {PLANS.map((p) => (
               <div
                 key={p.id}

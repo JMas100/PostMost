@@ -9,9 +9,14 @@ import Link from "next/link";
 
 function PlanCard({ plan, current }: { plan: Plan; current: boolean }) {
   return (
-    <div className="rounded-2xl border bg-white p-6 shadow-sm flex flex-col">
+    <div className={`rounded-2xl border p-6 shadow-sm flex flex-col ${plan.id === "pro" ? "border-blue-600 bg-blue-50" : "bg-white"}`}>
       <div className="mb-4">
-        <h3 className="text-xl font-semibold">{plan.name}</h3>
+        <div className="flex items-center justify-between">
+          <h3 className="text-xl font-semibold">{plan.name}</h3>
+          {plan.id === "pro" && (
+            <span className="rounded-full bg-blue-600 px-2 py-0.5 text-xs font-medium text-white">Most popular</span>
+          )}
+        </div>
         <p className="text-sm text-gray-500">{plan.description}</p>
       </div>
       <div className="mb-6">
@@ -60,7 +65,7 @@ export default async function PricingPage() {
         <h1 className="mb-3 text-4xl font-bold tracking-tight">Simple, transparent pricing</h1>
         <p className="text-gray-600">Pick a plan that fits your resale business.</p>
       </div>
-      <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
+      <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
         {PLANS.map((plan) => (
           <PlanCard key={plan.id} plan={plan} current={plan.id === currentPlan.id} />
         ))}
