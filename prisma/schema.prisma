@@ -1,0 +1,108 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id            String    @id @default(cuid())
+  email         String    @unique
+  name          String?
+  password      String?
+  image         String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  listings      Listing[]
+  accounts      MarketplaceAccount[]
+  jobs          CrossPostJob[]
+}
+
+model Listing {
+  id              String           @id @default(cuid())
+  userId          String
+  user            User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title           String
+  description     String
+  condition       String
+  category        String
+  brand           String?
+  size            String?
+  color           String?
+  material        String?
+  price           Float
+  quantity        Int              @default(1)
+  sku             String?
+  tags            String?
+  photos          Photo[]
+  platformListings PlatformListing[]
+  jobs            CrossPostJob[]
+  status          String           @default("DRAFT")
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+}
+
+model Photo {
+  id        String   @id @default(cuid())
+  listingId String
+  listing   Listing  @relation(fields: [listingId], references: [id], onDelete: Cascade)
+  url       String
+  order     Int      @default(0)
+  createdAt DateTime @default(now())
+}
+
+model MarketplaceAccount {
+  id            String   @id @default(cuid())
+  userId        String
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  platform      String
+  displayName   String
+  accessToken   String?
+  refreshToken  String?
+  tokenExpiresAt DateTime?
+  externalId    String?
+  isActive      Boolean  @default(true)
+  settings      String?  // JSON string for platform-specific settings
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@unique([userId, platform, externalId])
+}
+
+model PlatformListing {
+  id              String   @id @default(cuid())
+  listingId       String
+  listing         Listing  @relation(fields: [listingId], references: [id], onDelete: Cascade)
+  platform        String
+  externalId      String?
+  externalUrl     String?
+  status          String   @default("PENDING")
+  price           Float?
+  fees            Float?
+  postedAt        DateTime?
+  soldAt          DateTime?
+  errorMessage    String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@unique([listingId, platform])
+}
+
+model CrossPostJob {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  listingId   String
+  listing     Listing  @relation(fields: [listingId], references: [id], onDelete: Cascade)
+  platform    String
+  status      String   @default("PENDING")
+  payload     String?  // JSON
+  result      String?  // JSON
+  error       String?
+  startedAt   DateTime?
+  completedAt DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
