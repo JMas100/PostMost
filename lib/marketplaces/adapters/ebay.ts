@@ -108,6 +108,31 @@ async function getDefaultPolicies(
   return { payment, return: returnPolicy, fulfillment };
 }
 
+function marketplaceToSiteId(marketplaceId: string): number {
+  const map: Record<string, number> = {
+    EBAY_US: 0,
+    EBAY_CA: 2,
+    EBAY_GB: 3,
+    EBAY_AU: 15,
+    EBAY_AT: 16,
+    EBAY_BE: 23,
+    EBAY_FR: 71,
+    EBAY_DE: 77,
+    EBAY_IT: 101,
+    EBAY_NL: 146,
+    EBAY_ES: 186,
+    EBAY_CH: 193,
+    EBAY_HK: 201,
+    EBAY_IN: 203,
+    EBAY_IE: 205,
+    EBAY_MY: 207,
+    EBAY_PH: 211,
+    EBAY_PL: 212,
+    EBAY_SG: 216,
+  };
+  return map[marketplaceId.toUpperCase()] || 0;
+}
+
 async function getDefaultMerchantLocation(token: string): Promise<string> {
   const res = await fetch(`${EBAY_API_ROOT}/sell/inventory/v1/location`, {
     headers: { Authorization: `Bearer ${token}`, Accept: "application/json" },
@@ -233,10 +258,42 @@ export const eBayAdapter: MarketplaceAdapter = {
   },
   async delist(externalId: string, account: PlatformAccount) {
     if (!account.accessToken) return { success: false, error: "eBay account not connected." };
-    const res = await ebayRequest(account.accessToken, "POST", `/sell/inventory/v1/offer/${externalId}/withdraw`);
+    const marketplaceId = (account.settings?.marketplaceId as string) || process.env.EBAY_MARKETPLACE_ID || "EBAY_US";
+    const siteId = marketplaceToSiteId(marketplaceId);
+    const appId = process.env.EBAY_APP_ID || "";
+    const devId = process.env.EBAY_DEV_ID || "";
+    const certId = process.env.EBAY_CERT_ID || "";
+
+    const body = `<?xml version="1.0" encoding="utf-8"?>
+<EndItemRequest xmlns="urn:ebay:apis:eBLBaseComponents">
+  <ItemID>${externalId}</ItemID>
+  <EndingReason>NotAvailable</EndingReason>
+</EndItemRequest>`;
+
+    const headers: Record<string, string> = {
+      "Content-Type": "text/xml",
+      "X-EBAY-API-CALL-NAME": "EndItem",
+      "X-EBAY-API-SITEID": String(siteId),
+      "X-EBAY-API-COMPATIBILITY-LEVEL": "1225",
+      "X-EBAY-API-IAF-TOKEN": account.accessToken,
+    };
+    if (appId) headers["X-EBAY-API-APP-NAME"] = appId;
+    if (devId) headers["X-EBAY-API-DEV-NAME"] = devId;
+    if (certId) headers["X-EBAY-API-CERT-NAME"] = certId;
+
+    const res = await fetch(`${EBAY_API_ROOT.replace("https://api.ebay.com", "https://api.ebay.com")}/ws/api.dll?callname=EndItem&siteid=${siteId}&version=1225`, {
+      method: "POST",
+      headers,
+      body,
+    });
     if (!res.ok) {
       const text = await res.text();
-      return { success: false, error: `Withdraw failed: ${res.status} ${text}` };
+      return { success: false, error: `eBay EndItem failed: ${res.status} ${text}` };
+    }
+    const text = await res.text();
+    if (text.includes("<Ack>Failure</Ack>") || text.includes("<Ack>Warning</Ack>")) {
+      const message = text.match(/<ShortMessage>([^<]+)<\/ShortMessage>/)?.[1] || text;
+      return { success: false, error: `eBay EndItem error: ${message}` };
     }
     return { success: true };
   },

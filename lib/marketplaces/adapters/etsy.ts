@@ -169,8 +169,17 @@ export const etsyAdapter: MarketplaceAdapter = {
   async delist(externalId: string, account: PlatformAccount) {
     if (!account.accessToken) return { success: false, error: "Etsy account not connected." };
     const { key } = getClientCredentials();
-    const shopId = account.settings?.shopId as string | undefined;
-    if (!shopId) return { success: false, error: "Etsy shopId is missing." };
+    const userId = account.externalId;
+    if (!userId) return { success: false, error: "Etsy user ID is missing." };
+    let shopId = account.settings?.shopId as string | undefined;
+    if (!shopId) {
+      try {
+        shopId = await getShopId(account.accessToken, key, userId);
+      } catch (err) {
+        const message = err instanceof Error ? err.message : "Could not resolve Etsy shop";
+        return { success: false, error: message };
+      }
+    }
     const res = await fetch(`${ETSY_API_ROOT}/shops/${shopId}/listings/${externalId}`, {
       method: "DELETE",
       headers: etsyHeaders(account.accessToken, key),

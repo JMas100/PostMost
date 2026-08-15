@@ -13,6 +13,7 @@ import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import CrossPostForm from "./cross-post-form";
 import { ExtensionPublisher } from "./extension-publisher";
+import { SoldButton } from "./sold-button";
 
 export default async function ListingDetailPage({ params }: { params: { id: string } }) {
   const session = await getServerSession(authOptions);
@@ -124,6 +125,17 @@ export default async function ListingDetailPage({ params }: { params: { id: stri
                 <ExtensionPublisher listing={extensionListing} />
               </CardContent>
             </Card>
+
+            {listing.status !== "SOLD" && (
+              <Card>
+                <CardHeader>
+                  <CardTitle>Inventory</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <SoldButton listingId={listing.id} />
+                </CardContent>
+              </Card>
+            )}
 
             <Card>
               <CardHeader>
