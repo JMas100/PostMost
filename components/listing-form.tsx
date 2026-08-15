@@ -154,16 +154,24 @@ export function ListingForm({ mode = "create", draftId, initialData, templates =
     }
   }
 
+  function getCleanValues() {
+    const values = getValues();
+    const valid = photoUrls.filter(
+      (u) => u.trim().startsWith("http") || u.trim().startsWith("data:")
+    );
+    return { ...values, photos: valid.length > 0 ? valid : undefined } as Partial<ListingFormData>;
+  }
+
   async function onSaveDraft() {
     setSaving(true);
     try {
-      const result = await saveDraft(getValues(), draftId);
-      if (result.error) {
+      const result = await saveDraft(getCleanValues(), draftId);
+      if (result && "error" in result && result.error) {
         toast.error(typeof result.error === "string" ? result.error : "Failed to save draft");
         return;
       }
       toast.success("Draft saved");
-      if (!draftId && "listing" in result && result.listing) {
+      if (!draftId && result && "listing" in result && result.listing) {
         router.push(`/listings/${result.listing.id}`);
       } else {
         router.refresh();
@@ -178,7 +186,7 @@ export function ListingForm({ mode = "create", draftId, initialData, templates =
 
   async function onSaveTemplate() {
     const name = templateName.trim() || "Untitled template";
-    const result = await saveTemplate(name, getValues() as ListingFormData);
+    const result = await saveTemplate(name, getCleanValues());
     if ("error" in result && result.error) {
       toast.error(typeof result.error === "string" ? result.error : "Failed to save template");
       return;
