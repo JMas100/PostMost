@@ -13,7 +13,7 @@ export default async function ListingsPage() {
   if (!session?.user?.id) redirect("/login");
 
   const listings = await prisma.listing.findMany({
-    where: { userId: session.user.id },
+    where: { userId: session.user.id, isDraft: false },
     include: { photos: true, platformListings: true },
     orderBy: { createdAt: "desc" },
   });

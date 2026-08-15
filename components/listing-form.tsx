@@ -5,7 +5,8 @@ import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { listingSchema, ListingFormData } from "@/lib/schemas/listing";
-import { createListing } from "@/lib/actions/listings";
+import { createListing, saveDraft, publishDraft } from "@/lib/actions/listings";
+import { saveTemplate } from "@/lib/actions/templates";
 import { generateListingFromPhoto } from "@/lib/actions/ai-generate";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -13,30 +14,46 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { toast } from "sonner";
-import { Sparkles, Trash2 } from "lucide-react";
+import { Sparkles, Trash2, FileBox, Save } from "lucide-react";
 
 const conditions = ["New with tags", "New without tags", "Like new", "Good", "Fair", "Poor"];
 const categories = ["Clothing", "Shoes", "Accessories", "Electronics", "Home", "Toys", "Sports", "Vintage", "Other"];
 
-export function ListingForm() {
+interface ListingFormProps {
+  mode?: "create" | "draft";
+  draftId?: string;
+  initialData?: Partial<ListingFormData>;
+  templates?: { id: string; name: string; payload: string }[];
+}
+
+export function ListingForm({ mode = "create", draftId, initialData, templates = [] }: ListingFormProps) {
   const router = useRouter();
   const fileInputRef = useRef<HTMLInputElement | null>(null);
-  const [photoUrls, setPhotoUrls] = useState<string[]>([""]);
+  const [photoUrls, setPhotoUrls] = useState<string[]>(initialData?.photos?.length ? initialData.photos : [""]);
   const [analyzing, setAnalyzing] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [templateName, setTemplateName] = useState("");
+  const [selectedTemplate, setSelectedTemplate] = useState("");
+
+  const defaultValues: Partial<ListingFormData> = {
+    condition: "Good",
+    category: "Clothing",
+    quantity: 1,
+    photos: [],
+    ...initialData,
+  };
+
   const {
     register,
     handleSubmit,
     setValue,
+    getValues,
     watch,
+    reset,
     formState: { errors, isSubmitting },
   } = useForm<ListingFormData>({
     resolver: zodResolver(listingSchema),
-    defaultValues: {
-      condition: "Good",
-      category: "Clothing",
-      quantity: 1,
-      photos: [],
-    },
+    defaultValues,
   });
 
   const watchedPhotos = watch("photos");
@@ -47,6 +64,25 @@ export function ListingForm() {
     );
     setValue("photos", validPhotos, { shouldValidate: true });
   }, [photoUrls, setValue]);
+
+  useEffect(() => {
+    if (selectedTemplate) {
+      const template = templates.find((t) => t.id === selectedTemplate);
+      if (template) {
+        try {
+          const payload = JSON.parse(template.payload) as ListingFormData;
+          reset({
+            ...payload,
+            photos: payload.photos || [],
+          });
+          setPhotoUrls(payload.photos?.length ? payload.photos : [""]);
+          toast.success(`Loaded template: ${template.name}`);
+        } catch {
+          toast.error("Failed to load template");
+        }
+      }
+    }
+  }, [selectedTemplate, templates, reset]);
 
   function addPhotoField() {
     setPhotoUrls([...photoUrls, ""]);
@@ -70,10 +106,7 @@ export function ListingForm() {
     const readers = Array.from(files).map((file) => {
       return new Promise<string>((resolve, reject) => {
         const reader = new FileReader();
-        reader.onload = () => {
-          const result = reader.result as string;
-          resolve(result);
-        };
+        reader.onload = () => resolve(reader.result as string);
         reader.onerror = reject;
         reader.readAsDataURL(file);
       });
@@ -101,7 +134,6 @@ export function ListingForm() {
         toast.error(result.error || "AI analysis failed");
         return;
       }
-
       const l = result.listing;
       setValue("title", l.title, { shouldValidate: true });
       setValue("description", l.description, { shouldValidate: true });
@@ -113,7 +145,6 @@ export function ListingForm() {
       if (l.size) setValue("size", l.size);
       if (l.color) setValue("color", l.color);
       if (l.material) setValue("material", l.material);
-
       toast.success("Listing fields filled from photo");
     } catch (err) {
       toast.error("Failed to analyze image");
@@ -121,6 +152,40 @@ export function ListingForm() {
     } finally {
       setAnalyzing(false);
     }
+  }
+
+  async function onSaveDraft() {
+    setSaving(true);
+    try {
+      const result = await saveDraft(getValues(), draftId);
+      if (result.error) {
+        toast.error(typeof result.error === "string" ? result.error : "Failed to save draft");
+        return;
+      }
+      toast.success("Draft saved");
+      if (!draftId && "listing" in result && result.listing) {
+        router.push(`/listings/${result.listing.id}`);
+      } else {
+        router.refresh();
+      }
+    } catch (err) {
+      toast.error("Failed to save draft");
+      console.error(err);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function onSaveTemplate() {
+    const name = templateName.trim() || "Untitled template";
+    const result = await saveTemplate(name, getValues() as ListingFormData);
+    if ("error" in result && result.error) {
+      toast.error(typeof result.error === "string" ? result.error : "Failed to save template");
+      return;
+    }
+    toast.success("Template saved");
+    setTemplateName("");
+    router.refresh();
   }
 
   async function onSubmit(data: ListingFormData) {
@@ -131,6 +196,24 @@ export function ListingForm() {
       toast.error("Add at least one valid photo");
       return;
     }
+
+    if (mode === "draft" && draftId) {
+      const result = await publishDraft(draftId, { ...data, photos: validPhotos });
+      if (result.error) {
+        toast.error(typeof result.error === "string" ? result.error : "Failed to publish draft");
+        console.error(result.error);
+        return;
+      }
+      if (!result.listing) {
+        toast.error("Failed to publish draft");
+        return;
+      }
+      toast.success("Draft published");
+      router.push(`/listings/${result.listing.id}`);
+      router.refresh();
+      return;
+    }
+
     const result = await createListing({ ...data, photos: validPhotos });
     if (result.error) {
       toast.error(typeof result.error === "string" ? result.error : "Failed to create listing");
@@ -149,10 +232,29 @@ export function ListingForm() {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Create new listing</CardTitle>
+        <CardTitle>{mode === "draft" ? "Edit draft" : "Create new listing"}</CardTitle>
       </CardHeader>
       <CardContent>
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
+          {templates.length > 0 && (
+            <div className="space-y-2">
+              <Label htmlFor="template">Start from template</Label>
+              <select
+                id="template"
+                value={selectedTemplate}
+                onChange={(e) => setSelectedTemplate(e.target.value)}
+                className="w-full rounded-md border border-input bg-background px-3 py-2"
+              >
+                <option value="">— No template —</option>
+                {templates.map((t) => (
+                  <option key={t.id} value={t.id}>
+                    {t.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+
           <div className="space-y-2">
             <Label htmlFor="photos">Photos</Label>
             <Input
@@ -219,6 +321,7 @@ export function ListingForm() {
                 {analyzing ? "Analyzing..." : "Generate with AI"}
               </Button>
             </div>
+            {errors.photos && <p className="text-sm text-destructive">{errors.photos.message}</p>}
           </div>
 
           <div className="space-y-2">
@@ -295,9 +398,36 @@ export function ListingForm() {
             <Input id="sku" {...register("sku")} />
           </div>
 
-          <Button type="submit" className="w-full" disabled={isSubmitting || analyzing}>
-            {isSubmitting ? "Creating..." : "Create listing"}
-          </Button>
+          <div className="space-y-2">
+            <Label htmlFor="tags">Tags</Label>
+            <Input id="tags" {...register("tags")} placeholder="vintage, denim, jacket" />
+          </div>
+
+          <div className="flex flex-col gap-3 sm:flex-row">
+            <Button type="submit" className="flex-1" disabled={isSubmitting || analyzing}>
+              {isSubmitting ? "Saving..." : mode === "draft" ? "Publish draft" : "Create listing"}
+            </Button>
+            <Button type="button" variant="outline" onClick={onSaveDraft} disabled={saving}>
+              <Save className="mr-2 h-4 w-4" />
+              {saving ? "Saving..." : "Save as draft"}
+            </Button>
+          </div>
+
+          <div className="flex items-end gap-2 rounded-lg border p-3">
+            <div className="flex-1 space-y-1">
+              <Label htmlFor="templateName" className="text-xs">Save as template</Label>
+              <Input
+                id="templateName"
+                value={templateName}
+                onChange={(e) => setTemplateName(e.target.value)}
+                placeholder="Template name"
+              />
+            </div>
+            <Button type="button" variant="secondary" onClick={onSaveTemplate} disabled={!templateName.trim()}>
+              <FileBox className="mr-2 h-4 w-4" />
+              Save
+            </Button>
+          </div>
         </form>
       </CardContent>
     </Card>

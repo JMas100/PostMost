@@ -13,15 +13,15 @@ export default async function DashboardPage() {
   if (!session?.user?.id) redirect("/login");
 
   const [listingCount, postedCount, accountCount] = await Promise.all([
-    prisma.listing.count({ where: { userId: session.user.id } }),
+    prisma.listing.count({ where: { userId: session.user.id, isDraft: false } }),
     prisma.platformListing.count({
-      where: { listing: { userId: session.user.id }, status: "POSTED" },
+      where: { listing: { userId: session.user.id, isDraft: false }, status: "POSTED" },
     }),
     prisma.marketplaceAccount.count({ where: { userId: session.user.id } }),
   ]);
 
   const recentListings = await prisma.listing.findMany({
-    where: { userId: session.user.id },
+    where: { userId: session.user.id, isDraft: false },
     include: { photos: true, platformListings: true },
     orderBy: { createdAt: "desc" },
     take: 5,

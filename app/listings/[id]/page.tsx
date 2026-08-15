@@ -7,6 +7,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { PlatformBadge } from "@/components/platform-badge";
 import { JobStatus } from "@/components/job-status";
+import { ListingForm } from "@/components/listing-form";
+import { getTemplates } from "@/lib/actions/templates";
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import CrossPostForm from "./cross-post-form";
@@ -22,6 +24,26 @@ export default async function ListingDetailPage({ params }: { params: { id: stri
   });
 
   if (!listing) redirect("/listings");
+
+  const templates = await getTemplates();
+
+  if (listing.isDraft) {
+    const initialData: Record<string, unknown> = {
+      ...listing,
+      photos: listing.photos.map((p) => p.url),
+    };
+    return (
+      <Shell>
+        <div className="mx-auto max-w-2xl space-y-4">
+          <Link href="/listings/drafts" className="inline-flex items-center text-sm text-muted-foreground hover:text-foreground">
+            <ArrowLeft className="mr-1 h-4 w-4" /> Back to drafts
+          </Link>
+          <h1 className="text-3xl font-bold">Edit draft</h1>
+          <ListingForm mode="draft" draftId={listing.id} initialData={initialData} templates={templates} />
+        </div>
+      </Shell>
+    );
+  }
 
   const extensionListing = {
     id: listing.id,
