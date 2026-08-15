@@ -65,3 +65,18 @@ button.platform:disabled {
   color: #059669;
   min-height: 16px;
 }
+
+button.clear {
+  margin-top: 12px;
+  width: 100%;
+  padding: 6px;
+  font-size: 12px;
+  background: #f3f4f6;
+  border: 1px solid #d1d5db;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+button.clear:hover {
+  background: #e5e7eb;
+}

@@ -20,24 +20,29 @@ const PLATFORM_NAMES = {
   craigslist: "Craigslist",
 };
 
-function encodePayload(listing) {
-  return "#postmost=" + btoa(JSON.stringify({ listing }));
+function encodePayload(platform, listing) {
+  return "#postmost=" + btoa(JSON.stringify({ platform, listing }));
 }
 
 async function loadListing() {
-  const { pendingListing, pendingPlatforms } = await chrome.storage.local.get([
+  const { pendingListing, pendingPlatforms, lastFillResult } = await chrome.storage.local.get([
     "pendingListing",
     "pendingPlatforms",
+    "lastFillResult",
   ]);
 
+  const emptyEl = document.getElementById("empty");
+  const listingEl = document.getElementById("listing");
+  const statusEl = document.getElementById("status");
+
   if (!pendingListing) {
-    document.getElementById("empty").style.display = "block";
-    document.getElementById("listing").style.display = "none";
+    emptyEl.style.display = "block";
+    listingEl.style.display = "none";
     return;
   }
 
-  document.getElementById("empty").style.display = "none";
-  document.getElementById("listing").style.display = "block";
+  emptyEl.style.display = "none";
+  listingEl.style.display = "block";
   document.getElementById("title").textContent = pendingListing.title;
   document.getElementById("price").textContent = "$" + Number(pendingListing.price).toFixed(2);
 
@@ -55,13 +60,19 @@ async function loadListing() {
     btn.addEventListener("click", () => openPlatform(platform, pendingListing));
     platformsEl.appendChild(btn);
   });
+
+  if (lastFillResult) {
+    const time = new Date(lastFillResult.timestamp).toLocaleTimeString();
+    const filled = (lastFillResult.filled || []).join(", ") || "none";
+    statusEl.textContent = `Last fill (${time}): ${lastFillResult.submitted ? "submitted" : "partial"} — filled ${filled}`;
+  }
 }
 
 async function openPlatform(platform, listing) {
   const url = PLATFORM_URLS[platform];
   if (!url) return;
 
-  const fullUrl = url + encodePayload(listing);
+  const fullUrl = url + encodePayload(platform, listing);
   await chrome.tabs.create({ url: fullUrl, active: false });
   showStatus(`Opened ${PLATFORM_NAMES[platform] || platform}`);
 }
@@ -73,3 +84,7 @@ function showStatus(text) {
 }
 
 document.addEventListener("DOMContentLoaded", loadListing);
+document.getElementById("clear")?.addEventListener("click", async () => {
+  await chrome.storage.local.remove(["pendingListing", "pendingPlatforms", "lastFillResult"]);
+  loadListing();
+});
