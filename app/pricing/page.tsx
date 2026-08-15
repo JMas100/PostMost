@@ -60,7 +60,7 @@ export default async function PricingPage() {
         <h1 className="mb-3 text-4xl font-bold tracking-tight">Simple, transparent pricing</h1>
         <p className="text-gray-600">Pick a plan that fits your resale business.</p>
       </div>
-      <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
         {PLANS.map((plan) => (
           <PlanCard key={plan.id} plan={plan} current={plan.id === currentPlan.id} />
         ))}

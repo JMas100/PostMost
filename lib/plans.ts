@@ -1,4 +1,4 @@
-export type PlanId = "free" | "starter" | "pro" | "enterprise";
+export type PlanId = "free" | "starter" | "growth" | "pro" | "enterprise";
 
 export interface Plan {
   id: PlanId;
@@ -21,7 +21,7 @@ export const PLANS: Plan[] = [
     aiCreditsPerMonth: 5,
     marketplaces: 3,
     features: [
-      "5 listings per month",
+      "5 new listings per month",
       "5 AI photo analyses per month",
       "Post to 3 marketplaces at once",
       "Basic analytics",
@@ -31,12 +31,12 @@ export const PLANS: Plan[] = [
     id: "starter",
     name: "Starter",
     priceMonthly: 999,
-    description: "For casual resellers growing their side hustle.",
-    listingsPerMonth: 100,
+    description: "For casual resellers starting to scale.",
+    listingsPerMonth: 50,
     aiCreditsPerMonth: 50,
     marketplaces: 8,
     features: [
-      "100 listings per month",
+      "50 new listings per month",
       "50 AI photo analyses per month",
       "Post to 8 marketplaces at once",
       "Drafts & templates",
@@ -44,20 +44,37 @@ export const PLANS: Plan[] = [
     ],
   },
   {
-    id: "pro",
-    name: "Pro",
-    priceMonthly: 2999,
-    description: "For serious sellers and small teams.",
-    listingsPerMonth: 500,
-    aiCreditsPerMonth: 250,
+    id: "growth",
+    name: "Growth",
+    priceMonthly: 1999,
+    description: "For part-time sellers ready to automate.",
+    listingsPerMonth: 250,
+    aiCreditsPerMonth: 200,
     marketplaces: 999,
     features: [
-      "500 listings per month",
-      "250 AI photo analyses per month",
+      "250 new listings per month",
+      "200 AI photo analyses per month",
       "Unlimited marketplaces",
       "Auto-delisting on sale",
+      "Sales analytics",
+      "15 photos per listing",
+    ],
+  },
+  {
+    id: "pro",
+    name: "Pro",
+    priceMonthly: 3999,
+    description: "For serious sellers and small teams.",
+    listingsPerMonth: 1000,
+    aiCreditsPerMonth: 500,
+    marketplaces: 999,
+    features: [
+      "1,000 new listings per month",
+      "500 AI photo analyses per month",
+      "Unlimited marketplaces",
       "Inventory sync webhooks",
-      "Team members (coming soon)",
+      "1 team member",
+      "Priority support",
     ],
   },
   {
