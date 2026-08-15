@@ -13,7 +13,12 @@ export const listingSchema = z.object({
   material: z.string().optional(),
   sku: z.string().optional(),
   tags: z.string().optional(),
-  photos: z.array(z.string().url()).min(1, "At least one photo is required"),
+  photos: z.array(
+    z.string().refine(
+      (val) => val.startsWith("http://") || val.startsWith("https://") || val.startsWith("data:image/"),
+      { message: "Each photo must be a URL or uploaded image" }
+    )
+  ).min(1, "At least one photo is required"),
 });
 
 export type ListingFormData = z.infer<typeof listingSchema>;
