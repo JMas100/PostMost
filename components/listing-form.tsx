@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -22,6 +22,7 @@ export function ListingForm() {
   const {
     register,
     handleSubmit,
+    setValue,
     formState: { errors, isSubmitting },
   } = useForm<ListingFormData>({
     resolver: zodResolver(listingSchema),
@@ -32,6 +33,11 @@ export function ListingForm() {
       photos: [],
     },
   });
+
+  useEffect(() => {
+    const validPhotos = photoUrls.filter((u) => u.trim().startsWith("http"));
+    setValue("photos", validPhotos, { shouldValidate: true });
+  }, [photoUrls, setValue]);
 
   function addPhotoField() {
     setPhotoUrls([...photoUrls, ""]);
