@@ -10,7 +10,7 @@ const SCOPES = ["listings_w", "listings_r", "shops_r", "address_r"].join(" ");
 function getClientCredentials(): { key: string; secret: string; redirectUri: string } {
   const key = process.env.ETSY_API_KEY || "";
   const secret = process.env.ETSY_API_SECRET || "";
-  const redirectUri = `${process.env.NEXTAUTH_URL}/api/auth/callback/etsy`;
+  const redirectUri = `${process.env.NEXTAUTH_URL}/api/marketplace/callback/etsy`;
   if (!key) {
     throw new Error("Etsy OAuth is not configured. Set ETSY_API_KEY.");
   }
