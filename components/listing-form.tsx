@@ -24,16 +24,17 @@ interface ListingFormProps {
   draftId?: string;
   initialData?: Partial<ListingFormData>;
   templates?: { id: string; name: string; payload: string }[];
+  defaultTemplateId?: string;
 }
 
-export function ListingForm({ mode = "create", draftId, initialData, templates = [] }: ListingFormProps) {
+export function ListingForm({ mode = "create", draftId, initialData, templates = [], defaultTemplateId = "" }: ListingFormProps) {
   const router = useRouter();
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [photoUrls, setPhotoUrls] = useState<string[]>(initialData?.photos?.length ? initialData.photos : [""]);
   const [analyzing, setAnalyzing] = useState(false);
   const [saving, setSaving] = useState(false);
   const [templateName, setTemplateName] = useState("");
-  const [selectedTemplate, setSelectedTemplate] = useState("");
+  const [selectedTemplate, setSelectedTemplate] = useState(defaultTemplateId);
 
   const defaultValues: Partial<ListingFormData> = {
     condition: "Good",

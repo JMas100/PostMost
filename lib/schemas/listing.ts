@@ -7,12 +7,12 @@ export const listingSchema = z.object({
   quantity: z.coerce.number().int().min(1).default(1),
   condition: z.string().min(1, "Select a condition"),
   category: z.string().min(1, "Select a category"),
-  brand: z.string().optional(),
-  size: z.string().optional(),
-  color: z.string().optional(),
-  material: z.string().optional(),
-  sku: z.string().optional(),
-  tags: z.string().optional(),
+  brand: z.string().nullable().optional(),
+  size: z.string().nullable().optional(),
+  color: z.string().nullable().optional(),
+  material: z.string().nullable().optional(),
+  sku: z.string().nullable().optional(),
+  tags: z.string().nullable().optional(),
   photos: z.array(
     z.string().refine(
       (val) => val.startsWith("http://") || val.startsWith("https://") || val.startsWith("data:image/"),
