@@ -11,10 +11,65 @@ const PlatformListingStatus = {
   SOLD: "SOLD",
 } as const;
 
-export async function processPendingCrossPostJobs(listingId?: string) {
-  const jobs = await prisma.crossPostJob.findMany({
+/** A RUNNING job whose lock is older than this is considered abandoned and is reclaimed. */
+const STUCK_JOB_TIMEOUT_MS = 5 * 60 * 1000;
+/** Maximum time a single adapter.post call may take before the job is failed/retried. */
+const JOB_TIMEOUT_MS = 60 * 1000;
+/** Backoff before attempt N+1, indexed by the attempt count that just failed. */
+const RETRY_BACKOFF_MS = [60 * 1000, 5 * 60 * 1000, 15 * 60 * 1000];
+
+export type CrossPostRunSummary = {
+  processed: number;
+  succeeded: number;
+  failed: number;
+  retried: number;
+  reclaimed: number;
+};
+
+function backoffMs(attempts: number) {
+  return RETRY_BACKOFF_MS[Math.min(attempts, RETRY_BACKOFF_MS.length) - 1] ?? RETRY_BACKOFF_MS[0];
+}
+
+async function withTimeout<T>(promise: Promise<T>, ms: number, message: string): Promise<T> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  try {
+    return await Promise.race([
+      promise,
+      new Promise<never>((_, reject) => {
+        timer = setTimeout(() => reject(new Error(message)), ms);
+      }),
+    ]);
+  } finally {
+    if (timer) clearTimeout(timer);
+  }
+}
+
+/** Reset jobs whose worker died mid-flight so they become eligible again. */
+async function reclaimStuckJobs(listingId?: string) {
+  const { count } = await prisma.crossPostJob.updateMany({
+    where: {
+      status: "RUNNING",
+      lockedAt: { lt: new Date(Date.now() - STUCK_JOB_TIMEOUT_MS) },
+      ...(listingId ? { listingId } : {}),
+    },
+    data: { status: "PENDING", lockedAt: null, nextRunAt: new Date() },
+  });
+  return count;
+}
+
+export async function processPendingCrossPostJobs(listingId?: string): Promise<CrossPostRunSummary> {
+  const summary: CrossPostRunSummary = {
+    processed: 0,
+    succeeded: 0,
+    failed: 0,
+    retried: 0,
+    reclaimed: await reclaimStuckJobs(listingId),
+  };
+
+  const candidates = await prisma.crossPostJob.findMany({
     where: {
       status: "PENDING",
+      nextRunAt: { lte: new Date() },
       ...(listingId ? { listingId } : {}),
     },
     include: { listing: { include: { photos: true } } },
@@ -22,17 +77,22 @@ export async function processPendingCrossPostJobs(listingId?: string) {
     take: 100,
   });
 
-  for (const job of jobs) {
+  for (const job of candidates) {
     if (!job.listing) continue;
 
-    await prisma.crossPostJob.update({
-      where: { id: job.id },
-      data: { status: "RUNNING", startedAt: new Date() },
+    // Atomic claim: only one worker can flip a PENDING row to RUNNING.
+    const claim = await prisma.crossPostJob.updateMany({
+      where: { id: job.id, status: "PENDING" },
+      data: { status: "RUNNING", lockedAt: new Date(), startedAt: new Date() },
     });
+    if (claim.count === 0) continue;
+
+    summary.processed += 1;
+    const attempts = job.attempts + 1;
 
     const adapter = getAdapter(job.platform);
     if (!adapter) {
-      await failJob(job.id, job.listingId, job.platform, "Unsupported platform");
+      await handleFailure(job.id, job.listingId, job.platform, attempts, job.maxAttempts, "Unsupported platform", summary);
       continue;
     }
 
@@ -67,46 +127,101 @@ export async function processPendingCrossPostJobs(listingId?: string) {
       : { accessToken: null };
 
     try {
-      const result = await adapter.post(listingData, accountData);
+      const result = await withTimeout(
+        adapter.post(listingData, accountData),
+        JOB_TIMEOUT_MS,
+        `Timed out after ${JOB_TIMEOUT_MS / 1000}s`
+      );
+
+      if (!result.success) {
+        await handleFailure(
+          job.id,
+          job.listingId,
+          job.platform,
+          attempts,
+          job.maxAttempts,
+          result.error || "Unknown error",
+          summary,
+          JSON.stringify(result)
+        );
+        continue;
+      }
+
       await prisma.crossPostJob.update({
         where: { id: job.id },
         data: {
-          status: result.success ? "COMPLETED" : "FAILED",
+          status: "COMPLETED",
           result: JSON.stringify(result),
-          error: result.error || null,
+          error: null,
+          attempts,
+          lockedAt: null,
           completedAt: new Date(),
         },
       });
       await prisma.platformListing.update({
         where: { listingId_platform: { listingId: job.listingId, platform: job.platform } },
         data: {
-          status: result.success ? PlatformListingStatus.POSTED : PlatformListingStatus.FAILED,
+          status: PlatformListingStatus.POSTED,
           externalId: result.externalId || null,
           externalUrl: result.externalUrl || null,
-          errorMessage: result.error || null,
-          postedAt: result.success ? new Date() : null,
+          errorMessage: null,
+          postedAt: new Date(),
         },
       });
-      if (result.success) {
-        await prisma.listing.update({
-          where: { id: job.listingId },
-          data: { status: "ACTIVE" },
-        });
-      }
+      await prisma.listing.update({
+        where: { id: job.listingId },
+        data: { status: "ACTIVE" },
+      });
+      summary.succeeded += 1;
     } catch (err) {
       const message = err instanceof Error ? err.message : "Unknown error";
-      await failJob(job.id, job.listingId, job.platform, message);
+      await handleFailure(job.id, job.listingId, job.platform, attempts, job.maxAttempts, message, summary);
     }
   }
+
+  return summary;
 }
 
-async function failJob(jobId: string, listingId: string, platform: string, message: string) {
+async function handleFailure(
+  jobId: string,
+  listingId: string,
+  platform: string,
+  attempts: number,
+  maxAttempts: number,
+  message: string,
+  summary: CrossPostRunSummary,
+  result?: string
+) {
+  if (attempts < maxAttempts) {
+    await prisma.crossPostJob.update({
+      where: { id: jobId },
+      data: {
+        status: "PENDING",
+        error: message,
+        result: result ?? null,
+        attempts,
+        lockedAt: null,
+        nextRunAt: new Date(Date.now() + backoffMs(attempts)),
+      },
+    });
+    summary.retried += 1;
+    return;
+  }
+
   await prisma.crossPostJob.update({
     where: { id: jobId },
-    data: { status: "FAILED", error: message, completedAt: new Date() },
+    data: {
+      status: "FAILED",
+      error: message,
+      result: result ?? null,
+      attempts,
+      lockedAt: null,
+      completedAt: new Date(),
+    },
   });
   await prisma.platformListing.update({
     where: { listingId_platform: { listingId, platform } },
     data: { status: PlatformListingStatus.FAILED, errorMessage: message },
   });
+  summary.failed += 1;
 }

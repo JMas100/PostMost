@@ -1,15 +1,27 @@
 import { NextRequest, NextResponse } from "next/server";
 import { processPendingCrossPostJobs } from "@/lib/jobs/crosspost-runner";
 
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+export const maxDuration = 60;
+
+function isAuthorized(request: NextRequest) {
+  const masterKey = request.headers.get("x-master-key");
+  if (masterKey && process.env.MASTER_KEY && masterKey === process.env.MASTER_KEY) return true;
+
+  // Vercel cron can only send an Authorization header.
+  const bearer = request.headers.get("authorization");
+  if (bearer && process.env.CRON_SECRET && bearer === `Bearer ${process.env.CRON_SECRET}`) return true;
+
+  return false;
+}
+
 function unauthorized() {
   return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 }
 
 export async function POST(request: NextRequest) {
-  const masterKey = request.headers.get("x-master-key");
-  if (!masterKey || masterKey !== process.env.MASTER_KEY) {
-    return unauthorized();
-  }
+  if (!isAuthorized(request)) return unauthorized();
 
   let listingId: string | undefined;
   try {
@@ -19,17 +31,14 @@ export async function POST(request: NextRequest) {
     // body is optional
   }
 
-  await processPendingCrossPostJobs(listingId);
-  return NextResponse.json({ success: true });
+  const summary = await processPendingCrossPostJobs(listingId);
+  return NextResponse.json({ success: true, ...summary });
 }
 
 export async function GET(request: NextRequest) {
-  const masterKey = request.headers.get("x-master-key");
-  if (!masterKey || masterKey !== process.env.MASTER_KEY) {
-    return unauthorized();
-  }
+  if (!isAuthorized(request)) return unauthorized();
 
   const listingId = request.nextUrl.searchParams.get("listingId") || undefined;
-  await processPendingCrossPostJobs(listingId);
-  return NextResponse.json({ success: true });
+  const summary = await processPendingCrossPostJobs(listingId);
+  return NextResponse.json({ success: true, ...summary });
 }
