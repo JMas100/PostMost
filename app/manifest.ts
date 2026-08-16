@@ -7,8 +7,8 @@ export default function manifest(): MetadataRoute.Manifest {
     description: "List once, sell everywhere. Cross-listing platform for resellers.",
     start_url: "/dashboard",
     display: "standalone",
-    background_color: "#ffffff",
-    theme_color: "#0f172a",
+    background_color: "#F7F8FA",
+    theme_color: "#090B0D",
     icons: [
       { src: "/icon-192.png", sizes: "192x192", type: "image/png" },
       { src: "/icon-512.png", sizes: "512x512", type: "image/png" },
