@@ -35,13 +35,11 @@ export async function POST(req: NextRequest) {
   }
 
   if (type === "sold") {
-    const soldAt = typeof body.soldAt === "string" ? new Date(body.soldAt) : new Date();
-    await prisma.platformListing.updateMany({
-      where: { listingId, platform },
-      data: { status: "SOLD", soldAt },
-    });
-    // Ensure listing is marked sold and trigger auto-delisting for API-connected platforms.
-    await markListingSold(listingId);
+    const soldPrice = typeof body.soldPrice === "number" ? body.soldPrice : undefined;
+    const soldFees = typeof body.soldFees === "number" ? body.soldFees : undefined;
+    const soldShippingCost = typeof body.soldShippingCost === "number" ? body.soldShippingCost : undefined;
+    const sale = soldPrice !== undefined ? { soldPrice, soldFees, soldShippingCost } : undefined;
+    await markListingSold(listingId, platform, sale);
     return NextResponse.json({ success: true, type: "sold" });
   }
 

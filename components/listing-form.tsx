@@ -518,9 +518,15 @@ export function ListingForm({ mode = "create", draftId, initialData, templates =
               {errors.price && <p className="text-sm text-destructive">{errors.price.message}</p>}
             </div>
             <div className="space-y-2">
-              <Label htmlFor="quantity">Quantity</Label>
-              <Input id="quantity" type="number" {...register("quantity")} />
+              <Label htmlFor="cost">Cost (USD)</Label>
+              <Input id="cost" type="number" step="0.01" {...register("cost")} />
+              {errors.cost && <p className="text-sm text-destructive">{errors.cost.message}</p>}
             </div>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="quantity">Quantity</Label>
+            <Input id="quantity" type="number" {...register("quantity")} />
           </div>
 
           <div className="grid grid-cols-2 gap-4">

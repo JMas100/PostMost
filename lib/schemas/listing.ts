@@ -4,6 +4,7 @@ export const listingSchema = z.object({
   title: z.string().min(3, "Title must be at least 3 characters").max(120, "Title too long"),
   description: z.string().min(10, "Description must be at least 10 characters"),
   price: z.coerce.number().min(0.01, "Price must be greater than 0"),
+  cost: z.coerce.number().min(0).optional().nullable(),
   quantity: z.coerce.number().int().min(1).default(1),
   condition: z.string().min(1, "Select a condition"),
   category: z.string().min(1, "Select a category"),

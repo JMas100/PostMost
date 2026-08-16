@@ -74,6 +74,9 @@ export default async function ListingDetailPage({ params }: { params: { id: stri
             <div>
               <h1 className="text-3xl font-bold">{listing.title}</h1>
               <p className="text-2xl font-semibold text-primary">${listing.price.toFixed(2)}</p>
+              {listing.cost !== null && listing.cost !== undefined && (
+                <p className="text-sm text-muted-foreground">Cost: ${listing.cost.toFixed(2)}</p>
+              )}
               <Badge variant={listing.status === "ACTIVE" ? "default" : "secondary"} className="mt-2">
                 {listing.status}
               </Badge>
@@ -153,6 +156,29 @@ export default async function ListingDetailPage({ params }: { params: { id: stri
                 )}
               </CardContent>
             </Card>
+
+            {listing.status === "SOLD" && (
+              <Card>
+                <CardHeader>
+                  <CardTitle>Sale summary</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-2 text-sm">
+                  {(() => {
+                    const sale = listing.platformListings.find((pl) => pl.profit !== null);
+                    if (!sale) return <p className="text-muted-foreground">Profit not yet recorded.</p>;
+                    return (
+                      <>
+                        <p><span className="font-medium">Sold price:</span> ${(sale.soldPrice ?? listing.price).toFixed(2)}</p>
+                        <p><span className="font-medium">Fees:</span> ${(sale.soldFees ?? 0).toFixed(2)}</p>
+                        <p><span className="font-medium">Shipping:</span> ${(sale.soldShippingCost ?? 0).toFixed(2)}</p>
+                        <p><span className="font-medium">Cost:</span> ${(listing.cost ?? 0).toFixed(2)}</p>
+                        <p className="font-semibold">Profit: ${(sale.profit ?? 0).toFixed(2)}</p>
+                      </>
+                    );
+                  })()}
+                </CardContent>
+              </Card>
+            )}
 
             <Card>
               <CardHeader>

@@ -67,6 +67,23 @@ export default async function AnalyticsPage() {
               <div className="text-3xl font-bold">{data.totalPlatformListings}</div>
             </CardContent>
           </Card>
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium text-muted-foreground">Total revenue</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-3xl font-bold">${data.financials.totalRevenue.toFixed(2)}</div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium text-muted-foreground">Total profit</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-3xl font-bold">${data.financials.totalProfit.toFixed(2)}</div>
+              <p className="text-xs text-muted-foreground">{data.financials.profitMargin.toFixed(1)}% margin</p>
+            </CardContent>
+          </Card>
         </div>
 
         <div className="grid gap-6 lg:grid-cols-3">
@@ -169,6 +186,8 @@ export default async function AnalyticsPage() {
                         <th className="pb-2 font-medium">Posted</th>
                         <th className="pb-2 font-medium">Failed</th>
                         <th className="pb-2 font-medium">Sold</th>
+                        <th className="pb-2 font-medium">Revenue</th>
+                        <th className="pb-2 font-medium">Profit</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -179,6 +198,8 @@ export default async function AnalyticsPage() {
                           <td className="py-2">{platform.posted}</td>
                           <td className="py-2 text-destructive">{platform.failed}</td>
                           <td className="py-2">{platform.sold}</td>
+                          <td className="py-2">${platform.revenue.toFixed(2)}</td>
+                          <td className="py-2">${platform.profit.toFixed(2)}</td>
                         </tr>
                       ))}
                     </tbody>

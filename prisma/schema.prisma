@@ -42,6 +42,7 @@ model Listing {
   color           String?
   material        String?
   price           Float
+  cost            Float?
   quantity        Int              @default(1)
   sku             String?
   tags            String?
@@ -103,6 +104,10 @@ model PlatformListing {
   status          String   @default("PENDING")
   price           Float?
   fees            Float?
+  soldPrice       Float?
+  soldFees        Float?
+  soldShippingCost Float?
+  profit          Float?
   postedAt        DateTime?
   soldAt          DateTime?
   errorMessage    String?

@@ -24,6 +24,7 @@ export async function getAnalytics() {
     categoryGroups,
     listingsByDay,
     usage,
+    soldPlatformListings,
   ] = await Promise.all([
     prisma.listing.count({ where: { userId } }),
     prisma.listing.count({ where: { userId, isDraft: false } }),
@@ -50,6 +51,10 @@ export async function getAnalytics() {
       orderBy: { createdAt: "asc" },
     }),
     getUsage(userId),
+    prisma.platformListing.findMany({
+      where: { listing: { userId }, status: "SOLD", profit: { not: null } },
+      select: { platform: true, soldPrice: true, soldFees: true, soldShippingCost: true, profit: true },
+    }),
   ]);
 
   const dayCounts = new Map<string, number>();
@@ -68,7 +73,7 @@ export async function getAnalytics() {
 
   const platformBreakdown = new Map<
     string,
-    { total: number; posted: number; failed: number; pending: number; delisted: number; sold: number }
+    { total: number; posted: number; failed: number; pending: number; delisted: number; sold: number; revenue: number; profit: number }
   >();
   for (const pl of platformListings) {
     const existing = platformBreakdown.get(pl.platform) || {
@@ -78,6 +83,8 @@ export async function getAnalytics() {
       pending: 0,
       delisted: 0,
       sold: 0,
+      revenue: 0,
+      profit: 0,
     };
     existing.total += 1;
     if (pl.status === "POSTED") existing.posted += 1;
@@ -87,10 +94,23 @@ export async function getAnalytics() {
     if (pl.status === "SOLD") existing.sold += 1;
     platformBreakdown.set(pl.platform, existing);
   }
+  for (const sale of soldPlatformListings) {
+    const existing = platformBreakdown.get(sale.platform);
+    if (existing) {
+      existing.revenue += sale.soldPrice ?? 0;
+      existing.profit += sale.profit ?? 0;
+    }
+  }
   const platformBreakdownArray = Array.from(platformBreakdown.entries()).map(([platform, counts]) => ({
     platform,
     ...counts,
   }));
+
+  const totalRevenue = soldPlatformListings.reduce((sum, s) => sum + (s.soldPrice ?? 0), 0);
+  const totalFees = soldPlatformListings.reduce((sum, s) => sum + (s.soldFees ?? 0), 0);
+  const totalShipping = soldPlatformListings.reduce((sum, s) => sum + (s.soldShippingCost ?? 0), 0);
+  const totalProfit = soldPlatformListings.reduce((sum, s) => sum + (s.profit ?? 0), 0);
+  const profitMargin = totalRevenue > 0 ? (totalProfit / totalRevenue) * 100 : 0;
 
   const categoryBreakdown = categoryGroups
     .map((group) => ({ category: group.category, count: group._count._all }))
@@ -107,6 +127,14 @@ export async function getAnalytics() {
     listingsByDay: listingsByDaySorted,
     categoryBreakdown,
     usage,
+    financials: {
+      totalRevenue,
+      totalFees,
+      totalShipping,
+      totalProfit,
+      profitMargin,
+    },
+    topPlatforms: platformBreakdownArray.slice().sort((a, b) => b.profit - a.profit).slice(0, 5),
   };
 }
 

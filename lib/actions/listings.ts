@@ -86,6 +86,7 @@ function normalizeDraft(data: Partial<ListingFormData>) {
   const { photos, tags, ...rest } = parsed.data;
   const price = typeof rest.price === "number" ? rest.price : 0;
   const quantity = typeof rest.quantity === "number" ? rest.quantity : 1;
+  const cost = typeof rest.cost === "number" ? rest.cost : null;
   return {
     title: rest.title || "Untitled draft",
     description: rest.description || "",
@@ -96,6 +97,7 @@ function normalizeDraft(data: Partial<ListingFormData>) {
     color: rest.color || null,
     material: rest.material || null,
     price,
+    cost,
     quantity,
     sku: rest.sku || null,
     tags: tags || null,

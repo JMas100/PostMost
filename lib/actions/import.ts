@@ -20,7 +20,8 @@ function normalizeKey(key: string): string {
 const FIELD_ALIASES: Record<keyof ListingFormData | "photos" | "description", string[]> = {
   title: ["title", "name", "product title", "item title"],
   description: ["description", "desc", "body", "product description"],
-  price: ["price", "cost", "selling price", "list price"],
+  price: ["price", "selling price", "list price"],
+  cost: ["cost", "cogs", "purchase cost", "item cost"],
   quantity: ["quantity", "qty", "stock"],
   condition: ["condition", "item condition"],
   category: ["category"],
@@ -67,12 +68,14 @@ function parsePhotos(row: Record<string, string>): string[] {
 
 function rowToListingFormData(row: Record<string, string>): Partial<ListingFormData> {
   const price = getValue(row, FIELD_ALIASES.price);
+  const cost = getValue(row, FIELD_ALIASES.cost);
   const quantity = getValue(row, FIELD_ALIASES.quantity);
 
   return {
     title: getValue(row, FIELD_ALIASES.title),
     description: getValue(row, FIELD_ALIASES.description),
     price: price ? Number(price.replace(/[^0-9.]/g, "")) : undefined,
+    cost: cost ? Number(cost.replace(/[^0-9.]/g, "")) : undefined,
     quantity: quantity ? Number(quantity) : undefined,
     condition: getValue(row, FIELD_ALIASES.condition),
     category: getValue(row, FIELD_ALIASES.category),
@@ -156,6 +159,7 @@ export async function importCSV(csvText: string, options: { publish?: boolean } 
           color: data.color || null,
           material: data.material || null,
           price: typeof data.price === "number" ? data.price : 0,
+          cost: typeof data.cost === "number" ? data.cost : null,
           quantity: typeof data.quantity === "number" ? data.quantity : 1,
           sku: data.sku || null,
           tags: data.tags || null,

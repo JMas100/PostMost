@@ -12,7 +12,7 @@ function getUserId(session: { user?: { id?: string } } | null) {
   return session.user.id;
 }
 
-export async function markListingSold(listingId: string) {
+export async function markListingSold(listingId: string, soldPlatform?: string, sale?: { soldPrice?: number; soldFees?: number; soldShippingCost?: number }) {
   const session = await getServerSession(authOptions);
   const userId = getUserId(session);
 
@@ -27,11 +27,27 @@ export async function markListingSold(listingId: string) {
     data: { status: "SOLD" },
   });
 
+  const cost = listing.cost ?? 0;
+  const platformToProfit = soldPlatform || listing.platformListings.find((p) => p.status === "POSTED")?.platform;
+  let profitPlatformSet = false;
+
   const results = [];
   for (const platformListing of listing.platformListings) {
+    const isSoldPlatform = platformListing.platform === platformToProfit && !profitPlatformSet;
+    if (isSoldPlatform) profitPlatformSet = true;
+
+    const soldPrice = sale?.soldPrice ?? platformListing.price ?? listing.price;
+    const soldFees = sale?.soldFees ?? platformListing.fees ?? 0;
+    const soldShippingCost = sale?.soldShippingCost ?? 0;
+    const profit = isSoldPlatform ? soldPrice - cost - soldFees - soldShippingCost : null;
+
     await prisma.platformListing.update({
       where: { id: platformListing.id },
-      data: { status: "SOLD", soldAt: new Date() },
+      data: {
+        status: "SOLD",
+        soldAt: new Date(),
+        ...(isSoldPlatform ? { soldPrice, soldFees, soldShippingCost, profit } : {}),
+      },
     });
 
     if (platformListing.status === "POSTED" && platformListing.externalId) {
