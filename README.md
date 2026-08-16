@@ -40,9 +40,76 @@ Copy `.env.example` to `.env` and set at least:
 | `APP_URL` | Absolute base URL used to trigger the job worker (falls back to `NEXTAUTH_URL`) |
 | `MASTER_KEY` | 64-char hex for OAuth token encryption; also authorizes `/api/jobs/run` via `x-master-key` |
 | `CRON_SECRET` | Secret Vercel Cron sends as `Authorization: Bearer <CRON_SECRET>` to `/api/jobs/run` |
+| `STORAGE_PROVIDER` | Storage adapter to use (default `r2`) |
+| `R2_ACCOUNT_ID` | Cloudflare account ID (used to build the R2 S3 endpoint) |
+| `R2_ACCESS_KEY_ID` / `R2_SECRET_ACCESS_KEY` | R2 API token credentials with object read/write on the bucket |
+| `R2_BUCKET` | R2 bucket name that stores listing photos |
+| `R2_PUBLIC_BASE_URL` | Public CDN/custom-domain base URL images are served from (e.g. `https://images.postmost.co`) |
+| `S3_ENDPOINT` | Optional S3 endpoint override for another S3-compatible host (e.g. MinIO locally); defaults to R2 |
+| `NEXT_IMAGE_HOSTS` | Optional extra comma-separated hostnames allowed for `next/image` |
 
 Outside production, a `DATABASE_URL` that is not a `*.neon.tech` host uses Prisma's standard TCP
 client instead of the Neon serverless driver, so a local Postgres works without any code change.
+
+## Image storage
+
+Listing photos live in object storage, not in the database. `lib/storage/` mirrors the marketplace
+adapter pattern: `lib/storage/types.ts` defines `StorageAdapter`, `lib/storage/adapters/r2.ts`
+implements it with the AWS S3 SDK pointed at Cloudflare R2, and `getStorage()` picks the adapter
+from `STORAGE_PROVIDER`. Because it speaks the plain S3 API, swapping to AWS S3 or any other
+S3-compatible host is a new adapter plus config — no caller changes.
+
+Upload flow (browser never proxies bytes through the serverless function, so the 4.5 MB body limit
+doesn't apply):
+
+1. The listing form POSTs file metadata to `/api/upload`, which requires a session (401 otherwise)
+   and rejects non-image types or files over 10 MB.
+2. The route returns presigned `PUT` URLs plus the public CDN URL for each key
+   (`listings/<userId>/<uuid>.<ext>`).
+3. The browser PUTs each file directly to R2 and stores the returned `https://` URL on the listing.
+
+AI "Enhance photo" results are uploaded the same way, so enhanced images are hosted URLs too.
+Legacy base64 `data:` photos already in the database still render, still validate, and still
+cross-post through the extension.
+
+### Required R2 bucket CORS policy
+
+The browser PUTs uploads directly and the extension re-fetches images to attach them to marketplace
+forms, so the bucket (and the custom domain in front of it) needs CORS. In the Cloudflare dashboard
+under R2 > your bucket > Settings > CORS policy:
+
+```json
+[
+  {
+    "AllowedOrigins": ["https://your-app-domain.com", "http://localhost:3000"],
+    "AllowedMethods": ["GET", "HEAD", "PUT"],
+    "AllowedHeaders": ["content-type", "cache-control"],
+    "ExposeHeaders": ["etag"],
+    "MaxAgeSeconds": 3600
+  },
+  {
+    "AllowedOrigins": ["*"],
+    "AllowedMethods": ["GET", "HEAD"],
+    "AllowedHeaders": ["*"],
+    "MaxAgeSeconds": 86400
+  }
+]
+```
+
+Public reads require either R2 public access or a custom domain bound to the bucket; point
+`R2_PUBLIC_BASE_URL` at it.
+
+### Backfilling legacy base64 photos
+
+Optional, never run during a build:
+
+```bash
+npx tsx scripts/migrate-photos-to-blob.ts --dry-run
+npx tsx scripts/migrate-photos-to-blob.ts --limit 100
+```
+
+It uploads every `Photo` row whose `url` starts with `data:` and rewrites the row to the hosted URL.
+Re-running only picks up rows that are still base64.
 
 ## Cross-post job worker
 
@@ -76,7 +143,6 @@ trigger enabled (or call the endpoint from an external scheduler).
 
 - Real OAuth flows for eBay/Etsy
 - Playwright worker service for automation platforms
-- Image upload and background removal
 - AI listing generation
 - Sales analytics and P&L
 - Mobile app
