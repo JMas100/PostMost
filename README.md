@@ -41,6 +41,9 @@ Copy `.env.example` to `.env` and set at least:
 | `MASTER_KEY` | 64-char hex for OAuth token encryption; also authorizes `/api/jobs/run` via `x-master-key` |
 | `CRON_SECRET` | Secret Vercel Cron sends as `Authorization: Bearer <CRON_SECRET>` to `/api/jobs/run` |
 
+Outside production, a `DATABASE_URL` that is not a `*.neon.tech` host uses Prisma's standard TCP
+client instead of the Neon serverless driver, so a local Postgres works without any code change.
+
 ## Cross-post job worker
 
 Cross-posting is queued, never executed inside the request. `crossPost()` writes `CrossPostJob`
