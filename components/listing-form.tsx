@@ -8,13 +8,22 @@ import { listingSchema, ListingFormData } from "@/lib/schemas/listing";
 import { createListing, saveDraft, publishDraft } from "@/lib/actions/listings";
 import { saveTemplate } from "@/lib/actions/templates";
 import { generateListingFromPhoto } from "@/lib/actions/ai-generate";
+import {
+  optimizeTitle,
+  optimizeDescription,
+  suggestPrice,
+  generatePlatformCaption,
+  enhancePhoto,
+} from "@/lib/actions/ai-enhance";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { toast } from "sonner";
-import { Sparkles, Trash2, FileBox, Save } from "lucide-react";
+import { Sparkles, Trash2, FileBox, Save, Wand2, Image as ImageIcon, Tag, DollarSign, Megaphone } from "lucide-react";
+import { PLATFORMS } from "@/lib/marketplaces/platforms";
 
 const conditions = ["New with tags", "New without tags", "Like new", "Good", "Fair", "Poor"];
 const categories = ["Clothing", "Shoes", "Accessories", "Electronics", "Home", "Toys", "Sports", "Vintage", "Other"];
@@ -35,6 +44,11 @@ export function ListingForm({ mode = "create", draftId, initialData, templates =
   const [saving, setSaving] = useState(false);
   const [templateName, setTemplateName] = useState("");
   const [selectedTemplate, setSelectedTemplate] = useState(defaultTemplateId);
+
+  const [optimizing, setOptimizing] = useState<"" | "title" | "description" | "caption" | "price" | "photo">("");
+  const [selectedCaptionPlatform, setSelectedCaptionPlatform] = useState<string>("");
+  const [captionDialogOpen, setCaptionDialogOpen] = useState(false);
+  const [captionPreview, setCaptionPreview] = useState<{ title: string; description: string } | null>(null);
 
   const defaultValues: Partial<ListingFormData> = {
     condition: "Good",
@@ -153,6 +167,115 @@ export function ListingForm({ mode = "create", draftId, initialData, templates =
     } finally {
       setAnalyzing(false);
     }
+  }
+
+  async function handleOptimizeTitle() {
+    const title = getValues("title");
+    const category = getValues("category");
+    if (!title) return toast.error("Add a title first");
+    setOptimizing("title");
+    try {
+      const result = await optimizeTitle({ title, category });
+      if (!result.success) {
+        toast.error(result.error || "Optimization failed");
+        return;
+      }
+      setValue("title", result.result, { shouldValidate: true });
+      toast.success("Title optimized");
+    } finally {
+      setOptimizing("");
+    }
+  }
+
+  async function handleOptimizeDescription() {
+    const description = getValues("description");
+    const category = getValues("category");
+    if (!description) return toast.error("Add a description first");
+    setOptimizing("description");
+    try {
+      const result = await optimizeDescription({ description, category });
+      if (!result.success) {
+        toast.error(result.error || "Optimization failed");
+        return;
+      }
+      setValue("description", result.result, { shouldValidate: true });
+      toast.success("Description optimized");
+    } finally {
+      setOptimizing("");
+    }
+  }
+
+  async function handleSuggestPrice() {
+    const firstImage = photoUrls.find((u) => u.startsWith("http") || u.startsWith("data:"));
+    const title = getValues("title");
+    const category = getValues("category");
+    const condition = getValues("condition");
+    if (!title) return toast.error("Add a title first");
+    setOptimizing("price");
+    try {
+      const result = await suggestPrice({ imageBase64: firstImage, title, category, condition });
+      if (!result.success) {
+        toast.error(result.error || "Pricing suggestion failed");
+        return;
+      }
+      setValue("price", result.result.price, { shouldValidate: true });
+      toast.success(`Suggested price: $${result.result.price.toFixed(2)}`);
+    } finally {
+      setOptimizing("");
+    }
+  }
+
+  async function handleEnhancePhoto() {
+    const firstImageIndex = photoUrls.findIndex((u) => u.startsWith("http") || u.startsWith("data:"));
+    if (firstImageIndex === -1) return toast.error("Upload a photo first");
+    const firstImage = photoUrls[firstImageIndex];
+    setOptimizing("photo");
+    try {
+      const result = await enhancePhoto(firstImage);
+      if (!result.success) {
+        toast.error(result.error || "Photo enhancement failed");
+        return;
+      }
+      const next = [...photoUrls];
+      next[firstImageIndex] = result.result;
+      setPhotoUrls(next);
+      toast.success("Photo enhanced");
+    } finally {
+      setOptimizing("");
+    }
+  }
+
+  async function handleGenerateCaption() {
+    const title = getValues("title");
+    const description = getValues("description");
+    const platform = selectedCaptionPlatform;
+    if (!title || !description) return toast.error("Add a title and description first");
+    if (!platform) return toast.error("Select a marketplace first");
+    const brand = getValues("brand");
+    const size = getValues("size");
+    const color = getValues("color");
+    const material = getValues("material");
+    const condition = getValues("condition");
+    setOptimizing("caption");
+    try {
+      const result = await generatePlatformCaption({ title, description, platform, brand, size, color, material, condition });
+      if (!result.success) {
+        toast.error(result.error || "Caption generation failed");
+        return;
+      }
+      setCaptionPreview(result.result);
+      setCaptionDialogOpen(true);
+    } finally {
+      setOptimizing("");
+    }
+  }
+
+  function applyCaption() {
+    if (!captionPreview) return;
+    setValue("title", captionPreview.title, { shouldValidate: true });
+    setValue("description", captionPreview.description, { shouldValidate: true });
+    setCaptionDialogOpen(false);
+    toast.success("Caption applied");
   }
 
   function getCleanValues() {
@@ -345,6 +468,49 @@ export function ListingForm({ mode = "create", draftId, initialData, templates =
             {errors.description && <p className="text-sm text-destructive">{errors.description.message}</p>}
           </div>
 
+          <div className="rounded-lg border p-4 space-y-3">
+            <div className="flex items-center gap-2 text-sm font-medium">
+              <Wand2 className="h-4 w-4" />
+              AI enhancements
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <Button type="button" variant="outline" size="sm" onClick={handleOptimizeTitle} disabled={!!optimizing || !getValues("title")}>
+                <Tag className="mr-1 h-3 w-3" />
+                {optimizing === "title" ? "Optimizing..." : "Optimize title"}
+              </Button>
+              <Button type="button" variant="outline" size="sm" onClick={handleOptimizeDescription} disabled={!!optimizing || !getValues("description")}>
+                <Megaphone className="mr-1 h-3 w-3" />
+                {optimizing === "description" ? "Optimizing..." : "Optimize description"}
+              </Button>
+              <Button type="button" variant="outline" size="sm" onClick={handleSuggestPrice} disabled={!!optimizing || !getValues("title")}>
+                <DollarSign className="mr-1 h-3 w-3" />
+                {optimizing === "price" ? "Pricing..." : "Suggest price"}
+              </Button>
+              <Button type="button" variant="outline" size="sm" onClick={handleEnhancePhoto} disabled={!!optimizing || !photoUrls.some((u) => u.startsWith("http") || u.startsWith("data:"))}>
+                <ImageIcon className="mr-1 h-3 w-3" />
+                {optimizing === "photo" ? "Enhancing..." : "Enhance photo"}
+              </Button>
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              <select
+                className="rounded-md border border-input bg-background px-2 py-1.5 text-sm"
+                value={selectedCaptionPlatform}
+                onChange={(e) => setSelectedCaptionPlatform(e.target.value)}
+              >
+                <option value="">Select marketplace...</option>
+                {PLATFORMS.filter((p) => p.authType === "manual").map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.name}
+                  </option>
+                ))}
+              </select>
+              <Button type="button" variant="secondary" size="sm" onClick={handleGenerateCaption} disabled={!!optimizing || !selectedCaptionPlatform || !getValues("title") || !getValues("description")}>
+                <Sparkles className="mr-1 h-3 w-3" />
+                {optimizing === "caption" ? "Writing..." : "Generate caption"}
+              </Button>
+            </div>
+          </div>
+
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label htmlFor="price">Price (USD)</Label>
@@ -438,6 +604,34 @@ export function ListingForm({ mode = "create", draftId, initialData, templates =
             </Button>
           </div>
         </form>
+
+        <Dialog open={captionDialogOpen} onOpenChange={setCaptionDialogOpen}>
+          <DialogContent className="max-w-lg">
+            <DialogHeader>
+              <DialogTitle>Generated {PLATFORMS.find((p) => p.id === selectedCaptionPlatform)?.name || "marketplace"} caption</DialogTitle>
+            </DialogHeader>
+            {captionPreview && (
+              <div className="space-y-4">
+                <div className="space-y-1">
+                  <Label className="text-xs text-muted-foreground">Title</Label>
+                  <p className="text-sm font-medium">{captionPreview.title}</p>
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs text-muted-foreground">Description</Label>
+                  <p className="whitespace-pre-wrap text-sm">{captionPreview.description}</p>
+                </div>
+                <div className="flex justify-end gap-2">
+                  <Button type="button" variant="outline" size="sm" onClick={() => setCaptionDialogOpen(false)}>
+                    Cancel
+                  </Button>
+                  <Button type="button" size="sm" onClick={applyCaption}>
+                    Apply caption
+                  </Button>
+                </div>
+              </div>
+            )}
+          </DialogContent>
+        </Dialog>
       </CardContent>
     </Card>
   );
