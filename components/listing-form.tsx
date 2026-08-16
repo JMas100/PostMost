@@ -24,6 +24,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { toast } from "sonner";
 import { Sparkles, Trash2, FileBox, Save, Wand2, Image as ImageIcon, Tag, DollarSign, Megaphone } from "lucide-react";
 import { PLATFORMS } from "@/lib/marketplaces/platforms";
+import { uploadDataUrl, uploadImages } from "@/lib/upload-client";
 
 const conditions = ["New with tags", "New without tags", "Like new", "Good", "Fair", "Poor"];
 const categories = ["Clothing", "Shoes", "Accessories", "Electronics", "Home", "Toys", "Sports", "Vintage", "Other"];
@@ -41,6 +42,7 @@ export function ListingForm({ mode = "create", draftId, initialData, templates =
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [photoUrls, setPhotoUrls] = useState<string[]>(initialData?.photos?.length ? initialData.photos : [""]);
   const [analyzing, setAnalyzing] = useState(false);
+  const [uploading, setUploading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [templateName, setTemplateName] = useState("");
   const [selectedTemplate, setSelectedTemplate] = useState(defaultTemplateId);
@@ -114,23 +116,22 @@ export function ListingForm({ mode = "create", draftId, initialData, templates =
     setPhotoUrls(next.length ? next : [""]);
   }
 
-  function handleFileChange(event: React.ChangeEvent<HTMLInputElement>) {
+  async function handleFileChange(event: React.ChangeEvent<HTMLInputElement>) {
     const files = event.target.files;
-    if (!files) return;
+    if (!files || files.length === 0) return;
 
-    const readers = Array.from(files).map((file) => {
-      return new Promise<string>((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onload = () => resolve(reader.result as string);
-        reader.onerror = reject;
-        reader.readAsDataURL(file);
-      });
-    });
-
-    Promise.all(readers).then((urls) => {
+    setUploading(true);
+    try {
+      const urls = await uploadImages(Array.from(files));
       setPhotoUrls((prev) => [...prev.filter((u) => u.trim() !== ""), ...urls]);
+      toast.success(urls.length > 1 ? `${urls.length} photos uploaded` : "Photo uploaded");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to upload photos");
+      console.error(err);
+    } finally {
+      setUploading(false);
       if (fileInputRef.current) fileInputRef.current.value = "";
-    });
+    }
   }
 
   async function analyzeWithAI() {
@@ -236,10 +237,14 @@ export function ListingForm({ mode = "create", draftId, initialData, templates =
         toast.error(result.error || "Photo enhancement failed");
         return;
       }
+      const enhanced = result.result.startsWith("data:") ? await uploadDataUrl(result.result) : result.result;
       const next = [...photoUrls];
-      next[firstImageIndex] = result.result;
+      next[firstImageIndex] = enhanced;
       setPhotoUrls(next);
       toast.success("Photo enhanced");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to save enhanced photo");
+      console.error(err);
     } finally {
       setOptimizing("");
     }
@@ -396,10 +401,13 @@ export function ListingForm({ mode = "create", draftId, initialData, templates =
               multiple
               ref={fileInputRef}
               onChange={handleFileChange}
+              disabled={uploading}
               className="cursor-pointer"
             />
             <p className="text-xs text-muted-foreground">
-              Or paste image URLs below. Uploading will store a base64 preview until cloud storage is connected.
+              {uploading
+                ? "Uploading photos to cloud storage..."
+                : "Photos are uploaded to cloud storage (up to 10 MB each). Or paste image URLs below."}
             </p>
 
             <div className="grid grid-cols-3 gap-3">
@@ -447,7 +455,7 @@ export function ListingForm({ mode = "create", draftId, initialData, templates =
                 type="button"
                 variant="secondary"
                 onClick={analyzeWithAI}
-                disabled={analyzing || watchedPhotos.length === 0}
+                disabled={analyzing || uploading || watchedPhotos.length === 0}
               >
                 <Sparkles className="mr-2 h-4 w-4" />
                 {analyzing ? "Analyzing..." : "Generate with AI"}
