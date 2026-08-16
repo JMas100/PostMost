@@ -139,8 +139,16 @@ model CrossPostJob {
   payload     String?  // JSON
   result      String?  // JSON
   error       String?
+  attempts    Int      @default(0)
+  maxAttempts Int      @default(3)
+  nextRunAt   DateTime @default(now())
+  lockedAt    DateTime?
   startedAt   DateTime?
   completedAt DateTime?
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
+
+  @@index([status, nextRunAt])
+  @@index([listingId])
+  @@index([userId])
 }
