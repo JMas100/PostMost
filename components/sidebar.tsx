@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { signOut } from "next-auth/react";
-import { LayoutDashboard, Package, Settings, LogOut, Menu, CreditCard, Sparkles, FileText, LayoutTemplate, BarChart3, Upload } from "lucide-react";
+import { LayoutDashboard, Package, Settings, LogOut, Menu, CreditCard, Sparkles, FileText, LayoutTemplate, BarChart3, Upload, Truck, Users } from "lucide-react";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { cn } from "@/lib/utils";
@@ -18,6 +18,8 @@ const nav = [
   { href: "/pricing", label: "Pricing", icon: Sparkles },
   { href: "/settings", label: "Settings", icon: Settings },
   { href: "/settings/billing", label: "Billing", icon: CreditCard },
+  { href: "/settings/shipping", label: "Shipping", icon: Truck },
+  { href: "/settings/team", label: "Team", icon: Users },
 ];
 
 function NavContent({ onClick }: { onClick?: () => void }) {

@@ -18,7 +18,7 @@ export async function markListingSold(listingId: string, soldPlatform?: string, 
 
   const listing = await prisma.listing.findFirst({
     where: { id: listingId, userId },
-    include: { platformListings: true },
+    include: { platformListings: true, shippingProfile: true },
   });
   if (!listing) return { error: "Listing not found" };
 
@@ -38,7 +38,7 @@ export async function markListingSold(listingId: string, soldPlatform?: string, 
 
     const soldPrice = sale?.soldPrice ?? platformListing.price ?? listing.price;
     const soldFees = sale?.soldFees ?? platformListing.fees ?? 0;
-    const soldShippingCost = sale?.soldShippingCost ?? 0;
+    const soldShippingCost = sale?.soldShippingCost ?? listing.shippingProfile?.cost ?? 0;
     const profit = isSoldPlatform ? soldPrice - cost - soldFees - soldShippingCost : null;
 
     await prisma.platformListing.update({

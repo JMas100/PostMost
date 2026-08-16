@@ -14,6 +14,7 @@ export const listingSchema = z.object({
   material: z.string().nullable().optional(),
   sku: z.string().nullable().optional(),
   tags: z.string().nullable().optional(),
+  shippingProfileId: z.string().nullable().optional(),
   photos: z.array(
     z.string().refine(
       (val) => val.startsWith("http://") || val.startsWith("https://") || val.startsWith("data:image/"),

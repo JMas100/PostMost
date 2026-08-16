@@ -31,6 +31,7 @@ const FIELD_ALIASES: Record<keyof ListingFormData | "photos" | "description", st
   material: ["material"],
   sku: ["sku", "item number", "product id"],
   tags: ["tags", "hashtags"],
+  shippingProfileId: ["shipping profile id", "shipping profile", "shipping id"],
   photos: ["photos", "images", "photo urls", "image urls", "pictures"],
 };
 
@@ -85,6 +86,7 @@ function rowToListingFormData(row: Record<string, string>): Partial<ListingFormD
     material: getValue(row, FIELD_ALIASES.material),
     sku: getValue(row, FIELD_ALIASES.sku),
     tags: getValue(row, FIELD_ALIASES.tags),
+    shippingProfileId: getValue(row, FIELD_ALIASES.shippingProfileId),
     photos: parsePhotos(row),
   };
 }

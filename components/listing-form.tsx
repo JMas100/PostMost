@@ -29,15 +29,21 @@ import { uploadDataUrl, uploadImages } from "@/lib/upload-client";
 const conditions = ["New with tags", "New without tags", "Like new", "Good", "Fair", "Poor"];
 const categories = ["Clothing", "Shoes", "Accessories", "Electronics", "Home", "Toys", "Sports", "Vintage", "Other"];
 
+interface ShippingProfileOption {
+  id: string;
+  name: string;
+}
+
 interface ListingFormProps {
   mode?: "create" | "draft";
   draftId?: string;
   initialData?: Partial<ListingFormData>;
   templates?: { id: string; name: string; payload: string }[];
   defaultTemplateId?: string;
+  shippingProfiles?: ShippingProfileOption[];
 }
 
-export function ListingForm({ mode = "create", draftId, initialData, templates = [], defaultTemplateId = "" }: ListingFormProps) {
+export function ListingForm({ mode = "create", draftId, initialData, templates = [], defaultTemplateId = "", shippingProfiles = [] }: ListingFormProps) {
   const router = useRouter();
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [photoUrls, setPhotoUrls] = useState<string[]>(initialData?.photos?.length ? initialData.photos : [""]);
@@ -57,6 +63,7 @@ export function ListingForm({ mode = "create", draftId, initialData, templates =
     category: "Clothing",
     quantity: 1,
     photos: [],
+    shippingProfileId: initialData?.shippingProfileId ?? null,
     ...initialData,
   };
 
@@ -531,6 +538,18 @@ export function ListingForm({ mode = "create", draftId, initialData, templates =
               {errors.cost && <p className="text-sm text-destructive">{errors.cost.message}</p>}
             </div>
           </div>
+
+          {shippingProfiles.length > 0 && (
+            <div className="space-y-2">
+              <Label htmlFor="shippingProfileId">Shipping profile</Label>
+              <select id="shippingProfileId" {...register("shippingProfileId")} className="w-full rounded-md border border-input bg-background px-3 py-2">
+                <option value="">None</option>
+                {shippingProfiles.map((p) => (
+                  <option key={p.id} value={p.id}>{p.name}</option>
+                ))}
+              </select>
+            </div>
+          )}
 
           <div className="space-y-2">
             <Label htmlFor="quantity">Quantity</Label>

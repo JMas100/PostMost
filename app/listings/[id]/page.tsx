@@ -9,6 +9,7 @@ import { PlatformBadge } from "@/components/platform-badge";
 import { JobStatus } from "@/components/job-status";
 import { ListingForm } from "@/components/listing-form";
 import { getTemplates } from "@/lib/actions/templates";
+import { getShippingProfiles } from "@/lib/actions/shipping";
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import CrossPostForm from "./cross-post-form";
@@ -21,17 +22,19 @@ export default async function ListingDetailPage({ params }: { params: { id: stri
 
   const listing = await prisma.listing.findFirst({
     where: { id: params.id, userId: session.user.id },
-    include: { photos: true, platformListings: true, jobs: { orderBy: { createdAt: "desc" } } },
+    include: { photos: true, platformListings: true, shippingProfile: true, jobs: { orderBy: { createdAt: "desc" } } },
   });
 
   if (!listing) redirect("/listings");
 
   const templates = await getTemplates();
+  const shippingProfiles = await getShippingProfiles();
 
   if (listing.isDraft) {
     const initialData: Record<string, unknown> = {
       ...listing,
       photos: listing.photos.map((p) => p.url),
+      shippingProfileId: listing.shippingProfileId,
     };
     return (
       <Shell>
@@ -40,7 +43,7 @@ export default async function ListingDetailPage({ params }: { params: { id: stri
             <ArrowLeft className="mr-1 h-4 w-4" /> Back to drafts
           </Link>
           <h1 className="text-3xl font-bold">Edit draft</h1>
-          <ListingForm mode="draft" draftId={listing.id} initialData={initialData} templates={templates} />
+          <ListingForm mode="draft" draftId={listing.id} initialData={initialData} templates={templates} shippingProfiles={shippingProfiles} />
         </div>
       </Shell>
     );
