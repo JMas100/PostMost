@@ -65,6 +65,7 @@ export function ExtensionPublisher({ listing }: ExtensionPublisherProps) {
     }
 
     const payload = {
+      id: listing.id,
       title: listing.title,
       description: listing.description,
       price: listing.price,

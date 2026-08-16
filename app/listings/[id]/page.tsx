@@ -147,7 +147,7 @@ export default async function ListingDetailPage({ params }: { params: { id: stri
                 ) : (
                   <div className="flex flex-wrap gap-2">
                     {listing.platformListings.map((pl) => (
-                      <PlatformBadge key={pl.id} platform={pl.platform} status={pl.status} />
+                      <PlatformBadge key={pl.id} platform={pl.platform} status={pl.status} externalUrl={pl.externalUrl} />
                     ))}
                   </div>
                 )}

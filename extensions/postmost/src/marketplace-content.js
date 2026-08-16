@@ -1,5 +1,6 @@
 (function () {
   "use strict";
+  const utils = window.PostMostUtils || {};
 
   const PLATFORM_URLS = {
     facebook: "https://www.facebook.com/marketplace/create/item/",
@@ -12,12 +13,28 @@
     craigslist: "https://post.craigslist.org/",
   };
 
+  const LISTING_PATTERNS = {
+    facebook: /\/marketplace\/item\//,
+    offerup: /\/item\//,
+    poshmark: /\/listing\//,
+    mercari: /\/items\/[a-zA-Z0-9_-]+/,
+    depop: /\/products\/[a-zA-Z0-9_-]+/,
+    vinted: /\/items\/[a-zA-Z0-9_-]+/,
+    grailed: /\/listings\/[0-9]+/,
+    craigslist: /\/d\/[^/]+\//,
+  };
+
   function getPlatformFromHost() {
     const host = location.hostname;
     for (const id of Object.keys(PLATFORM_URLS)) {
       if (host.includes(id)) return id;
     }
     return null;
+  }
+
+  function isListingDetailUrl(platform, url = location.href) {
+    const pattern = LISTING_PATTERNS[platform];
+    return pattern ? pattern.test(url) : false;
   }
 
   function getPlatformFromHash() {
@@ -48,7 +65,7 @@
         border-radius: 10px;
         font-family: system-ui, sans-serif;
         font-size: 13px;
-        max-width: 280px;
+        max-width: 300px;
         box-shadow: 0 8px 24px rgba(0,0,0,0.25);
         line-height: 1.4;
       `;
@@ -62,11 +79,90 @@
     el.innerHTML = `<div style="font-weight:600;margin-bottom:6px;">PostMost</div>${html}`;
   }
 
-  function hideOverlay(delayMs = 6000) {
-    setTimeout(() => {
-      const el = document.getElementById("postmost-overlay");
-      if (el) el.remove();
-    }, delayMs);
+  async function addSyncEvent(event) {
+    const { syncQueue = [] } = await chrome.storage.local.get("syncQueue");
+    event.timestamp = Date.now();
+    syncQueue.push(event);
+    await chrome.storage.local.set({ syncQueue });
+  }
+
+  function externalIdFromUrl(platform, url) {
+    try {
+      const u = new URL(url);
+      const path = u.pathname;
+      const match = path.match(LISTING_PATTERNS[platform]);
+      if (match) return match[0].replace(/^\//, "").replace(/\/$/, "");
+      const params = new URLSearchParams(u.search);
+      return params.get("id") || params.get("item") || "";
+    } catch {
+      return "";
+    }
+  }
+
+  async function savePostedUrl() {
+    const platform = getPlatformFromHost();
+    const { pendingListingId, pendingPlatforms = [] } = await chrome.storage.local.get([
+      "pendingListingId",
+      "pendingPlatforms",
+    ]);
+    if (!platform || !pendingListingId) {
+      updateOverlay("No active PostMost listing. Open a listing and click Send to extension.");
+      return;
+    }
+    if (pendingPlatforms.length > 0 && !pendingPlatforms.includes(platform)) {
+      updateOverlay(`This marketplace (${platform}) is not in the selected platforms.`);
+      return;
+    }
+    const event = {
+      type: "posted",
+      listingId: pendingListingId,
+      platform,
+      externalUrl: location.href,
+      externalId: externalIdFromUrl(platform, location.href),
+    };
+    await addSyncEvent(event);
+    updateOverlay("Posted listing saved. It will sync when you return to PostMost.");
+  }
+
+  async function markSoldOnPage() {
+    const platform = getPlatformFromHost();
+    const { pendingListingId } = await chrome.storage.local.get("pendingListingId");
+    if (!platform || !pendingListingId) {
+      updateOverlay("No active PostMost listing.");
+      return;
+    }
+    const event = {
+      type: "sold",
+      listingId: pendingListingId,
+      platform,
+      externalUrl: location.href,
+      externalId: externalIdFromUrl(platform, location.href),
+      soldAt: new Date().toISOString(),
+    };
+    await addSyncEvent(event);
+    updateOverlay("Marked as sold. It will sync when you return to PostMost.");
+  }
+
+  function detectSoldText() {
+    const text = document.body.innerText.toLowerCase();
+    return ["sold", "sale pending", "not available", "this item is sold", "has been sold"].some((t) => text.includes(t));
+  }
+
+  function renderListingActions(platform) {
+    const sold = detectSoldText();
+    const posted = isListingDetailUrl(platform, location.href);
+    const buttons = [];
+    if (posted) {
+      buttons.push(`<button id="postmost-save-posted" style="background:#2563eb;color:#fff;border:none;border-radius:6px;padding:6px 10px;margin-right:6px;cursor:pointer;font-size:12px;">Save posted URL</button>`);
+    }
+    buttons.push(`<button id="postmost-mark-sold" style="background:${sold ? "#dc2626" : "#4b5563"};color:#fff;border:none;border-radius:6px;padding:6px 10px;cursor:pointer;font-size:12px;">${sold ? "Looks sold — mark in PostMost" : "Mark as sold"}</button>`);
+    buttons.push(`<button id="postmost-hide-overlay" style="background:transparent;color:#9ca3af;border:none;padding:6px 10px;cursor:pointer;font-size:12px;text-decoration:underline;">Hide</button>`);
+    updateOverlay(
+      `<div style="margin-bottom:8px;">${posted ? "Listing page detected." : "PostMost marketplace helper."}</div><div>${buttons.join("")}</div>`
+    );
+    document.getElementById("postmost-save-posted")?.addEventListener("click", savePostedUrl);
+    document.getElementById("postmost-mark-sold")?.addEventListener("click", markSoldOnPage);
+    document.getElementById("postmost-hide-overlay")?.addEventListener("click", () => createOverlay().remove());
   }
 
   async function tryFill(listing, source) {
@@ -143,7 +239,13 @@
 
   async function init() {
     if (await processHash()) return;
-    await processStorage();
+    const filled = await processStorage();
+    const platform = getPlatformFromHost();
+    if (platform) {
+      // Wait a moment for dynamic pages to settle, then show helper overlay.
+      await utils.sleep(2500);
+      renderListingActions(platform);
+    }
   }
 
   chrome.runtime.onMessage.addListener((request, _sender, sendResponse) => {

@@ -4,6 +4,8 @@
   if (window.__postmostInjected) return;
   window.__postmostInjected = true;
 
+  const SYNC_ORIGIN = location.origin.includes("localhost") ? "http://localhost:3000" : "https://postmost.co";
+
   // Tell the PostMost page the extension is present.
   window.postMessage({ source: "postmost-extension", type: "READY" }, "*");
 
@@ -22,6 +24,7 @@
     try {
       await chrome.storage.local.set({
         pendingListing: data.listing,
+        pendingListingId: data.listing.id,
         pendingPlatforms: data.platforms || [],
         filledPlatforms: [],
         sentAt: Date.now(),
@@ -32,4 +35,29 @@
       window.postMessage({ source: "postmost-extension", type: "ERROR", message: err.message }, "*");
     }
   });
+
+  async function flushSyncQueue() {
+    const { syncQueue = [] } = await chrome.storage.local.get("syncQueue");
+    if (!syncQueue.length) return;
+    const remaining = [];
+    for (const event of syncQueue) {
+      try {
+        const res = await fetch(`${SYNC_ORIGIN}/api/extension/sync`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify(event),
+        });
+        if (!res.ok) {
+          remaining.push(event);
+        }
+      } catch (err) {
+        console.warn("PostMost: sync event failed", err);
+        remaining.push(event);
+      }
+    }
+    await chrome.storage.local.set({ syncQueue: remaining });
+  }
+
+  flushSyncQueue();
 })();
