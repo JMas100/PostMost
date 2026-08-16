@@ -6,11 +6,13 @@ import { createCheckoutSession } from "@/lib/actions/billing";
 
 export function PlanCheckoutButton({
   planId,
+  interval = "month",
   children,
   variant = "default",
   className,
 }: {
   planId: string;
+  interval?: "month" | "year";
   children: React.ReactNode;
   variant?: "default" | "outline" | "secondary";
   className?: string;
@@ -23,6 +25,7 @@ export function PlanCheckoutButton({
     startTransition(async () => {
       const formData = new FormData();
       formData.set("plan", planId);
+      formData.set("interval", interval);
       const result = await createCheckoutSession(formData);
       if (result.error) {
         setError(result.error);

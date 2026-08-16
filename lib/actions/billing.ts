@@ -40,12 +40,19 @@ export async function createCheckoutSession(formData: FormData) {
   }
 
   const planId = formData.get("plan") as PlanId;
+  const interval = (formData.get("interval") as "month" | "year") || "month";
   if (!PLANS.some((p) => p.id === planId)) {
     return { error: "Invalid plan" };
   }
-  const priceId = getStripePriceId(planId);
+  if (planId === "enterprise") {
+    return { error: "Enterprise plan requires a custom sales conversation" };
+  }
+  if (interval !== "month" && interval !== "year") {
+    return { error: "Invalid billing interval" };
+  }
+  const priceId = getStripePriceId(planId, interval);
   if (!priceId) {
-    return { error: "Stripe price not configured for this plan" };
+    return { error: "Stripe price not configured for this plan and interval" };
   }
 
   const user = await prisma.user.findUnique({ where: { id: userId } });

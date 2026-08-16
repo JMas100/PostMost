@@ -1,9 +1,9 @@
 import { getBilling } from "@/lib/actions/billing";
-import { formatPrice, PLANS } from "@/lib/plans";
+import { formatPrice } from "@/lib/plans";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
-import { PlanCheckoutButton } from "@/components/checkout-button";
 import { BillingPortalButton } from "@/components/billing-portal-button";
+import { ChangePlan } from "./change-plan";
 import { redirect } from "next/navigation";
 
 function getLimitLabel(value: number, limit: number) {
@@ -87,29 +87,7 @@ export default async function BillingPage({ searchParams }: { searchParams: { su
           <CardTitle>Change plan</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {PLANS.map((p) => (
-              <div
-                key={p.id}
-                className={`rounded-xl border p-4 transition ${p.id === plan.id ? "border-blue-600 bg-blue-50" : ""}`}
-              >
-                <div className="flex items-center justify-between">
-                  <span className="font-semibold">{p.name}</span>
-                  <span className="text-sm text-gray-600">{formatPrice(p.priceMonthly)}/mo</span>
-                </div>
-                <p className="mt-1 text-xs text-gray-500">{p.description}</p>
-                {p.id === plan.id ? (
-                  <p className="mt-4 text-sm font-medium text-blue-600">Current plan</p>
-                ) : p.id === "free" ? (
-                  <p className="mt-4 text-sm text-gray-500">Free plan active by default</p>
-                ) : (
-                  <PlanCheckoutButton planId={p.id} className="mt-4">
-                    Choose {p.name}
-                  </PlanCheckoutButton>
-                )}
-              </div>
-            ))}
-          </div>
+          <ChangePlan currentPlan={plan} />
         </CardContent>
       </Card>
     </main>
