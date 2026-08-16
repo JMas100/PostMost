@@ -20,10 +20,6 @@ const PLATFORM_NAMES = {
   craigslist: "Craigslist",
 };
 
-function encodePayload(platform, listing) {
-  return "#postmost=" + btoa(JSON.stringify({ platform, listing }));
-}
-
 async function loadListing() {
   const { pendingListing, pendingPlatforms, lastFillResult } = await chrome.storage.local.get([
     "pendingListing",
@@ -57,9 +53,17 @@ async function loadListing() {
     const btn = document.createElement("button");
     btn.className = "platform";
     btn.textContent = PLATFORM_NAMES[platform] || platform;
-    btn.addEventListener("click", () => openPlatform(platform, pendingListing));
+    btn.addEventListener("click", () => openPlatform(platform));
     platformsEl.appendChild(btn);
   });
+
+  if (platforms.length > 1) {
+    const openAllBtn = document.createElement("button");
+    openAllBtn.className = "platform open-all";
+    openAllBtn.textContent = "Open all";
+    openAllBtn.addEventListener("click", () => openAll(platforms));
+    platformsEl.appendChild(openAllBtn);
+  }
 
   if (lastFillResult) {
     const time = new Date(lastFillResult.timestamp).toLocaleTimeString();
@@ -68,13 +72,30 @@ async function loadListing() {
   }
 }
 
-async function openPlatform(platform, listing) {
+async function openPlatform(platform) {
   const url = PLATFORM_URLS[platform];
   if (!url) return;
 
-  const fullUrl = url + encodePayload(platform, listing);
-  await chrome.tabs.create({ url: fullUrl, active: false });
+  const { pendingPlatforms = [] } = await chrome.storage.local.get("pendingPlatforms");
+  if (!pendingPlatforms.includes(platform)) {
+    pendingPlatforms.push(platform);
+    await chrome.storage.local.set({ pendingPlatforms });
+  }
+
+  await chrome.tabs.create({ url, active: false });
   showStatus(`Opened ${PLATFORM_NAMES[platform] || platform}`);
+}
+
+async function openAll(platforms) {
+  const { pendingPlatforms = [] } = await chrome.storage.local.get("pendingPlatforms");
+  const merged = Array.from(new Set([...pendingPlatforms, ...platforms]));
+  await chrome.storage.local.set({ pendingPlatforms: merged });
+
+  for (const platform of platforms) {
+    const url = PLATFORM_URLS[platform];
+    if (url) await chrome.tabs.create({ url, active: false });
+  }
+  showStatus("Opened all marketplaces");
 }
 
 function showStatus(text) {
@@ -85,6 +106,6 @@ function showStatus(text) {
 
 document.addEventListener("DOMContentLoaded", loadListing);
 document.getElementById("clear")?.addEventListener("click", async () => {
-  await chrome.storage.local.remove(["pendingListing", "pendingPlatforms", "lastFillResult"]);
+  await chrome.storage.local.remove(["pendingListing", "pendingPlatforms", "lastFillResult", "filledPlatforms"]);
   loadListing();
 });

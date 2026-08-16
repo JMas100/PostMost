@@ -59,6 +59,10 @@ button.platform:disabled {
   cursor: not-allowed;
 }
 
+button.open-all {
+  background: #2563eb;
+}
+
 #status {
   margin-top: 10px;
   font-size: 12px;

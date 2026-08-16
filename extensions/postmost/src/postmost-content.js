@@ -1,4 +1,6 @@
 (function () {
+  "use strict";
+
   if (window.__postmostInjected) return;
   window.__postmostInjected = true;
 
@@ -21,6 +23,7 @@
       await chrome.storage.local.set({
         pendingListing: data.listing,
         pendingPlatforms: data.platforms || [],
+        filledPlatforms: [],
         sentAt: Date.now(),
       });
 

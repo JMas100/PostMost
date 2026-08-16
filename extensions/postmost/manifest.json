@@ -41,7 +41,7 @@
         "https://*.grailed.com/*",
         "https://*.craigslist.org/*"
       ],
-      "js": ["src/fill-form.js", "src/marketplace-content.js"],
+      "js": ["src/shared.js", "src/platforms.js", "src/fill-form.js", "src/marketplace-content.js"],
       "run_at": "document_end"
     }
   ],

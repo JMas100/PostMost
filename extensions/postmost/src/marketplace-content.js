@@ -1,4 +1,6 @@
 (function () {
+  "use strict";
+
   const PLATFORM_URLS = {
     facebook: "https://www.facebook.com/marketplace/create/item/",
     offerup: "https://offerup.com/item/new/",
@@ -31,31 +33,40 @@
 
   function createOverlay() {
     const id = "postmost-overlay";
-    if (document.getElementById(id)) return document.getElementById(id);
-    const el = document.createElement("div");
-    el.id = id;
-    el.style.cssText = `
-      position: fixed;
-      top: 16px;
-      right: 16px;
-      z-index: 999999;
-      background: rgba(15, 23, 42, 0.95);
-      color: #fff;
-      padding: 14px 18px;
-      border-radius: 10px;
-      font-family: system-ui, sans-serif;
-      font-size: 13px;
-      max-width: 280px;
-      box-shadow: 0 8px 24px rgba(0,0,0,0.25);
-      line-height: 1.4;
-    `;
-    document.body.appendChild(el);
+    let el = document.getElementById(id);
+    if (!el) {
+      el = document.createElement("div");
+      el.id = id;
+      el.style.cssText = `
+        position: fixed;
+        top: 16px;
+        right: 16px;
+        z-index: 999999;
+        background: rgba(15, 23, 42, 0.95);
+        color: #fff;
+        padding: 14px 18px;
+        border-radius: 10px;
+        font-family: system-ui, sans-serif;
+        font-size: 13px;
+        max-width: 280px;
+        box-shadow: 0 8px 24px rgba(0,0,0,0.25);
+        line-height: 1.4;
+      `;
+      document.body.appendChild(el);
+    }
     return el;
   }
 
   function updateOverlay(html) {
     const el = createOverlay();
     el.innerHTML = `<div style="font-weight:600;margin-bottom:6px;">PostMost</div>${html}`;
+  }
+
+  function hideOverlay(delayMs = 6000) {
+    setTimeout(() => {
+      const el = document.getElementById("postmost-overlay");
+      if (el) el.remove();
+    }, delayMs);
   }
 
   async function tryFill(listing, source) {
@@ -66,10 +77,14 @@
     try {
       updateOverlay(`Filling ${source}...`);
       const result = await window.PostMostFillListing(listing);
-      const status = result.submitted ? "Form filled. Please review and confirm." : "Form partially filled. Manual review needed.";
-      updateOverlay(`${status}<br/><small>Filled: ${(result.filled || []).join(", ") || "none"}</small>`);
+      const status = result.submitted
+        ? "Form filled. Please review and confirm."
+        : "Form partially filled. Manual review needed.";
+      updateOverlay(
+        `${status}<br/><small>Filled: ${(result.filled || []).join(", ") || "none"}<br/>Missing: ${(result.missing || []).join(", ") || "none"}</small>`
+      );
       await chrome.storage.local.set({ lastFillResult: result });
-      return { success: result.submitted, result };
+      return { success: result.submitted || result.filled.length > 0, result };
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
       updateOverlay(`Fill failed: ${message}`);
@@ -93,23 +108,33 @@
     return false;
   }
 
+  async function markPlatformFilled(platform) {
+    const { filledPlatforms = [] } = await chrome.storage.local.get("filledPlatforms");
+    if (!filledPlatforms.includes(platform)) {
+      filledPlatforms.push(platform);
+      await chrome.storage.local.set({ filledPlatforms });
+    }
+  }
+
   async function processStorage() {
     const platform = getPlatformFromHost();
     if (!platform) return false;
     try {
-      const { pendingListing, pendingPlatforms, autoFill } = await chrome.storage.local.get([
+      const { pendingListing, pendingPlatforms, filledPlatforms = [] } = await chrome.storage.local.get([
         "pendingListing",
         "pendingPlatforms",
-        "autoFill",
+        "filledPlatforms",
       ]);
       if (!pendingListing) return false;
+      if (filledPlatforms.includes(platform)) return false;
       if (pendingPlatforms && pendingPlatforms.length > 0 && !pendingPlatforms.includes(platform)) {
         return false;
       }
-      if (autoFill !== false) {
-        await chrome.storage.local.remove(["pendingListing", "pendingPlatforms"]);
+      const result = await tryFill(pendingListing, platform);
+      if (result.success) {
+        await markPlatformFilled(platform);
       }
-      return await tryFill(pendingListing, platform) !== null;
+      return true;
     } catch (err) {
       console.warn("PostMost: failed to fill from storage", err);
       return false;
