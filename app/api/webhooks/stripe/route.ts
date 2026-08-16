@@ -53,6 +53,7 @@ export async function POST(req: NextRequest) {
         await upsertSubscription(subscription);
       }
     } else if (
+      event.type === "customer.subscription.created" ||
       event.type === "customer.subscription.updated" ||
       event.type === "customer.subscription.deleted"
     ) {
