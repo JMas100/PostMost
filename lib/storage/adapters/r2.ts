@@ -20,11 +20,17 @@ function getPublicBaseUrl(): string {
 
 let client: S3Client | null = null;
 
+/** S3 endpoint: R2 by default, overridable for other S3-compatible hosts (e.g. MinIO in tests). */
+function getEndpoint(): string {
+  return process.env.S3_ENDPOINT || `https://${requireEnv("R2_ACCOUNT_ID")}.r2.cloudflarestorage.com`;
+}
+
 function getClient(): S3Client {
   if (client) return client;
   client = new S3Client({
     region: "auto",
-    endpoint: `https://${requireEnv("R2_ACCOUNT_ID")}.r2.cloudflarestorage.com`,
+    endpoint: getEndpoint(),
+    forcePathStyle: Boolean(process.env.S3_ENDPOINT),
     credentials: {
       accessKeyId: requireEnv("R2_ACCESS_KEY_ID"),
       secretAccessKey: requireEnv("R2_SECRET_ACCESS_KEY"),

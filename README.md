@@ -45,6 +45,7 @@ Copy `.env.example` to `.env` and set at least:
 | `R2_ACCESS_KEY_ID` / `R2_SECRET_ACCESS_KEY` | R2 API token credentials with object read/write on the bucket |
 | `R2_BUCKET` | R2 bucket name that stores listing photos |
 | `R2_PUBLIC_BASE_URL` | Public CDN/custom-domain base URL images are served from (e.g. `https://images.postmost.co`) |
+| `S3_ENDPOINT` | Optional S3 endpoint override for another S3-compatible host (e.g. MinIO locally); defaults to R2 |
 | `NEXT_IMAGE_HOSTS` | Optional extra comma-separated hostnames allowed for `next/image` |
 
 Outside production, a `DATABASE_URL` that is not a `*.neon.tech` host uses Prisma's standard TCP
