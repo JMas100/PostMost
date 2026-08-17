@@ -16,12 +16,16 @@ export default async function PricingPage() {
   }
 
   return (
-    <main className="mx-auto max-w-6xl px-4 py-16">
-      <div className="mb-12 text-center">
-        <h1 className="mb-3 text-4xl font-bold tracking-tight">Grow into your plan.</h1>
-        <p className="text-muted-foreground">Start free. Upgrade when PostMost becomes part of your business.</p>
+    <main className="min-h-screen bg-gradient-to-b from-primary/[0.06] via-background to-background">
+      <div className="mx-auto max-w-7xl px-4 py-20 sm:px-6 lg:px-8">
+        <div className="mb-12 text-center">
+          <h1 className="mb-4 text-4xl font-bold tracking-tight sm:text-5xl">Grow into your plan.</h1>
+          <p className="mx-auto max-w-2xl text-lg text-muted-foreground">
+            Start free. Upgrade when PostMost becomes part of your business.
+          </p>
+        </div>
+        <PricingGrid currentPlanId={currentPlanId} />
       </div>
-      <PricingGrid currentPlanId={currentPlanId} />
     </main>
   );
 }
