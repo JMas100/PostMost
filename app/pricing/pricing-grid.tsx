@@ -35,7 +35,7 @@ function PlanCard({
     >
       {isPro && (
         <div className="absolute -top-3 left-1/2 -translate-x-1/2">
-          <Badge>Most popular</Badge>
+          <Badge className="px-3 py-1 text-sm font-semibold shadow-sm">Most popular</Badge>
         </div>
       )}
 
@@ -64,17 +64,17 @@ function PlanCard({
       </ul>
 
       {current ? (
-        <Button disabled className="w-full">
+        <div className="w-full rounded-lg bg-muted px-4 py-2 text-center text-sm font-medium text-muted-foreground">
           Current plan
-        </Button>
+        </div>
       ) : plan.id === "free" ? (
         <Link href="/settings/billing" className="w-full">
           <Button className="w-full">Get started</Button>
         </Link>
       ) : plan.id === "enterprise" ? (
-        <Button disabled className="w-full">
+        <div className="w-full rounded-lg border px-4 py-2 text-center text-sm font-medium text-muted-foreground">
           Contact sales
-        </Button>
+        </div>
       ) : (
         <PlanCheckoutButton planId={plan.id} interval={interval} className="w-full">
           Choose {plan.name}

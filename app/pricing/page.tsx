@@ -16,7 +16,7 @@ export default async function PricingPage() {
   }
 
   return (
-    <main className="min-h-screen bg-gradient-to-b from-primary/[0.06] via-background to-background">
+    <main className="min-h-screen bg-gradient-to-b from-primary/[0.08] to-background">
       <div className="mx-auto max-w-7xl px-4 py-20 sm:px-6 lg:px-8">
         <div className="mb-12 text-center">
           <h1 className="mb-4 text-4xl font-bold tracking-tight sm:text-5xl">Grow into your plan.</h1>
