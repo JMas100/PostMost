@@ -10,7 +10,7 @@ const spaceGrotesk = Space_Grotesk({ subsets: ["latin"], variable: "--font-displ
 
 export const metadata: Metadata = {
   title: "postmost — Post once. Sell everywhere.",
-  description: "The cross-listing platform for resellers. Create one listing and publish to eBay, Poshmark, Mercari, Depop, Facebook Marketplace, and more.",
+  description: "Post once. Sell everywhere. The operating system for selling on every marketplace you use.",
   appleWebApp: { capable: true, statusBarStyle: "black-translucent" },
   icons: {
     icon: "/icon-192.png",

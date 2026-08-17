@@ -12,27 +12,20 @@ export function Wordmark({ className }: { className?: string }) {
 export function LogoMark({ className, ...props }: React.SVGProps<SVGSVGElement>) {
   return (
     <svg
-      viewBox="0 0 48 48"
+      viewBox="0 0 240 240"
       fill="none"
       xmlns="http://www.w3.org/2000/svg"
       className={cn("text-brand-green", className)}
       aria-label="PostMost logo"
       {...props}
     >
-      <rect width="48" height="48" rx="10" className="fill-brand-black" />
-      <path
-        d="M12 12L24 24L12 36"
-        stroke="currentColor"
-        strokeWidth="7"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-      <path
-        d="M24 12L36 24L24 36"
-        stroke="currentColor"
-        strokeWidth="7"
-        strokeLinecap="round"
-        strokeLinejoin="round"
+      <image
+        href="/logo-mark.png"
+        x="0"
+        y="0"
+        width="240"
+        height="240"
+        preserveAspectRatio="xMidYMid meet"
       />
     </svg>
   );

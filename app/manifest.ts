@@ -2,9 +2,9 @@ import type { MetadataRoute } from "next";
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: "PostMost",
-    short_name: "PostMost",
-    description: "List once, sell everywhere. Cross-listing platform for resellers.",
+    name: "postmost",
+    short_name: "postmost",
+    description: "Post once. Sell everywhere. The operating system for selling everywhere.",
     start_url: "/dashboard",
     display: "standalone",
     background_color: "#F7F8FA",
