@@ -7,6 +7,7 @@ import { LayoutDashboard, Package, Settings, LogOut, Menu, CreditCard, Sparkles,
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { cn } from "@/lib/utils";
+import { Wordmark, LogoMark } from "@/components/logo";
 
 const nav = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
@@ -27,7 +28,10 @@ function NavContent({ onClick }: { onClick?: () => void }) {
   const pathname = usePathname();
   return (
     <div className="flex h-full flex-col">
-      <div className="p-4 text-xl font-bold tracking-tight">PostMost</div>
+      <Link href="/dashboard" className="flex items-center gap-2 px-4 py-4">
+        <LogoMark className="h-7 w-7" />
+        <Wordmark className="text-xl" />
+      </Link>
       <nav className="flex-1 space-y-1 p-4">
         {nav.map((item) => (
           <Link

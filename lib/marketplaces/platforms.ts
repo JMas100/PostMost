@@ -9,6 +9,8 @@ export const PLATFORMS = [
   { id: "offerup", name: "OfferUp", color: "#00A87E", supportsApi: false, supportsAutomation: true, authType: "manual" as const },
   { id: "vinted", name: "Vinted", color: "#007782", supportsApi: false, supportsAutomation: true, authType: "manual" as const },
   { id: "grailed", name: "Grailed", color: "#000000", supportsApi: false, supportsAutomation: true, authType: "manual" as const },
+  { id: "whatnot", name: "Whatnot", color: "#9146FF", supportsApi: false, supportsAutomation: false, authType: "none" as const },
+  { id: "shopify", name: "Shopify", color: "#96BF48", supportsApi: false, supportsAutomation: false, authType: "none" as const },
 ] as const;
 
 export type PlatformId = (typeof PLATFORMS)[number]["id"];

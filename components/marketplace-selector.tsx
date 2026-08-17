@@ -20,9 +20,11 @@ export function MarketplaceSelector({
     }
   }
 
+  const connectablePlatforms = PLATFORMS.filter((p) => p.authType !== "none");
+
   return (
     <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-      {PLATFORMS.map((platform) => {
+      {connectablePlatforms.map((platform) => {
         const isSelected = selected.includes(platform.id);
         return (
           <button

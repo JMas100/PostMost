@@ -9,7 +9,7 @@ const manrope = Manrope({ subsets: ["latin"], variable: "--font-heading" });
 const spaceGrotesk = Space_Grotesk({ subsets: ["latin"], variable: "--font-display" });
 
 export const metadata: Metadata = {
-  title: "PostMost — List Once, Sell Everywhere",
+  title: "postmost — Post once. Sell everywhere.",
   description: "The cross-listing platform for resellers. Create one listing and publish to eBay, Poshmark, Mercari, Depop, Facebook Marketplace, and more.",
   appleWebApp: { capable: true, statusBarStyle: "black-translucent" },
   icons: {

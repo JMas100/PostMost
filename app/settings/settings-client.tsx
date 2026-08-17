@@ -38,6 +38,8 @@ interface SettingsClientProps {
   accounts: AccountView[];
 }
 
+const CONNECTABLE_PLATFORMS = PLATFORMS.filter((p) => p.authType !== "none");
+
 export function SettingsClient({ accounts }: SettingsClientProps) {
   const accountByPlatform = new Map(accounts.map((a) => [a.platform, a]));
 
@@ -46,7 +48,7 @@ export function SettingsClient({ accounts }: SettingsClientProps) {
       <h1 className="text-3xl font-bold">Settings</h1>
 
       <div className="grid gap-4 sm:grid-cols-2">
-        {PLATFORMS.map((platform) => {
+        {CONNECTABLE_PLATFORMS.map((platform) => {
           const account = accountByPlatform.get(platform.id);
           return (
             <AccountCard

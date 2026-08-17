@@ -1,82 +1,459 @@
+"use client";
+
+import { useState } from "react";
 import Link from "next/link";
+import { motion } from "framer-motion";
+import { Wordmark, LogoMark } from "@/components/logo";
+import { HeroFlow } from "@/components/marketing/hero-flow";
+import { SolutionFlow } from "@/components/marketing/solution-flow";
 import { buttonVariants } from "@/components/ui/button";
-import { ArrowRight, Layers, Zap, Shield } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 import { PLATFORMS } from "@/lib/marketplaces/platforms";
+import { PLANS, formatPrice } from "@/lib/plans";
+import {
+  ArrowRight,
+  Check,
+  Menu,
+  X,
+  Camera,
+  FileText,
+  Tag,
+  Type,
+  AlignLeft,
+  DollarSign,
+  TrendingUp,
+  Package,
+  BarChart3,
+  RotateCcw,
+  RefreshCw,
+  Layers,
+} from "lucide-react";
+
+const STRIP_ORDER = ["ebay", "poshmark", "mercari", "depop", "etsy", "whatnot", "grailed", "vinted", "shopify"];
+
+const navLinks = [
+  { href: "#product", label: "Product" },
+  { href: "#marketplaces", label: "Marketplaces" },
+  { href: "/pricing", label: "Pricing" },
+  { href: "#features", label: "Resources" },
+];
+
+const reveal = {
+  hidden: { opacity: 0, y: 24 },
+  visible: { opacity: 1, y: 0 },
+};
+
+function MarketingNav() {
+  const [open, setOpen] = useState(false);
+
+  return (
+    <header className="sticky top-0 z-50 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+      <nav className="mx-auto flex max-w-7xl items-center justify-between px-6 py-4">
+        <Link href="/" className="flex items-center gap-2">
+          <LogoMark className="h-7 w-7" />
+          <Wordmark className="text-xl" />
+        </Link>
+
+        <div className="hidden items-center gap-8 md:flex">
+          {navLinks.map((link) => (
+            <Link
+              key={link.href}
+              href={link.href}
+              className="text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
+            >
+              {link.label}
+            </Link>
+          ))}
+          <Link href="/login" className="text-sm font-medium text-muted-foreground transition-colors hover:text-foreground">
+            Log in
+          </Link>
+          <Link href="/login" className={cn(buttonVariants({ size: "sm" }), "gap-1")}>
+            Start free <ArrowRight className="h-4 w-4" />
+          </Link>
+        </div>
+
+        <button className="md:hidden" onClick={() => setOpen((o) => !o)} aria-label="Toggle menu">
+          {open ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+        </button>
+      </nav>
+
+      {open && (
+        <motion.div
+          initial={{ opacity: 0, height: 0 }}
+          animate={{ opacity: 1, height: "auto" }}
+          className="border-t px-6 pb-4 md:hidden"
+        >
+          <div className="flex flex-col gap-4 pt-4">
+            {navLinks.map((link) => (
+              <Link key={link.href} href={link.href} onClick={() => setOpen(false)} className="text-sm font-medium">
+                {link.label}
+              </Link>
+            ))}
+            <Link href="/login" onClick={() => setOpen(false)} className="text-sm font-medium">
+              Log in
+            </Link>
+            <Link href="/login" className={cn(buttonVariants(), "w-fit gap-1")} onClick={() => setOpen(false)}>
+              Start free <ArrowRight className="h-4 w-4" />
+            </Link>
+          </div>
+        </motion.div>
+      )}
+    </header>
+  );
+}
+
+function MarketplaceStrip() {
+  const markets = STRIP_ORDER.map((id) => PLATFORMS.find((p) => p.id === id)).filter(Boolean);
+  return (
+    <motion.section
+      id="marketplaces"
+      initial="hidden"
+      whileInView="visible"
+      viewport={{ once: true, margin: "-100px" }}
+      variants={reveal}
+      className="border-y bg-muted/40 py-10"
+    >
+      <div className="mx-auto max-w-7xl px-6 text-center">
+        <p className="mb-4 text-sm font-medium text-muted-foreground">Works with the marketplaces you already use</p>
+        <div className="flex flex-wrap items-center justify-center gap-x-3 gap-y-2 text-sm font-medium text-foreground">
+          {markets.map((p, i) => (
+            <span key={p!.id} className="flex items-center gap-3">
+              <span>{p!.name}</span>
+              {i < markets.length - 1 && <span className="text-muted-foreground">·</span>}
+            </span>
+          ))}
+        </div>
+      </div>
+    </motion.section>
+  );
+}
+
+function AIPipeline() {
+  const steps = [
+    { icon: Camera, label: "Photo" },
+    { icon: FileText, label: "Listing" },
+    { icon: Tag, label: "Category" },
+    { icon: Type, label: "Title" },
+    { icon: AlignLeft, label: "Description" },
+    { icon: DollarSign, label: "Pricing" },
+  ];
+
+  return (
+    <div className="flex flex-wrap items-center justify-center gap-3">
+      {steps.map((step, i) => (
+        <motion.div
+          key={step.label}
+          initial={{ opacity: 0, y: 16 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true }}
+          transition={{ delay: i * 0.1 }}
+          className="flex items-center gap-3"
+        >
+          <div className="flex flex-col items-center gap-2 rounded-xl border bg-card px-5 py-4">
+            <step.icon className="h-5 w-5 text-primary" />
+            <span className="text-xs font-medium text-muted-foreground">{step.label}</span>
+          </div>
+          {i < steps.length - 1 && <ArrowRight className="hidden h-4 w-4 text-muted-foreground sm:block" />}
+        </motion.div>
+      ))}
+    </div>
+  );
+}
+
+function PricingPreview() {
+  const featured = ["launch", "grow", "pro"];
+  const plans = featured.map((id) => PLANS.find((p) => p.id === id)).filter(Boolean);
+
+  return (
+    <section id="pricing" className="py-24">
+      <div className="mx-auto max-w-7xl px-6">
+        <div className="mb-12 text-center">
+          <h2 className="text-3xl font-bold tracking-tight sm:text-4xl">Simple pricing that scales with you</h2>
+          <p className="mt-3 text-muted-foreground">Start free. Upgrade when you&apos;re ready to sell more.</p>
+        </div>
+
+        <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+          {plans.map((plan) => {
+            const isPro = plan!.id === "pro";
+            return (
+              <Card
+                key={plan!.id}
+                className={cn(
+                  "flex flex-col",
+                  isPro && "border-primary ring-1 ring-primary/20"
+                )}
+              >
+                <CardHeader>
+                  <div className="flex items-center justify-between">
+                    <CardTitle className="text-lg">{plan!.name}</CardTitle>
+                    {isPro && <Badge>Most popular</Badge>}
+                  </div>
+                  <div className="text-3xl font-bold">
+                    {formatPrice(plan!.priceMonthly)}
+                    <span className="text-sm font-normal text-muted-foreground">/mo</span>
+                  </div>
+                </CardHeader>
+                <CardContent className="flex-1">
+                  <ul className="space-y-2 text-sm text-muted-foreground">
+                    {plan!.features.slice(0, 4).map((feature) => (
+                      <li key={feature} className="flex gap-2">
+                        <Check className="h-4 w-4 shrink-0 text-primary" />
+                        {feature}
+                      </li>
+                    ))}
+                  </ul>
+                </CardContent>
+                <CardContent>
+                  <Link href="/pricing" className={cn(buttonVariants({ variant: isPro ? "default" : "outline" }), "w-full")}>
+                    {isPro ? "Start with Pro" : "Choose " + plan!.name}
+                  </Link>
+                </CardContent>
+              </Card>
+            );
+          })}
+        </div>
+      </div>
+    </section>
+  );
+}
 
 export default function HomePage() {
   return (
     <div className="flex min-h-screen flex-col">
-      <header className="flex items-center justify-between border-b px-6 py-4">
-        <span className="text-xl font-bold">PostMost</span>
-        <div className="flex gap-3">
-          <Link href="/login" className={buttonVariants({ variant: "ghost" })}>
-            Sign in
-          </Link>
-          <Link href="/login" className={buttonVariants()}>
-            Get started
-          </Link>
-        </div>
-      </header>
+      <MarketingNav />
 
-      <main className="flex-1">
-        <section className="px-6 py-20 text-center lg:py-32">
-          <h1 className="mx-auto max-w-4xl text-4xl font-bold tracking-tight sm:text-6xl">
-            List once. Sell <span className="text-primary">everywhere.</span>
-          </h1>
-          <p className="mx-auto mt-6 max-w-2xl text-lg text-muted-foreground">
-            The reseller operating system that lets you create a single listing and cross-post it to eBay, Poshmark,
-            Mercari, Depop, Facebook Marketplace, and more — with automatic inventory sync and delisting.
+      {/* Hero */}
+      <section id="product" className="overflow-hidden pt-16 pb-24 lg:pt-24 lg:pb-32">
+        <div className="mx-auto grid max-w-7xl items-center gap-12 px-6 lg:grid-cols-2">
+          <motion.div initial="hidden" animate="visible" variants={reveal} transition={{ duration: 0.6 }} className="max-w-2xl">
+            <h1 className="text-5xl font-bold tracking-tight sm:text-6xl lg:text-7xl">
+              Post once. Sell <span className="text-primary">everywhere</span>.
+            </h1>
+            <p className="mt-6 text-lg text-muted-foreground">
+              PostMost puts your inventory on every marketplace you sell on—without the copy, paste, and repetition.
+            </p>
+            <div className="mt-8 flex flex-col items-start gap-3 sm:flex-row sm:items-center">
+              <Link href="/login" className={cn(buttonVariants({ size: "lg" }), "gap-2")}>
+                Start for free <ArrowRight className="h-4 w-4" />
+              </Link>
+              <span className="text-sm text-muted-foreground">No credit card required.</span>
+            </div>
+          </motion.div>
+          <motion.div
+            initial={{ opacity: 0, scale: 0.96 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ duration: 0.7, delay: 0.2 }}
+            className="relative rounded-2xl border bg-card p-6 shadow-sm"
+          >
+            <HeroFlow />
+          </motion.div>
+        </div>
+      </section>
+
+      <MarketplaceStrip />
+
+      {/* Problem */}
+      <motion.section
+        id="problem"
+        initial="hidden"
+        whileInView="visible"
+        viewport={{ once: true, margin: "-100px" }}
+        variants={reveal}
+        className="py-24"
+      >
+        <div className="mx-auto max-w-4xl px-6 text-center">
+          <h2 className="text-3xl font-bold tracking-tight sm:text-4xl">
+            Stop doing the same work six times.
+          </h2>
+          <p className="mt-4 text-lg text-muted-foreground">
+            You list the same item, rewrite the same title, crop the same photos, and chase the same buyers across a dozen tabs. Crosslisting shouldn&apos;t be a second job.
           </p>
-          <div className="mt-10 flex justify-center gap-4">
-            <Link href="/login" className={cn(buttonVariants({ size: "lg" }), "inline-flex")}>
-              Start free <ArrowRight className="ml-2 h-4 w-4" />
+
+          <div className="mt-12 grid gap-6 text-left sm:grid-cols-3">
+            {[
+              { title: "Endless tabs", body: "Jumping between eBay, Poshmark, Mercari, Depop, Etsy, and more just to list once." },
+              { title: "Copy-paste fatigue", body: "Titles, descriptions, photos, and pricing—retyped for every single marketplace." },
+              { title: "Double-selling risk", body: "An item sells on one platform while it&apos;s still live on three others." },
+            ].map((item) => (
+              <Card key={item.title}>
+                <CardHeader>
+                  <CardTitle className="text-base">{item.title}</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-sm text-muted-foreground">{item.body}</p>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        </div>
+      </motion.section>
+
+      {/* Solution */}
+      <motion.section
+        id="solution"
+        initial="hidden"
+        whileInView="visible"
+        viewport={{ once: true, margin: "-100px" }}
+        variants={reveal}
+        className="border-y bg-muted/40 py-24"
+      >
+        <div className="mx-auto grid max-w-7xl items-center gap-12 px-6 lg:grid-cols-2">
+          <div>
+            <h2 className="text-3xl font-bold tracking-tight sm:text-4xl">
+              One listing. Every marketplace.
+            </h2>
+            <p className="mt-4 text-lg text-muted-foreground">
+              Fill one form, upload once, and let PostMost publish everywhere your buyers already are.
+            </p>
+            <ul className="mt-8 space-y-4">
+              {[
+                "One universal listing form",
+                "Automatic marketplace formatting",
+                "One-click cross-post to every connected platform",
+                "Live sync keeps inventory accurate everywhere",
+              ].map((item) => (
+                <li key={item} className="flex items-start gap-3 text-sm">
+                  <Check className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
+                  {item}
+                </li>
+              ))}
+            </ul>
+          </div>
+          <SolutionFlow />
+        </div>
+      </motion.section>
+
+      {/* AI */}
+      <motion.section
+        id="ai"
+        initial="hidden"
+        whileInView="visible"
+        viewport={{ once: true, margin: "-100px" }}
+        variants={reveal}
+        className="py-24"
+      >
+        <div className="mx-auto max-w-4xl px-6 text-center">
+          <h2 className="text-3xl font-bold tracking-tight sm:text-4xl">Let AI do the busywork.</h2>
+          <p className="mt-4 text-lg text-muted-foreground">
+            Still copying listings by hand? Upload a photo and PostMost builds the category, title, description, and price for you.
+          </p>
+          <div className="mt-12">
+            <AIPipeline />
+          </div>
+        </div>
+      </motion.section>
+
+      {/* Automation */}
+      <motion.section
+        id="automation"
+        initial="hidden"
+        whileInView="visible"
+        viewport={{ once: true, margin: "-100px" }}
+        variants={reveal}
+        className="border-y bg-muted/40 py-24"
+      >
+        <div className="mx-auto max-w-5xl px-6">
+          <div className="mb-12 text-center">
+            <h2 className="text-3xl font-bold tracking-tight sm:text-4xl">Set it once. Let PostMost handle the rest.</h2>
+            <p className="mt-4 text-lg text-muted-foreground">
+              Your listings stay in sync so you can stop babysitting inventory.
+            </p>
+          </div>
+
+          <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
+            {[
+              { icon: RotateCcw, title: "Delist", body: "Sold on one platform? Removed everywhere else automatically." },
+              { icon: RefreshCw, title: "Relist", body: "Bring stale inventory back to the top with one click." },
+              { icon: Layers, title: "Update", body: "Edit price, description, or photos and push the change everywhere." },
+              { icon: TrendingUp, title: "Sync", body: "Stock levels and status stay consistent across every marketplace." },
+            ].map((feature) => (
+              <Card key={feature.title}>
+                <CardHeader>
+                  <feature.icon className="mb-2 h-6 w-6 text-primary" />
+                  <CardTitle className="text-base">{feature.title}</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-sm text-muted-foreground">{feature.body}</p>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        </div>
+      </motion.section>
+
+      {/* Analytics */}
+      <motion.section
+        id="analytics"
+        initial="hidden"
+        whileInView="visible"
+        viewport={{ once: true, margin: "-100px" }}
+        variants={reveal}
+        className="py-24"
+      >
+        <div className="mx-auto max-w-5xl px-6">
+          <div className="mb-12 text-center">
+            <h2 className="text-3xl font-bold tracking-tight sm:text-4xl">Know what&apos;s actually making you money.</h2>
+            <p className="mt-4 text-lg text-muted-foreground">
+              Profit, inventory, sales, and marketplace performance—finally in one place.
+            </p>
+          </div>
+
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            {[
+              { icon: DollarSign, label: "Total profit", value: "$1,240", trend: "+12%" },
+              { icon: Package, label: "Active inventory", value: "328", trend: "+8%" },
+              { icon: BarChart3, label: "Sales this month", value: "47", trend: "+23%" },
+              { icon: TrendingUp, label: "Top marketplace", value: "eBay", trend: "+18%" },
+            ].map((stat) => (
+              <Card key={stat.label}>
+                <CardHeader className="pb-2">
+                  <div className="flex items-center justify-between">
+                    <stat.icon className="h-5 w-5 text-muted-foreground" />
+                    <span className="flex items-center gap-1 text-xs font-semibold text-primary">
+                      <TrendingUp className="h-3 w-3" /> {stat.trend}
+                    </span>
+                  </div>
+                  <CardTitle className="text-2xl">{stat.value}</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-sm text-muted-foreground">{stat.label}</p>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        </div>
+      </motion.section>
+
+      <PricingPreview />
+
+      {/* Final CTA */}
+      <motion.section
+        initial="hidden"
+        whileInView="visible"
+        viewport={{ once: true, margin: "-100px" }}
+        variants={reveal}
+        className="border-t bg-muted/40 py-24"
+      >
+        <div className="mx-auto max-w-4xl px-6 text-center">
+          <h2 className="text-3xl font-bold tracking-tight sm:text-4xl">Your inventory deserves more buyers.</h2>
+          <p className="mt-4 text-lg text-muted-foreground">
+            Join resellers who list once and sell everywhere. Free forever to start.
+          </p>
+          <div className="mt-8 flex justify-center">
+            <Link href="/login" className={cn(buttonVariants({ size: "lg" }), "gap-2")}>
+              Start selling free <ArrowRight className="h-4 w-4" />
             </Link>
           </div>
-        </section>
+        </div>
+      </motion.section>
 
-        <section className="border-y bg-muted/40 px-6 py-16">
-          <div className="mx-auto max-w-5xl">
-            <h2 className="mb-10 text-center text-2xl font-semibold">Supported marketplaces</h2>
-            <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-5">
-              {PLATFORMS.map((p) => (
-                <div key={p.id} className="flex items-center gap-3 rounded-lg border bg-card p-3">
-                  <div className="h-8 w-8 rounded-full" style={{ backgroundColor: p.color }} />
-                  <span className="text-sm font-medium">{p.name}</span>
-                </div>
-              ))}
-            </div>
-          </div>
-        </section>
-
-        <section className="px-6 py-16">
-          <div className="mx-auto grid max-w-5xl gap-8 md:grid-cols-3">
-            <div className="space-y-3">
-              <Layers className="h-8 w-8 text-primary" />
-              <h3 className="text-xl font-semibold">One universal form</h3>
-              <p className="text-muted-foreground">
-                Enter your item details once. PostMost translates and publishes to each marketplace automatically.
-              </p>
-            </div>
-            <div className="space-y-3">
-              <Zap className="h-8 w-8 text-primary" />
-              <h3 className="text-xl font-semibold">Auto-sync inventory</h3>
-              <p className="text-muted-foreground">
-                When an item sells on one platform, PostMost delists it everywhere else to prevent double selling.
-              </p>
-            </div>
-            <div className="space-y-3">
-              <Shield className="h-8 w-8 text-primary" />
-              <h3 className="text-xl font-semibold">API + automation</h3>
-              <p className="text-muted-foreground">
-                Uses official APIs where available, with a secure automation engine for platforms without APIs.
-              </p>
-            </div>
-          </div>
-        </section>
-      </main>
-
-      <footer className="border-t px-6 py-6 text-center text-sm text-muted-foreground">
+      <footer className="border-t px-6 py-8 text-center text-sm text-muted-foreground">
+        <div className="mb-2 flex items-center justify-center gap-2">
+          <LogoMark className="h-5 w-5" />
+          <Wordmark className="text-sm" />
+        </div>
         © {new Date().getFullYear()} PostMost. Built for resellers.
       </footer>
     </div>

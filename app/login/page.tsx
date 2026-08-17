@@ -9,6 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { registerUser } from "@/lib/actions/auth";
 import { toast } from "sonner";
+import { Wordmark, LogoMark } from "@/components/logo";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -48,7 +49,10 @@ export default function LoginPage() {
     <div className="flex min-h-screen items-center justify-center bg-muted/40 p-4">
       <Card className="w-full max-w-md">
         <CardHeader className="text-center">
-          <CardTitle className="text-2xl font-bold">PostMost</CardTitle>
+          <CardTitle className="flex items-center justify-center gap-2 text-2xl font-bold">
+            <LogoMark className="h-7 w-7" />
+            <Wordmark className="text-2xl" />
+          </CardTitle>
           <CardDescription>{isRegister ? "Create your account" : "Sign in to your account"}</CardDescription>
         </CardHeader>
         <CardContent>
