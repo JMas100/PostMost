@@ -85,7 +85,7 @@ export function PricingGrid({ currentPlanId }: { currentPlanId: string }) {
             type="button"
             onClick={() => setInterval("month")}
             className={`rounded-md px-4 py-1.5 text-sm font-medium transition ${
-              interval === "month" ? "bg-background text-foreground shadow" : "text-muted-foreground"
+              interval === "month" ? "bg-primary text-primary-foreground shadow" : "text-muted-foreground"
             }`}
           >
             Monthly
@@ -94,7 +94,7 @@ export function PricingGrid({ currentPlanId }: { currentPlanId: string }) {
             type="button"
             onClick={() => setInterval("year")}
             className={`rounded-md px-4 py-1.5 text-sm font-medium transition ${
-              interval === "year" ? "bg-background text-foreground shadow" : "text-muted-foreground"
+              interval === "year" ? "bg-primary text-primary-foreground shadow" : "text-muted-foreground"
             }`}
           >
             Annual

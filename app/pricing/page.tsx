@@ -18,8 +18,8 @@ export default async function PricingPage() {
   return (
     <main className="mx-auto max-w-6xl px-4 py-16">
       <div className="mb-12 text-center">
-        <h1 className="mb-3 text-4xl font-bold tracking-tight">Simple, transparent pricing</h1>
-        <p className="text-muted-foreground">Pick a plan that fits your resale business.</p>
+        <h1 className="mb-3 text-4xl font-bold tracking-tight">Grow into your plan.</h1>
+        <p className="text-muted-foreground">Start free. Upgrade when PostMost becomes part of your business.</p>
       </div>
       <PricingGrid currentPlanId={currentPlanId} />
     </main>
