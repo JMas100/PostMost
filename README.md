@@ -47,6 +47,11 @@ Copy `.env.example` to `.env` and set at least:
 | `R2_PUBLIC_BASE_URL` | Public CDN/custom-domain base URL images are served from (e.g. `https://images.postmost.co`) |
 | `S3_ENDPOINT` | Optional S3 endpoint override for another S3-compatible host (e.g. MinIO locally); defaults to R2 |
 | `NEXT_IMAGE_HOSTS` | Optional extra comma-separated hostnames allowed for `next/image` |
+| `BG_REMOVER` | Background-removal adapter: `birefnet` (default), `photoroom`, or `removebg` |
+| `FAL_KEY` | fal.ai key used by the BiRefNet adapter |
+| `BIREFNET_MODEL` / `BIREFNET_RESOLUTION` | Optional BiRefNet variant and operating resolution |
+| `PHOTOROOM_API_KEY` | PhotoRoom key for the premium fallback |
+| `REMOVE_BG_API_KEY` | remove.bg key (legacy provider) |
 
 Outside production, a `DATABASE_URL` that is not a `*.neon.tech` host uses Prisma's standard TCP
 client instead of the Neon serverless driver, so a local Postgres works without any code change.
@@ -98,6 +103,30 @@ under R2 > your bucket > Settings > CORS policy:
 
 Public reads require either R2 public access or a custom domain bound to the bucket; point
 `R2_PUBLIC_BASE_URL` at it.
+
+## Background removal
+
+`lib/ai/background/` is a provider registry in the same shape as storage and marketplaces:
+`getBackgroundRemover()` resolves `BG_REMOVER` (default `birefnet`), and
+`getConfiguredBackgroundRemover()` falls back to whichever provider actually has credentials so a
+missing key degrades instead of throwing. Adapters return raw cut-out bytes; `lib/ai/optimize.ts`
+encodes them as a `data:` URL that the listing form uploads to storage, so enhanced photos end up
+hosted like any other.
+
+| Adapter | Backend | Notes |
+| --- | --- | --- |
+| `birefnet` | `fal-ai/birefnet/v2` | MIT-licensed weights, billed per GPU-second — the unlimited-removals default |
+| `photoroom` | `sdk.photoroom.com/v1/segment` | Premium fallback for hair, sheer fabric, white-on-white; sandbox keys are watermarked |
+| `removebg` | `api.remove.bg/v1.0/removebg` | Legacy provider, kept for compatibility |
+
+To compare providers on your own photos before choosing a production default:
+
+```bash
+npx tsx -r dotenv/config scripts/bake-off-bg-removal.ts --input ./samples --out ./bakeoff
+```
+
+It writes each provider's cut-outs into `<out>/<provider>/` plus `results.csv` with per-image
+latency and output size, and skips providers whose keys are missing.
 
 ### Backfilling legacy base64 photos
 
