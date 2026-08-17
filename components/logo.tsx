@@ -3,8 +3,8 @@ import { cn } from "@/lib/utils";
 export function Wordmark({ className }: { className?: string }) {
   return (
     <span className={cn("font-heading inline-flex items-baseline tracking-tight", className)}>
-      <span className="font-light">post</span>
-      <span className="font-extrabold">most</span>
+      <span className="font-light text-foreground">post</span>
+      <span className="font-extrabold text-primary">most</span>
     </span>
   );
 }
@@ -20,20 +20,19 @@ export function LogoMark({ className, ...props }: React.SVGProps<SVGSVGElement>)
       {...props}
     >
       <rect width="48" height="48" rx="10" className="fill-brand-black" />
-      <circle cx="18" cy="24" r="5" className="fill-current" />
-      <circle cx="34" cy="14" r="3" className="fill-current" />
-      <circle cx="34" cy="34" r="3" className="fill-current" />
       <path
-        d="M23 24L31 18M23 24L31 30"
+        d="M12 12L24 24L12 36"
         stroke="currentColor"
-        strokeWidth="3"
+        strokeWidth="7"
         strokeLinecap="round"
+        strokeLinejoin="round"
       />
       <path
-        d="M13 31V17"
+        d="M24 12L36 24L24 36"
         stroke="currentColor"
-        strokeWidth="3"
+        strokeWidth="7"
         strokeLinecap="round"
+        strokeLinejoin="round"
       />
     </svg>
   );

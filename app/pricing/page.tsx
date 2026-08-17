@@ -19,7 +19,7 @@ export default async function PricingPage() {
     <main className="mx-auto max-w-6xl px-4 py-16">
       <div className="mb-12 text-center">
         <h1 className="mb-3 text-4xl font-bold tracking-tight">Simple, transparent pricing</h1>
-        <p className="text-gray-600">Pick a plan that fits your resale business.</p>
+        <p className="text-muted-foreground">Pick a plan that fits your resale business.</p>
       </div>
       <PricingGrid currentPlanId={currentPlanId} />
     </main>
