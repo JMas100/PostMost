@@ -55,7 +55,7 @@ description: How to run and end-to-end test PostMost (Next.js + Prisma + Neon) l
   ```
 - Backfill script: `npx tsx -r dotenv/config scripts/migrate-photos-to-blob.ts [--dry-run] [--limit N]`. It only touches rows whose url starts with `data:`, so re-running should report `Found 0 base64 photo(s)` (idempotency check). Seed a legacy row first by inserting a small `data:image/png;base64,...` Photo via psql.
 - Saving a draft deletes and recreates its `Photo` rows (ids change) while preserving the url values — do not assert on photo ids across an edit.
-- AI "Enhance photo" needs `REMOVE_BG_API_KEY` (other AI buttons need `OPENAI_API_KEY`); without them that path cannot be exercised — mark it untested rather than faking it.
+- AI "Enhance photo" needs `FAL_KEY` (BiRefNet, the default) or `PHOTOROOM_API_KEY` with `BG_REMOVER=photoroom`; other AI buttons need `OPENAI_API_KEY`. Without them that path cannot be exercised — mark it untested rather than faking it.
 
 ## Cross-post job queue / worker
 - `crossPost()` only enqueues `CrossPostJob` rows and fires a non-blocking `POST ${APP_URL}/api/jobs/run` with the `x-master-key` header, so jobs are usually drained within a second or two locally. To observe the PENDING state you must snapshot the DB immediately after the toast, or drop `APP_URL`/`MASTER_KEY` to disable the auto-trigger.
@@ -69,4 +69,4 @@ description: How to run and end-to-end test PostMost (Next.js + Prisma + Neon) l
 - Concurrency: reset a job to PENDING with a slow (stubbed) adapter and fire two `curl` runs with `& ... & wait`; exactly one should report `processed:1` and the DB should show `attempts=1`.
 
 ## Devin Secrets Needed
-- None for local testing (MASTER_KEY/CRON_SECRET/NEXTAUTH_SECRET can be any local values; storage can point at a local MinIO via `S3_ENDPOINT`). Real marketplace testing would need `EBAY_APP_ID`, `EBAY_CERT_ID`, `EBAY_RU_NAME`, `EBAY_CATEGORY_ID` (and Etsy equivalents). Testing against real Cloudflare R2 would need `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_BUCKET`, `R2_PUBLIC_BASE_URL`. AI photo enhancement needs `REMOVE_BG_API_KEY` / `OPENAI_API_KEY`.
+- None for local testing (MASTER_KEY/CRON_SECRET/NEXTAUTH_SECRET can be any local values; storage can point at a local MinIO via `S3_ENDPOINT`). Real marketplace testing would need `EBAY_APP_ID`, `EBAY_CERT_ID`, `EBAY_RU_NAME`, `EBAY_CATEGORY_ID` (and Etsy equivalents). Testing against real Cloudflare R2 would need `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_BUCKET`, `R2_PUBLIC_BASE_URL`. AI photo enhancement needs `FAL_KEY` (or `PHOTOROOM_API_KEY`) / `OPENAI_API_KEY`.

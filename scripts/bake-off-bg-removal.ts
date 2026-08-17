@@ -36,7 +36,7 @@ function arg(name: string, fallback: string): string {
 async function main() {
   const inputDir = path.resolve(arg("input", "./samples"));
   const outDir = path.resolve(arg("out", "./bakeoff"));
-  const providers = arg("providers", "birefnet,photoroom,removebg")
+  const providers = arg("providers", "birefnet,photoroom")
     .split(",")
     .map((p) => p.trim())
     .filter(Boolean);

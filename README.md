@@ -47,11 +47,10 @@ Copy `.env.example` to `.env` and set at least:
 | `R2_PUBLIC_BASE_URL` | Public CDN/custom-domain base URL images are served from (e.g. `https://images.postmost.co`) |
 | `S3_ENDPOINT` | Optional S3 endpoint override for another S3-compatible host (e.g. MinIO locally); defaults to R2 |
 | `NEXT_IMAGE_HOSTS` | Optional extra comma-separated hostnames allowed for `next/image` |
-| `BG_REMOVER` | Background-removal adapter: `birefnet` (default), `photoroom`, or `removebg` |
+| `BG_REMOVER` | Background-removal adapter: `birefnet` (default) or `photoroom` |
 | `FAL_KEY` | fal.ai key used by the BiRefNet adapter |
 | `BIREFNET_MODEL` / `BIREFNET_RESOLUTION` | Optional BiRefNet variant and operating resolution |
 | `PHOTOROOM_API_KEY` | PhotoRoom key for the premium fallback |
-| `REMOVE_BG_API_KEY` | remove.bg key (legacy provider) |
 
 Outside production, a `DATABASE_URL` that is not a `*.neon.tech` host uses Prisma's standard TCP
 client instead of the Neon serverless driver, so a local Postgres works without any code change.
@@ -117,7 +116,6 @@ hosted like any other.
 | --- | --- | --- |
 | `birefnet` | `fal-ai/birefnet/v2` | MIT-licensed weights, billed per GPU-second — the unlimited-removals default |
 | `photoroom` | `sdk.photoroom.com/v1/segment` | Premium fallback for hair, sheer fabric, white-on-white; sandbox keys are watermarked |
-| `removebg` | `api.remove.bg/v1.0/removebg` | Legacy provider, kept for compatibility |
 
 To compare providers on your own photos before choosing a production default:
 

@@ -1,12 +1,10 @@
 import { biRefNetRemover } from "@/lib/ai/background/adapters/birefnet";
 import { photoRoomRemover } from "@/lib/ai/background/adapters/photoroom";
-import { removeBgRemover } from "@/lib/ai/background/adapters/removebg";
 import { BackgroundRemover } from "@/lib/ai/background/types";
 
 const removers: Record<string, BackgroundRemover> = {
   birefnet: biRefNetRemover,
   photoroom: photoRoomRemover,
-  removebg: removeBgRemover,
 };
 
 export const DEFAULT_BG_REMOVER = "birefnet";
