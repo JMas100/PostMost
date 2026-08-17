@@ -42,7 +42,7 @@ export default async function ListingsPage() {
             {listings.map((listing) => (
               <Link key={listing.id} href={`/listings/${listing.id}`}>
                 <Card className="hover:bg-muted/50 transition-colors">
-                  <CardContent className="p-4">
+                  <CardContent>
                     <div className="flex gap-4">
                       {listing.photos[0] ? (
                         <img src={listing.photos[0].url} alt="" className="h-20 w-20 rounded-md object-cover" />

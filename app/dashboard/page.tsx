@@ -121,7 +121,7 @@ export default async function DashboardPage() {
             {recentListings.map((listing) => (
               <Link key={listing.id} href={`/listings/${listing.id}`}>
                 <Card className="hover:bg-muted/50 transition-colors">
-                  <CardContent className="p-4">
+                  <CardContent>
                     <div className="flex gap-4">
                       {listing.photos[0] && (
                         <img src={listing.photos[0].url} alt="" className="h-16 w-16 rounded-md object-cover" />

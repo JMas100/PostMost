@@ -40,7 +40,7 @@ export default async function DraftsPage() {
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
             {drafts.map((draft) => (
               <Card key={draft.id} className="hover:bg-muted/50 transition-colors">
-                <CardContent className="p-4">
+                <CardContent>
                   <div className="flex gap-4">
                     {draft.photos[0] ? (
                       <img src={draft.photos[0].url} alt="" className="h-20 w-20 rounded-md object-cover" />
