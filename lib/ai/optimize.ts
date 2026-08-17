@@ -1,3 +1,5 @@
+import { getBackgroundRemover, getConfiguredBackgroundRemover } from "@/lib/ai/background";
+
 export interface PricingEstimate {
   price: number;
   reasoning?: string;
@@ -19,22 +21,6 @@ interface ImageContentPart {
 }
 
 type OpenAIContent = TextContentPart | ImageContentPart;
-
-async function imageToBlob(url: string): Promise<{ blob: Blob; filename: string }> {
-  if (!url.startsWith("data:")) {
-    const res = await fetch(url);
-    if (!res.ok) throw new Error(`Failed to fetch image: ${res.status}`);
-    const mime = res.headers.get("content-type") || "image/jpeg";
-    const buffer = Buffer.from(await res.arrayBuffer());
-    return { blob: new Blob([buffer], { type: mime }), filename: `photo.${mime.split("/").pop() || "jpg"}` };
-  }
-
-  const [header, base64] = url.split(",");
-  const mime = header.match(/:(.*?);/)?.[1] || "image/jpeg";
-  const ext = mime.split("/").pop() || "jpg";
-  const buffer = Buffer.from(base64, "base64");
-  return { blob: new Blob([buffer], { type: mime }), filename: `photo.${ext}` };
-}
 
 async function openaiJson<T>(messages: { role: "system" | "user"; content: OpenAIContent[] | string }[], maxTokens = 600): Promise<T> {
   const apiKey = process.env.OPENAI_API_KEY;
@@ -167,32 +153,15 @@ export async function generatePlatformCaption(
   };
 }
 
-export async function removeBackground(imageUrl: string): Promise<string> {
-  const apiKey = process.env.REMOVE_BG_API_KEY;
-  if (!apiKey) throw new Error("Background removal API key not configured");
+export async function removeBackground(imageUrl: string, provider?: string): Promise<string> {
+  const remover = provider ? getBackgroundRemover(provider) : getConfiguredBackgroundRemover();
+  if (!remover) throw new Error("Background removal is not configured");
 
-  const { blob, filename } = await imageToBlob(imageUrl);
-  const form = new FormData();
-  form.append("image_file", blob, filename);
-  form.append("size", "auto");
-
-  const res = await fetch("https://api.remove.bg/v1.0/removebg", {
-    method: "POST",
-    headers: { "X-Api-Key": apiKey },
-    body: form,
-  });
-
-  if (!res.ok) {
-    const text = await res.text();
-    throw new Error(`Remove.bg failed: ${res.status} ${text}`);
-  }
-
-  const buffer = Buffer.from(await res.arrayBuffer());
-  return `data:image/png;base64,${buffer.toString("base64")}`;
+  const { bytes, contentType } = await remover.removeBackground(imageUrl);
+  return `data:${contentType};base64,${bytes.toString("base64")}`;
 }
 
-export async function enhancePhoto(imageUrl: string): Promise<string> {
-  // MVP fallback: if REMOVE_BG_API_KEY is configured, remove background.
-  // In the future this can upscale, correct lighting, etc.
-  return removeBackground(imageUrl);
+export async function enhancePhoto(imageUrl: string, provider?: string): Promise<string> {
+  // MVP: background removal only. In the future this can upscale, correct lighting, etc.
+  return removeBackground(imageUrl, provider);
 }
