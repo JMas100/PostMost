@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import crypto from "crypto";
 import { prisma } from "@/lib/prisma";
 import { listingSchema, ListingFormData } from "@/lib/schemas/listing";
 import { canCreateListing, incrementListingUsage } from "@/lib/actions/usage";
@@ -7,8 +8,9 @@ async function userFromKey(request: Request) {
   const auth = request.headers.get("authorization");
   if (!auth || !auth.startsWith("Bearer ")) return null;
   const key = auth.slice(7).trim();
+  const keyHash = crypto.createHash("sha256").update(key).digest("hex");
   const record = await prisma.apiKey.findUnique({
-    where: { key },
+    where: { keyHash },
     include: { user: { include: { usage: true } } },
   });
   if (!record) return null;

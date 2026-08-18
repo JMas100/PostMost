@@ -11,13 +11,17 @@ function getUserId(session: { user?: { id?: string } } | null) {
   return session.user.id;
 }
 
+function hashKey(key: string) {
+  return crypto.createHash("sha256").update(key).digest("hex");
+}
+
 export async function getApiKeys() {
   const session = await getServerSession(authOptions);
   const userId = getUserId(session);
   return prisma.apiKey.findMany({
     where: { userId },
     orderBy: { createdAt: "desc" },
-    select: { id: true, name: true, key: true, lastUsedAt: true, createdAt: true },
+    select: { id: true, name: true, keyPrefix: true, lastUsedAt: true, createdAt: true },
   });
 }
 
@@ -26,11 +30,11 @@ export async function createApiKey(name: string) {
   const userId = getUserId(session);
   const key = `pm_${crypto.randomBytes(32).toString("hex")}`;
   const record = await prisma.apiKey.create({
-    data: { userId, name, key },
-    select: { id: true, name: true, key: true, createdAt: true },
+    data: { userId, name, keyHash: hashKey(key), keyPrefix: key.slice(0, 12) },
+    select: { id: true, name: true, createdAt: true },
   });
   revalidatePath("/settings/api");
-  return { success: true, apiKey: record };
+  return { success: true, apiKey: { ...record, key } };
 }
 
 export async function deleteApiKey(id: string) {

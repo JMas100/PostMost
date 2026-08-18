@@ -16,10 +16,14 @@ export async function POST(
   { params }: { params: { platform: string } }
 ) {
   const secret = process.env.INVENTORY_WEBHOOK_SECRET;
+  if (!secret) {
+    return NextResponse.json({ error: "Webhook not configured" }, { status: 500 });
+  }
+
   const rawBody = await request.text();
   const signature = request.headers.get("x-webhook-signature");
 
-  if (secret && !verifySignature(rawBody, signature, secret)) {
+  if (!verifySignature(rawBody, signature, secret)) {
     return NextResponse.json({ error: "Invalid signature" }, { status: 401 });
   }
 

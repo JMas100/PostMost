@@ -12,7 +12,7 @@ import { toast } from "sonner";
 interface Key {
   id: string;
   name: string;
-  key: string;
+  keyPrefix: string;
   lastUsedAt: Date | null;
   createdAt: Date;
 }
@@ -25,7 +25,7 @@ export function ApiClient({ keys }: ApiClientProps) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [name, setName] = useState("");
-  const [revealed, setRevealed] = useState<Record<string, boolean>>({});
+  const [newKey, setNewKey] = useState<string | null>(null);
 
   function create(e: React.FormEvent) {
     e.preventDefault();
@@ -37,6 +37,7 @@ export function ApiClient({ keys }: ApiClientProps) {
       } else {
         toast.success("API key created");
         setName("");
+        setNewKey(result.apiKey.key);
         router.refresh();
       }
     });
@@ -57,6 +58,24 @@ export function ApiClient({ keys }: ApiClientProps) {
 
   return (
     <div className="space-y-6">
+      {newKey && (
+        <Card className="border-amber-500">
+          <CardHeader>
+            <CardTitle>Copy your new API key now</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="mb-3 text-sm text-muted-foreground">
+              This is the only time the full key will be shown. Store it somewhere safe.
+            </p>
+            <div className="flex items-center gap-2">
+              <code className="flex-1 truncate rounded bg-muted px-2 py-1 text-xs">{newKey}</code>
+              <Button variant="outline" size="sm" onClick={() => copy(newKey)}>Copy</Button>
+              <Button variant="outline" size="sm" onClick={() => setNewKey(null)}>Dismiss</Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       <Card>
         <CardHeader>
           <CardTitle>New API key</CardTitle>
@@ -86,13 +105,7 @@ export function ApiClient({ keys }: ApiClientProps) {
                 <Button variant="destructive" size="sm" onClick={() => remove(k.id)}>Delete</Button>
               </div>
               <div className="mt-3 flex items-center gap-2">
-                <code className="flex-1 truncate rounded bg-muted px-2 py-1 text-xs">
-                  {revealed[k.id] ? k.key : `${k.key.slice(0, 12)}...`}
-                </code>
-                <Button variant="outline" size="sm" onClick={() => setRevealed((prev) => ({ ...prev, [k.id]: !prev[k.id] }))}>
-                  {revealed[k.id] ? "Hide" : "Reveal"}
-                </Button>
-                <Button variant="outline" size="sm" onClick={() => copy(k.key)}>Copy</Button>
+                <code className="flex-1 truncate rounded bg-muted px-2 py-1 text-xs">{k.keyPrefix}...</code>
               </div>
             </div>
           ))}
