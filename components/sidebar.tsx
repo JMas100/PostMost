@@ -22,6 +22,7 @@ import { Button, buttonVariants } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { cn } from "@/lib/utils";
 import { Wordmark, LogoMark } from "@/components/logo";
+import { ThemeToggle } from "@/components/theme-toggle";
 
 const primaryNav = [
   { href: "/dashboard", label: "Overview", icon: LayoutDashboard },
@@ -49,10 +50,13 @@ function NavContent({ onClick }: { onClick?: () => void }) {
   const pathname = usePathname();
   return (
     <div className="flex h-full flex-col">
-      <Link href="/dashboard" className="flex items-center gap-2 px-4 py-4" onClick={onClick}>
-        <LogoMark className="h-8 w-8" />
-        <Wordmark className="text-xl" />
-      </Link>
+      <div className="flex items-center justify-between px-4 py-4">
+        <Link href="/dashboard" className="flex items-center gap-2" onClick={onClick}>
+          <LogoMark className="h-8 w-8" />
+          <Wordmark className="text-xl" />
+        </Link>
+        <ThemeToggle />
+      </div>
 
       <div className="px-4 pb-2">
         <Link
@@ -132,7 +136,7 @@ export function Sidebar() {
 
 export function Shell({ children }: { children: React.ReactNode }) {
   return (
-    <div className="dark flex min-h-screen w-full bg-background text-foreground">
+    <div className="app-shell flex min-h-screen w-full bg-background font-sans text-foreground">
       <Sidebar />
       <main className="flex-1 p-6 lg:p-10">{children}</main>
     </div>
