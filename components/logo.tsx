@@ -15,7 +15,7 @@ export function LogoMark({ className, ...props }: React.SVGProps<SVGSVGElement>)
       viewBox="0 0 240 240"
       fill="none"
       xmlns="http://www.w3.org/2000/svg"
-      className={cn("text-brand-green", className)}
+      className={cn("text-primary", className)}
       aria-label="PostMost logo"
       {...props}
     >

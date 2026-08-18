@@ -32,6 +32,7 @@ model User {
   ownedTeams        Team[]         @relation("TeamOwner")
   teamMemberships   TeamMember[]
   apiKeys           ApiKey[]
+  events            Event[]
 }
 
 model Listing {
@@ -214,5 +215,17 @@ model ApiKey {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
+  @@index([userId])
+}
+
+model Event {
+  id         String   @id @default(cuid())
+  userId     String?
+  user       User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  name       String
+  properties Json?
+  createdAt  DateTime @default(now())
+
+  @@index([name])
   @@index([userId])
 }
