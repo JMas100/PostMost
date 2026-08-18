@@ -127,6 +127,7 @@ export default async function ListingDetailPage({ params }: { params: { id: stri
                   accounts={accounts}
                   extensionListing={extensionListing}
                   hasActiveJobs={hasActiveJobs}
+                  platformListings={listing.platformListings}
                 />
               </CardContent>
             </Card>

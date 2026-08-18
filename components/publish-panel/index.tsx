@@ -9,13 +9,15 @@ import { resolveMechanisms } from "./resolve-mechanism";
 import { useExtensionDetector } from "./use-extension-detector";
 import { useJobPolling } from "./use-job-polling";
 import { PlatformRow } from "./platform-row";
+import { PublishConfirmationDialog } from "./publish-confirmation-dialog";
 import { PublishPanelProps } from "./types";
 
-export function PublishPanel({ listingId, accounts, extensionListing, hasActiveJobs }: PublishPanelProps) {
+export function PublishPanel({ listingId, accounts, extensionListing, hasActiveJobs, platformListings }: PublishPanelProps) {
   const router = useRouter();
   const extensionInstalled = useExtensionDetector();
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [publishing, setPublishing] = useState(false);
+  const [confirmation, setConfirmation] = useState<{ automationIds: string[]; extensionIds: string[] } | null>(null);
 
   useJobPolling(listingId, hasActiveJobs);
 
@@ -70,10 +72,7 @@ export function PublishPanel({ listingId, accounts, extensionListing, hasActiveJ
     setPublishing(false);
 
     if (!automationFailed) {
-      const parts: string[] = [];
-      if (automationIds.length) parts.push(`${automationIds.length} via automation`);
-      if (extensionIds.length) parts.push(`${extensionIds.length} via extension`);
-      toast.success(`Publishing to ${chosen.length} marketplace${chosen.length > 1 ? "s" : ""} (${parts.join(", ")})`);
+      setConfirmation({ automationIds, extensionIds });
     }
 
     setSelected(new Set());
@@ -94,6 +93,18 @@ export function PublishPanel({ listingId, accounts, extensionListing, hasActiveJ
           ? "Publish"
           : `Publish to ${selected.size} marketplace${selected.size === 1 ? "" : "s"}`}
       </Button>
+
+      {confirmation && (
+        <PublishConfirmationDialog
+          listingId={listingId}
+          automationIds={confirmation.automationIds}
+          extensionIds={confirmation.extensionIds}
+          platformListings={platformListings}
+          onOpenChange={(open) => {
+            if (!open) setConfirmation(null);
+          }}
+        />
+      )}
     </div>
   );
 }

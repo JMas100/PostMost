@@ -28,9 +28,16 @@ export interface ExtensionListingPayload {
   photos: { id: string; url: string }[];
 }
 
+export interface PlatformListingSummary {
+  platform: string;
+  status: string;
+  errorMessage: string | null;
+}
+
 export interface PublishPanelProps {
   listingId: string;
   accounts: PublishAccountSummary[];
   extensionListing: ExtensionListingPayload;
   hasActiveJobs: boolean;
+  platformListings: PlatformListingSummary[];
 }
