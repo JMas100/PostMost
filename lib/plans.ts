@@ -1,5 +1,8 @@
 export type PlanId = "free" | "launch" | "grow" | "pro" | "scale" | "enterprise";
 
+/** "standard" is the self-hosted default remover; "studio" is the metered premium provider. */
+export type BgRemovalTier = "standard" | "studio";
+
 export interface Plan {
   id: PlanId;
   name: string;
@@ -7,6 +10,10 @@ export interface Plan {
   description: string;
   listingsPerMonth: number;
   aiCreditsPerMonth: number;
+  /** Standard (self-hosted BiRefNet) background removals; -1 is unlimited. */
+  bgRemovalsPerMonth: number;
+  /** Premium "studio quality" removals through the paid provider; -1 is unlimited. */
+  studioBgRemovalsPerMonth: number;
   activeInventoryLimit: number;
   marketplaces: number;
   features: string[];
@@ -20,6 +27,8 @@ export const PLANS: Plan[] = [
     description: "For people trying it out.",
     listingsPerMonth: 25,
     aiCreditsPerMonth: 10,
+    bgRemovalsPerMonth: 25,
+    studioBgRemovalsPerMonth: 0,
     activeInventoryLimit: 50,
     marketplaces: 3,
     features: [
@@ -27,6 +36,7 @@ export const PLANS: Plan[] = [
       "50 active inventory items",
       "3 marketplaces",
       "10 AI credits per month",
+      "25 background removals per month",
       "Basic crosslisting",
       "Listing templates",
       "Manual delist/relist",
@@ -41,6 +51,8 @@ export const PLANS: Plan[] = [
     description: "For casual sellers.",
     listingsPerMonth: 100,
     aiCreditsPerMonth: 50,
+    bgRemovalsPerMonth: -1,
+    studioBgRemovalsPerMonth: 10,
     activeInventoryLimit: 500,
     marketplaces: 5,
     features: [
@@ -48,6 +60,8 @@ export const PLANS: Plan[] = [
       "500 active inventory items",
       "5 marketplaces",
       "50 AI credits per month",
+      "Unlimited background removals",
+      "10 studio-quality removals per month",
       "Unlimited crossposting of existing listings",
       "Inventory syncing",
       "Auto-delisting",
@@ -63,6 +77,8 @@ export const PLANS: Plan[] = [
     description: "For active resellers.",
     listingsPerMonth: 300,
     aiCreditsPerMonth: 100,
+    bgRemovalsPerMonth: -1,
+    studioBgRemovalsPerMonth: 50,
     activeInventoryLimit: 2000,
     marketplaces: 999,
     features: [
@@ -73,7 +89,8 @@ export const PLANS: Plan[] = [
       "AI listing generation",
       "AI title/description optimization",
       "AI pricing suggestions",
-      "Background removal",
+      "Unlimited background removals",
+      "50 studio-quality removals per month",
       "CSV import/export",
       "Auto-relist",
       "Advanced analytics",
@@ -86,6 +103,8 @@ export const PLANS: Plan[] = [
     description: "For serious resellers. Most popular.",
     listingsPerMonth: 750,
     aiCreditsPerMonth: 500,
+    bgRemovalsPerMonth: -1,
+    studioBgRemovalsPerMonth: 200,
     activeInventoryLimit: 5000,
     marketplaces: 999,
     features: [
@@ -93,7 +112,8 @@ export const PLANS: Plan[] = [
       "5,000 active inventory items",
       "All marketplaces",
       "500 AI credits per month",
-      "AI photo enhancement",
+      "Unlimited background removals",
+      "200 studio-quality removals per month",
       "Marketplace-specific optimization",
       "Automated pricing",
       "Profit tracking",
@@ -108,6 +128,8 @@ export const PLANS: Plan[] = [
     description: "For high-volume sellers & small businesses.",
     listingsPerMonth: 2000,
     aiCreditsPerMonth: 5000,
+    bgRemovalsPerMonth: -1,
+    studioBgRemovalsPerMonth: 1000,
     activeInventoryLimit: -1,
     marketplaces: 999,
     features: [
@@ -115,6 +137,8 @@ export const PLANS: Plan[] = [
       "Unlimited active inventory",
       "All marketplaces",
       "5,000 AI credits per month",
+      "Unlimited background removals",
+      "1,000 studio-quality removals per month",
       "3 team seats included",
       "Advanced automation",
       "CSV/API integrations",
@@ -130,6 +154,8 @@ export const PLANS: Plan[] = [
     description: "For warehouses & multi-user operations.",
     listingsPerMonth: -1,
     aiCreditsPerMonth: 10000,
+    bgRemovalsPerMonth: -1,
+    studioBgRemovalsPerMonth: -1,
     activeInventoryLimit: -1,
     marketplaces: 999,
     features: [
@@ -137,6 +163,8 @@ export const PLANS: Plan[] = [
       "Unlimited active inventory",
       "Unlimited marketplaces",
       "10,000 AI credits per month",
+      "Unlimited background removals",
+      "Unlimited studio-quality removals",
       "Unlimited users or negotiated seats",
       "API access & webhooks",
       "Custom integrations",

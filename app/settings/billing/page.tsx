@@ -83,6 +83,30 @@ export default async function BillingPage({ searchParams }: { searchParams: { su
                 <Progress value={Math.min(100, ((usage?.aiCreditsUsed ?? 0) / plan.aiCreditsPerMonth) * 100)} />
               )}
             </div>
+            <div>
+              <div className="mb-1 flex justify-between text-sm">
+                <span className="text-muted-foreground">Background removals</span>
+                <span>{getLimitLabel(usage?.bgRemovalsUsed ?? 0, plan.bgRemovalsPerMonth)}</span>
+              </div>
+              {plan.bgRemovalsPerMonth > 0 && (
+                <Progress value={Math.min(100, ((usage?.bgRemovalsUsed ?? 0) / plan.bgRemovalsPerMonth) * 100)} />
+              )}
+            </div>
+            <div>
+              <div className="mb-1 flex justify-between text-sm">
+                <span className="text-muted-foreground">Studio-quality removals</span>
+                <span>
+                  {plan.studioBgRemovalsPerMonth === 0
+                    ? "Not included"
+                    : getLimitLabel(usage?.studioBgRemovalsUsed ?? 0, plan.studioBgRemovalsPerMonth)}
+                </span>
+              </div>
+              {plan.studioBgRemovalsPerMonth > 0 && (
+                <Progress
+                  value={Math.min(100, ((usage?.studioBgRemovalsUsed ?? 0) / plan.studioBgRemovalsPerMonth) * 100)}
+                />
+              )}
+            </div>
             <p className="text-xs text-muted-foreground">Resets {resetAt.toLocaleDateString()}</p>
           </CardContent>
         </Card>

@@ -131,6 +131,8 @@ model UserUsage {
   user                User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   listingsThisMonth   Int      @default(0)
   aiCreditsUsed       Int      @default(0)
+  bgRemovalsUsed      Int      @default(0)
+  studioBgRemovalsUsed Int     @default(0)
   resetAt             DateTime @default(now())
   createdAt           DateTime @default(now())
   updatedAt           DateTime @updatedAt
