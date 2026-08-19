@@ -14,6 +14,7 @@ import {
   suggestPrice,
   generatePlatformCaption,
   enhancePhoto,
+  isStudioRemovalAvailable,
 } from "@/lib/actions/ai-enhance";
 import { BgRemovalTier } from "@/lib/plans";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -38,6 +39,7 @@ export function ListingForm({ mode = "create", draftId, initialData, templates =
   const [templateName, setTemplateName] = useState("");
   const [selectedTemplate, setSelectedTemplate] = useState(defaultTemplateId);
   const [enhancingUrl, setEnhancingUrl] = useState<string | null>(null);
+  const [studioAvailable, setStudioAvailable] = useState(false);
 
   const [optimizing, setOptimizing] = useState<OptimizingState>("");
   const [selectedCaptionPlatform, setSelectedCaptionPlatform] = useState<string>("");
@@ -67,6 +69,10 @@ export function ListingForm({ mode = "create", draftId, initialData, templates =
     );
     setValue("photos", validPhotos, { shouldValidate: true });
   }, [photoUrls, setValue]);
+
+  useEffect(() => {
+    isStudioRemovalAvailable().then(setStudioAvailable).catch(() => setStudioAvailable(false));
+  }, []);
 
   useEffect(() => {
     if (selectedTemplate) {
@@ -228,11 +234,14 @@ export function ListingForm({ mode = "create", draftId, initialData, templates =
         toast.error(result.error || "Photo enhancement failed");
         return;
       }
+      if (tier === "studio" && result.tier === "standard") {
+        toast.warning("Studio quality is unavailable right now — used standard removal instead");
+      }
       const enhanced = result.result.startsWith("data:") ? await uploadDataUrl(result.result) : result.result;
       const next = [...photoUrls];
       next[index] = enhanced;
       setPhotoUrls(next);
-      toast.success("Photo enhanced");
+      toast.success(result.tier === "studio" ? "Photo enhanced (studio quality)" : "Photo enhanced");
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Failed to save enhanced photo");
       console.error(err);
@@ -405,6 +414,7 @@ export function ListingForm({ mode = "create", draftId, initialData, templates =
                 onAnalyzeWithAI={analyzeWithAI}
                 onEnhancePhoto={handleEnhancePhoto}
                 enhancingUrl={enhancingUrl}
+                studioAvailable={studioAvailable}
                 templates={templates}
                 selectedTemplate={selectedTemplate}
                 onSelectTemplate={setSelectedTemplate}

@@ -20,12 +20,14 @@ function SortablePhoto({
   onEnhance,
   enhancing,
   disabled,
+  studioAvailable,
 }: {
   url: string;
   onRemove: () => void;
   onEnhance: (tier: BgRemovalTier) => void;
   enhancing: boolean;
   disabled: boolean;
+  studioAvailable: boolean;
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: url });
   const style = {
@@ -55,21 +57,23 @@ function SortablePhoto({
           >
             <Wand2 className={cn("h-3 w-3", enhancing && "animate-pulse")} />
           </button>
-          <button
-            type="button"
-            onClick={(e) => {
-              e.stopPropagation();
-              onEnhance("studio");
-            }}
-            disabled={disabled}
-            className={cn(
-              "rounded-full bg-background/90 p-1 text-foreground shadow-sm disabled:opacity-50",
-              "opacity-0 transition-opacity group-hover:opacity-100"
-            )}
-            title="Remove background — studio quality"
-          >
-            <Sparkles className={cn("h-3 w-3", enhancing && "animate-pulse")} />
-          </button>
+          {studioAvailable && (
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                onEnhance("studio");
+              }}
+              disabled={disabled}
+              className={cn(
+                "rounded-full bg-background/90 p-1 text-foreground shadow-sm disabled:opacity-50",
+                "opacity-0 transition-opacity group-hover:opacity-100"
+              )}
+              title="Remove background — studio quality"
+            >
+              <Sparkles className={cn("h-3 w-3", enhancing && "animate-pulse")} />
+            </button>
+          )}
         </div>
         <button
           type="button"
@@ -94,6 +98,7 @@ export function PhotoSortableGrid({
   onEnhance,
   enhancingUrl,
   disabled,
+  studioAvailable,
 }: {
   photos: string[];
   onReorder: (next: string[]) => void;
@@ -101,6 +106,7 @@ export function PhotoSortableGrid({
   onEnhance: (url: string, tier: BgRemovalTier) => void;
   enhancingUrl: string | null;
   disabled: boolean;
+  studioAvailable: boolean;
 }) {
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 4 } }));
 
@@ -127,6 +133,7 @@ export function PhotoSortableGrid({
               onEnhance={(tier) => onEnhance(url, tier)}
               enhancing={enhancingUrl === url}
               disabled={disabled}
+              studioAvailable={studioAvailable}
             />
           ))}
         </div>

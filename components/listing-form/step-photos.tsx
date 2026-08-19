@@ -34,6 +34,7 @@ export function StepPhotos({
   onAnalyzeWithAI,
   onEnhancePhoto,
   enhancingUrl,
+  studioAvailable,
   templates,
   selectedTemplate,
   onSelectTemplate,
@@ -52,6 +53,7 @@ export function StepPhotos({
   onAnalyzeWithAI: () => void;
   onEnhancePhoto: (index: number, tier: BgRemovalTier) => void;
   enhancingUrl: string | null;
+  studioAvailable: boolean;
   templates: { id: string; name: string; payload: string }[];
   selectedTemplate: string;
   onSelectTemplate: (id: string) => void;
@@ -131,6 +133,7 @@ export function StepPhotos({
           onEnhance={handleEnhanceByUrl}
           enhancingUrl={enhancingUrl}
           disabled={!!optimizing}
+          studioAvailable={studioAvailable}
         />
 
         {photoUrls.map(

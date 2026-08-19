@@ -12,6 +12,11 @@ export const DEFAULT_BG_REMOVER = "birefnet";
 /** Provider used for the premium "studio quality" retry, when configured. */
 export const PREMIUM_BG_REMOVER = "photoroom";
 
+/** Whether the premium provider has credentials, i.e. whether the studio tier can run at all. */
+export function isPremiumBgRemoverConfigured(): boolean {
+  return removers[PREMIUM_BG_REMOVER]?.isConfigured() ?? false;
+}
+
 export function getBackgroundRemover(provider = process.env.BG_REMOVER || DEFAULT_BG_REMOVER): BackgroundRemover {
   const remover = removers[provider];
   if (!remover) {
