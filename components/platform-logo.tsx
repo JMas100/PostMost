@@ -20,7 +20,7 @@ export function PlatformMark({ platformId, className }: { platformId: string; cl
 
   return (
     <span
-      className={cn("font-heading text-xs font-extrabold leading-none tracking-tight", className)}
+      className={cn("block truncate text-center font-heading text-xs font-extrabold leading-none tracking-tight", className)}
       style={{ color: platform?.color }}
     >
       {name}
@@ -34,7 +34,7 @@ export function PlatformLogo({ platformId, className }: { platformId: string; cl
     <span
       title={platform?.name ?? platformId}
       className={cn(
-        "inline-flex h-8 w-20 items-center justify-center rounded-lg border border-border bg-card px-2 shadow-sm",
+        "inline-flex h-8 w-20 items-center justify-center overflow-hidden rounded-lg border border-black/10 bg-white px-2 shadow-sm",
         className
       )}
     >

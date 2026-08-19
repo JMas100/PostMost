@@ -27,6 +27,9 @@ import {
   RotateCcw,
   RefreshCw,
   Layers,
+  Code2,
+  Webhook,
+  Users,
 } from "lucide-react";
 
 const STRIP_ORDER = ["ebay", "poshmark", "mercari", "depop", "etsy", "whatnot", "grailed", "vinted", "shopify"];
@@ -161,10 +164,10 @@ export default function HomePage() {
         <div className="mx-auto grid max-w-7xl items-center gap-12 px-6 lg:grid-cols-2">
           <motion.div initial="hidden" animate="visible" variants={reveal} transition={{ duration: 0.6 }} className="max-w-2xl">
             <h1 className="text-5xl font-bold tracking-tight sm:text-6xl lg:text-7xl">
-              Post once. Sell <span className="text-primary">everywhere</span>.
+              Sell everywhere. Run it <span className="text-primary">like a business</span>.
             </h1>
             <p className="mt-6 text-lg text-muted-foreground">
-              PostMost puts your inventory on every marketplace you sell on—without the copy, paste, and repetition.
+              PostMost writes your listings with AI, publishes them to every marketplace you sell on, and keeps them in sync automatically—no copy, paste, or babysitting required.
             </p>
             <div className="mt-8 flex flex-col items-start gap-3 sm:flex-row sm:items-center">
               <Link href="/login" className={cn(buttonVariants({ size: "lg" }), "gap-2")}>
@@ -351,6 +354,55 @@ export default function HomePage() {
                 </CardHeader>
                 <CardContent>
                   <p className="text-sm text-muted-foreground">{stat.label}</p>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        </div>
+      </motion.section>
+
+      {/* Beyond crosslisting */}
+      <motion.section
+        id="platform"
+        initial="hidden"
+        whileInView="visible"
+        viewport={{ once: true, margin: "-100px" }}
+        variants={reveal}
+        className="border-y bg-muted/40 py-24"
+      >
+        <div className="mx-auto max-w-5xl px-6">
+          <div className="mb-12 text-center">
+            <h2 className="text-3xl font-bold tracking-tight sm:text-4xl">Built for growing resale businesses.</h2>
+            <p className="mt-4 text-lg text-muted-foreground">
+              PostMost isn&apos;t just a crosslister you click through—it&apos;s infrastructure your business can build on.
+            </p>
+          </div>
+
+          <div className="grid gap-6 sm:grid-cols-3">
+            {[
+              {
+                icon: Code2,
+                title: "A real public API",
+                body: "Create and manage listings programmatically. Wire PostMost into your own tools instead of being boxed into ours.",
+              },
+              {
+                icon: Webhook,
+                title: "Real-time inventory webhooks",
+                body: "Signed webhooks let your POS, warehouse, or other systems tell PostMost the moment something sells—no polling, no delay.",
+              },
+              {
+                icon: Users,
+                title: "Team accounts with roles",
+                body: "Bring on staff with admin or member access. One shared inventory, not one login passed around.",
+              },
+            ].map((feature) => (
+              <Card key={feature.title}>
+                <CardHeader>
+                  <feature.icon className="mb-2 h-6 w-6 text-primary" />
+                  <CardTitle className="text-base">{feature.title}</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-sm text-muted-foreground">{feature.body}</p>
                 </CardContent>
               </Card>
             ))}

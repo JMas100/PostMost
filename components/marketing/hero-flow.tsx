@@ -133,6 +133,20 @@ export function HeroFlow() {
           </text>
         </motion.g>
 
+        {/* AI-enrichment badge */}
+        <motion.g
+          initial={{ scale: 0, opacity: 0 }}
+          animate={{ scale: 1, opacity: 1 }}
+          transition={{ type: "spring", stiffness: 320, damping: 16, delay: duration * 1.05 }}
+        >
+          <circle cx={CARD_X + CARD_W - 6} cy={CARD_Y - 2} r="13" fill={`url(#${gradientId})`} />
+          <path
+            d="M0,-6 L1.6,-1.6 L6,0 L1.6,1.6 L0,6 L-1.6,1.6 L-6,0 L-1.6,-1.6 Z"
+            fill="hsl(var(--obsidian))"
+            transform={`translate(${CARD_X + CARD_W - 6}, ${CARD_Y - 2})`}
+          />
+        </motion.g>
+
         {/* Line to PostMost */}
         <motion.path
           d={`M${CARD_X + CARD_W} ${CENTER_Y} L${CENTER_X - CENTER_R} ${CENTER_Y}`}
@@ -172,6 +186,26 @@ export function HeroFlow() {
             PostMost
           </text>
         </motion.g>
+
+        {/* Continuous sync pulse */}
+        {!shouldReduceMotion && (
+          <motion.circle
+            cx={CENTER_X}
+            cy={CENTER_Y}
+            fill="none"
+            stroke="#b6f34a"
+            strokeWidth="2"
+            initial={{ r: CENTER_R + 4, opacity: 0 }}
+            animate={{ r: [CENTER_R + 4, CENTER_R + 22], opacity: [0.5, 0] }}
+            transition={{
+              duration: 1.8,
+              repeat: Infinity,
+              repeatDelay: 0.6,
+              ease: "easeOut",
+              delay: duration * 1.6 + markets.length * delayStep + 0.6,
+            }}
+          />
+        )}
 
         {/* Fan-out lines and marketplace badges */}
         {markets.map((platform, i) => {
