@@ -2,9 +2,10 @@ import { getServerSession } from "next-auth";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { authOptions } from "@/lib/auth";
-import { track } from "@/lib/analytics/track";
+import { trackDashboardViewed } from "@/lib/actions/analytics";
 import { getPlatform } from "@/lib/marketplaces/platforms";
 import { Shell } from "@/components/sidebar";
+import { TrackOnMount } from "@/components/track-on-mount";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { buttonVariants } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -35,8 +36,6 @@ export default async function DashboardPage() {
   const session = await getServerSession(authOptions);
   if (!session?.user?.id) redirect("/login");
 
-  await track("dashboard_viewed", session.user.id);
-
   const [listingCount, postedCount, accounts, soldAgg] = await Promise.all([
     prisma.listing.count({ where: { userId: session.user.id, isDraft: false } }),
     prisma.platformListing.count({
@@ -66,6 +65,7 @@ export default async function DashboardPage() {
 
   return (
     <Shell>
+      <TrackOnMount action={trackDashboardViewed} />
       <div className="space-y-6">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Overview</h1>

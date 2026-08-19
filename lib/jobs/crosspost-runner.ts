@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { decrypt } from "@/lib/crypto";
 import { getAdapter } from "@/lib/marketplaces";
+import { track } from "@/lib/analytics/track";
 import { Photo } from "@prisma/client";
 
 const PlatformListingStatus = {
@@ -92,7 +93,7 @@ export async function processPendingCrossPostJobs(listingId?: string): Promise<C
 
     const adapter = getAdapter(job.platform);
     if (!adapter) {
-      await handleFailure(job.id, job.listingId, job.platform, attempts, job.maxAttempts, "Unsupported platform", summary);
+      await handleFailure(job.id, job.userId, job.listingId, job.platform, attempts, job.maxAttempts, "Unsupported platform", summary);
       continue;
     }
 
@@ -136,6 +137,7 @@ export async function processPendingCrossPostJobs(listingId?: string): Promise<C
       if (!result.success) {
         await handleFailure(
           job.id,
+          job.userId,
           job.listingId,
           job.platform,
           attempts,
@@ -146,6 +148,10 @@ export async function processPendingCrossPostJobs(listingId?: string): Promise<C
         );
         continue;
       }
+
+      const priorSuccesses = await prisma.platformListing.count({
+        where: { status: PlatformListingStatus.POSTED, listing: { userId: job.userId } },
+      });
 
       await prisma.crossPostJob.update({
         where: { id: job.id },
@@ -173,9 +179,14 @@ export async function processPendingCrossPostJobs(listingId?: string): Promise<C
         data: { status: "ACTIVE" },
       });
       summary.succeeded += 1;
+
+      await track("publish_platform_succeeded", job.userId, { listingId: job.listingId, platform: job.platform });
+      if (priorSuccesses === 0) {
+        await track("first_crosspost_completed", job.userId, { listingId: job.listingId, platform: job.platform });
+      }
     } catch (err) {
       const message = err instanceof Error ? err.message : "Unknown error";
-      await handleFailure(job.id, job.listingId, job.platform, attempts, job.maxAttempts, message, summary);
+      await handleFailure(job.id, job.userId, job.listingId, job.platform, attempts, job.maxAttempts, message, summary);
     }
   }
 
@@ -184,6 +195,7 @@ export async function processPendingCrossPostJobs(listingId?: string): Promise<C
 
 async function handleFailure(
   jobId: string,
+  userId: string,
   listingId: string,
   platform: string,
   attempts: number,
@@ -224,4 +236,5 @@ async function handleFailure(
     data: { status: PlatformListingStatus.FAILED, errorMessage: message },
   });
   summary.failed += 1;
+  await track("publish_platform_failed", userId, { listingId, platform, error: message });
 }

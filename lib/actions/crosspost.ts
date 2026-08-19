@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { getAdapter } from "@/lib/marketplaces";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
+import { track } from "@/lib/analytics/track";
 
 const PlatformListingStatus = {
   PENDING: "PENDING",
@@ -28,6 +29,8 @@ export async function crossPost(listingId: string, platformIds: string[]) {
     include: { photos: true },
   });
   if (!listing) return { error: "Listing not found" };
+
+  await track("publish_started", userId, { listingId, platformIds });
 
   const accounts = await prisma.marketplaceAccount.findMany({
     where: { userId, platform: { in: platformIds }, isActive: true },
