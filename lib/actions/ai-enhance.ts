@@ -9,7 +9,7 @@ import {
   incrementBgRemovalUsage,
 } from "@/lib/actions/usage";
 import { BgRemovalTier } from "@/lib/plans";
-import { PREMIUM_BG_REMOVER } from "@/lib/ai/background";
+import { isPremiumBgRemoverConfigured, PREMIUM_BG_REMOVER } from "@/lib/ai/background";
 import {
   optimizeTitle as optimizeTitleAi,
   optimizeDescription as optimizeDescriptionAi,
@@ -76,15 +76,16 @@ export async function generatePlatformCaption(data: {
   );
 }
 
-export async function enhancePhoto(
-  dataUrl: string,
-  options: { tier?: BgRemovalTier } = {}
-): Promise<{ success: true; result: string } | { success: false; error: string }> {
-  const tier: BgRemovalTier = options.tier ?? "standard";
-  const session = await getServerSession(authOptions);
-  const userId = session?.user?.id;
-  if (!userId) return { success: false, error: "You must be logged in." };
+/** Whether the studio tier can be offered at all, so the UI can hide it when unconfigured. */
+export async function isStudioRemovalAvailable(): Promise<boolean> {
+  return isPremiumBgRemoverConfigured();
+}
 
+async function runRemoval(
+  userId: string,
+  dataUrl: string,
+  tier: BgRemovalTier
+): Promise<{ success: true; result: string } | { success: false; error: string }> {
   const quota = await canRemoveBackground(userId, tier);
   if (!quota.allowed) return { success: false, error: quota.reason || "Background removal limit reached" };
 
@@ -96,4 +97,31 @@ export async function enhancePhoto(
     const message = err instanceof Error ? err.message : "Background removal failed";
     return { success: false, error: message };
   }
+}
+
+export async function enhancePhoto(
+  dataUrl: string,
+  options: { tier?: BgRemovalTier } = {}
+): Promise<{ success: true; result: string; tier: BgRemovalTier } | { success: false; error: string }> {
+  const requestedTier: BgRemovalTier = options.tier ?? "standard";
+  const session = await getServerSession(authOptions);
+  const userId = session?.user?.id;
+  if (!userId) return { success: false, error: "You must be logged in." };
+
+  // Studio is a best-effort upgrade: an unconfigured or failing premium provider (missing key,
+  // exhausted credits, provider outage) degrades to the standard remover instead of erroring.
+  if (requestedTier === "studio") {
+    if (isPremiumBgRemoverConfigured()) {
+      const studio = await runRemoval(userId, dataUrl, "studio");
+      if (studio.success) return { ...studio, tier: "studio" };
+      const quota = await canRemoveBackground(userId, "studio");
+      // A quota/plan rejection is a product decision, not a provider failure: surface it.
+      if (!quota.allowed) return studio;
+    }
+    const fallback = await runRemoval(userId, dataUrl, "standard");
+    return fallback.success ? { ...fallback, tier: "standard" } : fallback;
+  }
+
+  const standard = await runRemoval(userId, dataUrl, "standard");
+  return standard.success ? { ...standard, tier: "standard" } : standard;
 }
