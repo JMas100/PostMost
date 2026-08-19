@@ -1,7 +1,8 @@
 "use client";
 
-import { useId } from "react";
+import { useEffect, useId, useState } from "react";
 import { motion, useReducedMotion } from "framer-motion";
+import { TrendingUp } from "lucide-react";
 import { PLATFORMS } from "@/lib/marketplaces/platforms";
 import { LogoMark } from "@/components/logo";
 import { PlatformLogo } from "@/components/platform-logo";
@@ -51,9 +52,18 @@ const nodeVariants = {
 
 export function HeroFlow() {
   const shouldReduceMotion = useReducedMotion();
-  const duration = shouldReduceMotion ? 0 : 0.45;
-  const nodeDuration = shouldReduceMotion ? 0 : 0.35;
-  const delayStep = shouldReduceMotion ? 0 : 0.2;
+  // useReducedMotion() reads matchMedia, which isn't available during SSR —
+  // its value can differ between the server render and the client's first
+  // paint, which breaks hydration (both for conditionally-rendered elements
+  // and for framer-motion's own inline styles like will-change). Only trust
+  // it after mount, so SSR and the first client render always agree on the
+  // "motion enabled" path, and the real preference applies a tick later.
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
+  const reduceMotion = mounted && shouldReduceMotion;
+  const duration = reduceMotion ? 0 : 0.45;
+  const nodeDuration = reduceMotion ? 0 : 0.35;
+  const delayStep = reduceMotion ? 0 : 0.2;
   const gradientId = useId();
   const glowId = useId();
 
@@ -159,6 +169,22 @@ export function HeroFlow() {
           variants={lineVariants}
           transition={{ duration: duration * 0.8, delay: duration * 0.6, ease: "easeInOut" }}
         />
+        {!reduceMotion && (
+          <motion.path
+            d={`M${CARD_X + CARD_W} ${CENTER_Y} L${CENTER_X - CENTER_R} ${CENTER_Y}`}
+            stroke="#b6f34a"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeDasharray="3 9"
+            fill="none"
+            initial={{ opacity: 0, strokeDashoffset: 0 }}
+            animate={{ opacity: 0.7, strokeDashoffset: -24 }}
+            transition={{
+              opacity: { duration: 0.4, delay: duration * 1.4 },
+              strokeDashoffset: { duration: 1.2, repeat: Infinity, ease: "linear", delay: duration * 1.4 },
+            }}
+          />
+        )}
 
         {/* Glow behind the hub */}
         <circle cx={CENTER_X} cy={CENTER_Y} r={CENTER_R + 60} fill={`url(#${glowId})`} />
@@ -188,7 +214,7 @@ export function HeroFlow() {
         </motion.g>
 
         {/* Continuous sync pulse */}
-        {!shouldReduceMotion && (
+        {!reduceMotion && (
           <motion.circle
             cx={CENTER_X}
             cy={CENTER_Y}
@@ -224,6 +250,22 @@ export function HeroFlow() {
                 variants={lineVariants}
                 transition={{ duration, delay, ease: "easeInOut" }}
               />
+              {!reduceMotion && (
+                <motion.path
+                  d={`M${CENTER_X + CENTER_R} ${CENTER_Y} L${NODES_X - BADGE_W / 2} ${y}`}
+                  stroke="#b6f34a"
+                  strokeWidth="1.5"
+                  strokeLinecap="round"
+                  strokeDasharray="3 9"
+                  fill="none"
+                  initial={{ opacity: 0, strokeDashoffset: 0 }}
+                  animate={{ opacity: 0.5, strokeDashoffset: -24 }}
+                  transition={{
+                    opacity: { duration: 0.4, delay: delay + duration * 0.6 },
+                    strokeDashoffset: { duration: 1.4, repeat: Infinity, ease: "linear", delay: delay + duration * 0.6 },
+                  }}
+                />
+              )}
               <motion.g
                 initial="hidden"
                 animate="visible"
@@ -237,6 +279,47 @@ export function HeroFlow() {
             </motion.g>
           );
         })}
+
+        {/* Floating supporting chips */}
+        <motion.g
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ duration: nodeDuration, delay: duration * 1.8 }}
+        >
+          <motion.foreignObject
+            x={370}
+            y={54}
+            width={116}
+            height={32}
+            animate={reduceMotion ? undefined : { y: [0, -6, 0] }}
+            transition={reduceMotion ? undefined : { duration: 3.2, repeat: Infinity, ease: "easeInOut", delay: duration * 1.8 }}
+          >
+            <div className="flex h-8 w-max items-center gap-1.5 whitespace-nowrap rounded-full border border-border bg-card px-3 text-[11px] font-medium text-foreground shadow-medium">
+              <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-success" />
+              Auto-synced
+            </div>
+          </motion.foreignObject>
+        </motion.g>
+
+        <motion.g
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ duration: nodeDuration, delay: duration * 2.0 }}
+        >
+          <motion.foreignObject
+            x={80}
+            y={302}
+            width={132}
+            height={32}
+            animate={reduceMotion ? undefined : { y: [0, -6, 0] }}
+            transition={reduceMotion ? undefined : { duration: 3.6, repeat: Infinity, ease: "easeInOut", delay: duration * 2.2 }}
+          >
+            <div className="flex h-8 w-max items-center gap-1.5 whitespace-nowrap rounded-full border border-border bg-card px-3 text-[11px] font-medium text-foreground shadow-medium">
+              <TrendingUp className="h-3 w-3 shrink-0 text-primary" />
+              Profit tracked
+            </div>
+          </motion.foreignObject>
+        </motion.g>
 
         {/* Final success state */}
         <motion.text
