@@ -4,6 +4,19 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { getUsage } from "@/lib/actions/usage";
+import { track } from "@/lib/analytics/track";
+
+export async function trackListingStarted() {
+  const session = await getServerSession(authOptions);
+  if (!session?.user?.id) return;
+  await track("listing_started", session.user.id);
+}
+
+export async function trackDashboardViewed() {
+  const session = await getServerSession(authOptions);
+  if (!session?.user?.id) return;
+  await track("dashboard_viewed", session.user.id);
+}
 
 export async function getAnalytics() {
   const session = await getServerSession(authOptions);
