@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
+import { PlatformLogo } from "@/components/platform-logo";
 import { cn } from "@/lib/utils";
 import { ResolvedPlatform } from "./types";
 
@@ -46,7 +47,7 @@ export function PlatformRow({
       )}
     >
       <div className="flex items-center gap-3">
-        <div className="h-6 w-6 shrink-0 rounded-full" style={{ backgroundColor: platform.color }} />
+        <PlatformLogo platformId={platform.id} className="h-6 w-14 px-1.5 shrink-0" />
         <p className="text-sm font-medium">{platform.name}</p>
       </div>
       <div className="flex items-center gap-2">

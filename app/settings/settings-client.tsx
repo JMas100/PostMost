@@ -19,6 +19,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
+import { PlatformLogo } from "@/components/platform-logo";
 import { toast } from "sonner";
 import { ExternalLink, Link2, Unlink } from "lucide-react";
 
@@ -72,10 +73,7 @@ function AccountCard({ platform, account }: AccountCardProps) {
   return (
     <div className="flex items-center justify-between rounded-lg border p-4">
       <div className="flex items-center gap-3">
-        <div
-          className="h-8 w-8 rounded-full"
-          style={{ backgroundColor: platform.color }}
-        />
+        <PlatformLogo platformId={platform.id} />
         <div>
           <p className="font-medium">{platform.name}</p>
           <p className="text-xs text-muted-foreground">
@@ -106,10 +104,7 @@ function ConnectDialog({ platform, account }: AccountCardProps) {
         <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <div
-              className="h-4 w-4 rounded-full"
-              style={{ backgroundColor: platform.color }}
-            />
+            <PlatformLogo platformId={platform.id} className="h-5 w-16 px-1.5" />
             {account ? "Manage" : "Connect"} {platform.name}
           </DialogTitle>
           <DialogDescription>
