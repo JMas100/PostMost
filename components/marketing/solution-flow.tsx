@@ -3,6 +3,7 @@
 import { motion } from "framer-motion";
 import { ImageIcon } from "lucide-react";
 import { PLATFORMS } from "@/lib/marketplaces/platforms";
+import { PlatformMark } from "@/components/platform-logo";
 
 const SOLUTION_MARKETS = ["ebay", "poshmark", "mercari", "depop", "etsy", "whatnot"] as const;
 
@@ -57,7 +58,7 @@ export function SolutionFlow() {
         return (
           <motion.div
             key={platform.id}
-            className="absolute flex items-center gap-2 rounded-lg border bg-background px-2.5 py-2 shadow-sm"
+            className="absolute flex items-center justify-center rounded-lg border bg-background px-3 py-2 shadow-sm"
             initial={{ left: "42%", top: "50%", x: "-50%", y: "-50%", opacity: 0, scale: 0.6 }}
             animate={{ left: target.left, top: target.top, opacity: 1, scale: 1 }}
             transition={{
@@ -67,8 +68,7 @@ export function SolutionFlow() {
               damping: 18,
             }}
           >
-            <div className="h-6 w-6 rounded-full" style={{ backgroundColor: platform.color }} />
-            <span className="text-xs font-medium">{platform.name}</span>
+            <PlatformMark platformId={platform.id} className="h-4 w-16" />
           </motion.div>
         );
       })}
