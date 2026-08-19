@@ -1,7 +1,7 @@
 "use server";
 
 import { prisma } from "@/lib/prisma";
-import { getPlan } from "@/lib/plans";
+import { BgRemovalTier, getPlan } from "@/lib/plans";
 
 function getMonthWindow(now = new Date()): { start: Date; end: Date } {
   const start = new Date(now.getFullYear(), now.getMonth(), 1);
@@ -28,6 +28,8 @@ async function resetIfNeeded(userId: string) {
       data: {
         listingsThisMonth: 0,
         aiCreditsUsed: 0,
+        bgRemovalsUsed: 0,
+        studioBgRemovalsUsed: 0,
         resetAt: new Date(),
       },
     });
@@ -42,8 +44,12 @@ export async function getUsage(userId: string) {
     plan,
     listingsThisMonth: usage.listingsThisMonth,
     aiCreditsUsed: usage.aiCreditsUsed,
+    bgRemovalsUsed: usage.bgRemovalsUsed,
+    studioBgRemovalsUsed: usage.studioBgRemovalsUsed,
     listingsLimit: plan.listingsPerMonth,
     aiLimit: plan.aiCreditsPerMonth,
+    bgRemovalsLimit: plan.bgRemovalsPerMonth,
+    studioBgRemovalsLimit: plan.studioBgRemovalsPerMonth,
   };
 }
 
@@ -78,5 +84,36 @@ export async function incrementAIUsage(userId: string) {
   await prisma.userUsage.update({
     where: { userId },
     data: { aiCreditsUsed: { increment: 1 } },
+  });
+}
+
+export async function canRemoveBackground(
+  userId: string,
+  tier: BgRemovalTier = "standard"
+): Promise<{ allowed: boolean; reason?: string }> {
+  const usage = await getUsage(userId);
+  const { plan } = usage;
+  const limit = tier === "studio" ? plan.studioBgRemovalsPerMonth : plan.bgRemovalsPerMonth;
+  const used = tier === "studio" ? usage.studioBgRemovalsUsed : usage.bgRemovalsUsed;
+  const label = tier === "studio" ? "studio-quality background removals" : "background removals";
+
+  if (limit === -1) return { allowed: true };
+  if (limit === 0) {
+    return { allowed: false, reason: `The ${plan.name} plan does not include ${label}. Upgrade to unlock them.` };
+  }
+  if (used >= limit) {
+    return { allowed: false, reason: `You have used all ${limit} ${label} on the ${plan.name} plan.` };
+  }
+  return { allowed: true };
+}
+
+export async function incrementBgRemovalUsage(userId: string, tier: BgRemovalTier = "standard") {
+  await resetIfNeeded(userId);
+  await prisma.userUsage.update({
+    where: { userId },
+    data:
+      tier === "studio"
+        ? { studioBgRemovalsUsed: { increment: 1 } }
+        : { bgRemovalsUsed: { increment: 1 } },
   });
 }

@@ -15,6 +15,7 @@ import {
   generatePlatformCaption,
   enhancePhoto,
 } from "@/lib/actions/ai-enhance";
+import { BgRemovalTier } from "@/lib/plans";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { toast } from "sonner";
 import { uploadDataUrl, uploadImages } from "@/lib/upload-client";
@@ -214,7 +215,7 @@ export function ListingForm({ mode = "create", draftId, initialData, templates =
     }
   }
 
-  async function handleEnhancePhoto(index: number) {
+  async function handleEnhancePhoto(index: number, tier: BgRemovalTier = "standard") {
     const image = photoUrls[index];
     if (!image || !(image.startsWith("http") || image.startsWith("data:"))) {
       return toast.error("Upload a photo first");
@@ -222,7 +223,7 @@ export function ListingForm({ mode = "create", draftId, initialData, templates =
     setOptimizing("photo");
     setEnhancingUrl(image);
     try {
-      const result = await enhancePhoto(image);
+      const result = await enhancePhoto(image, { tier });
       if (!result.success) {
         toast.error(result.error || "Photo enhancement failed");
         return;

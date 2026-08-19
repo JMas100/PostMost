@@ -10,8 +10,9 @@ import {
 } from "@dnd-kit/core";
 import { SortableContext, rectSortingStrategy, useSortable, arrayMove } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { Trash2, Wand2 } from "lucide-react";
+import { Sparkles, Trash2, Wand2 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { BgRemovalTier } from "@/lib/plans";
 
 function SortablePhoto({
   url,
@@ -22,7 +23,7 @@ function SortablePhoto({
 }: {
   url: string;
   onRemove: () => void;
-  onEnhance: () => void;
+  onEnhance: (tier: BgRemovalTier) => void;
   enhancing: boolean;
   disabled: boolean;
 }) {
@@ -38,21 +39,38 @@ function SortablePhoto({
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img src={url} alt="" className="h-full w-full rounded-md object-cover" />
       <div className="absolute inset-x-1 top-1 flex justify-between">
-        <button
-          type="button"
-          onClick={(e) => {
-            e.stopPropagation();
-            onEnhance();
-          }}
-          disabled={disabled}
-          className={cn(
-            "rounded-full bg-background/90 p-1 text-foreground shadow-sm disabled:opacity-50",
-            "opacity-0 transition-opacity group-hover:opacity-100"
-          )}
-          title="Remove background"
-        >
-          <Wand2 className={cn("h-3 w-3", enhancing && "animate-pulse")} />
-        </button>
+        <div className="flex gap-1">
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              onEnhance("standard");
+            }}
+            disabled={disabled}
+            className={cn(
+              "rounded-full bg-background/90 p-1 text-foreground shadow-sm disabled:opacity-50",
+              "opacity-0 transition-opacity group-hover:opacity-100"
+            )}
+            title="Remove background"
+          >
+            <Wand2 className={cn("h-3 w-3", enhancing && "animate-pulse")} />
+          </button>
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              onEnhance("studio");
+            }}
+            disabled={disabled}
+            className={cn(
+              "rounded-full bg-background/90 p-1 text-foreground shadow-sm disabled:opacity-50",
+              "opacity-0 transition-opacity group-hover:opacity-100"
+            )}
+            title="Remove background — studio quality"
+          >
+            <Sparkles className={cn("h-3 w-3", enhancing && "animate-pulse")} />
+          </button>
+        </div>
         <button
           type="button"
           onClick={(e) => {
@@ -80,7 +98,7 @@ export function PhotoSortableGrid({
   photos: string[];
   onReorder: (next: string[]) => void;
   onRemove: (url: string) => void;
-  onEnhance: (url: string) => void;
+  onEnhance: (url: string, tier: BgRemovalTier) => void;
   enhancingUrl: string | null;
   disabled: boolean;
 }) {
@@ -106,7 +124,7 @@ export function PhotoSortableGrid({
               key={url}
               url={url}
               onRemove={() => onRemove(url)}
-              onEnhance={() => onEnhance(url)}
+              onEnhance={(tier) => onEnhance(url, tier)}
               enhancing={enhancingUrl === url}
               disabled={disabled}
             />

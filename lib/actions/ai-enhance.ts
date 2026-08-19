@@ -2,7 +2,14 @@
 
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
-import { canUseAI, incrementAIUsage } from "@/lib/actions/usage";
+import {
+  canRemoveBackground,
+  canUseAI,
+  incrementAIUsage,
+  incrementBgRemovalUsage,
+} from "@/lib/actions/usage";
+import { BgRemovalTier } from "@/lib/plans";
+import { PREMIUM_BG_REMOVER } from "@/lib/ai/background";
 import {
   optimizeTitle as optimizeTitleAi,
   optimizeDescription as optimizeDescriptionAi,
@@ -69,6 +76,24 @@ export async function generatePlatformCaption(data: {
   );
 }
 
-export async function enhancePhoto(dataUrl: string): Promise<{ success: true; result: string } | { success: false; error: string }> {
-  return withAiUsage(() => enhancePhotoAi(dataUrl));
+export async function enhancePhoto(
+  dataUrl: string,
+  options: { tier?: BgRemovalTier } = {}
+): Promise<{ success: true; result: string } | { success: false; error: string }> {
+  const tier: BgRemovalTier = options.tier ?? "standard";
+  const session = await getServerSession(authOptions);
+  const userId = session?.user?.id;
+  if (!userId) return { success: false, error: "You must be logged in." };
+
+  const quota = await canRemoveBackground(userId, tier);
+  if (!quota.allowed) return { success: false, error: quota.reason || "Background removal limit reached" };
+
+  try {
+    const result = await enhancePhotoAi(dataUrl, tier === "studio" ? PREMIUM_BG_REMOVER : undefined);
+    await incrementBgRemovalUsage(userId, tier);
+    return { success: true, result };
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "Background removal failed";
+    return { success: false, error: message };
+  }
 }

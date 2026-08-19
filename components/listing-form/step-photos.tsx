@@ -16,6 +16,7 @@ import {
 import { Sparkles } from "lucide-react";
 import { PhotoSortableGrid } from "./photo-sortable-grid";
 import { OptimizingState } from "./types";
+import { BgRemovalTier } from "@/lib/plans";
 
 const NO_TEMPLATE = "__none__";
 
@@ -49,7 +50,7 @@ export function StepPhotos({
   onUpdatePhoto: (index: number, value: string) => void;
   onRemovePhoto: (index: number) => void;
   onAnalyzeWithAI: () => void;
-  onEnhancePhoto: (index: number) => void;
+  onEnhancePhoto: (index: number, tier: BgRemovalTier) => void;
   enhancingUrl: string | null;
   templates: { id: string; name: string; payload: string }[];
   selectedTemplate: string;
@@ -74,9 +75,9 @@ export function StepPhotos({
     if (index !== -1) onRemovePhoto(index);
   }
 
-  function handleEnhanceByUrl(url: string) {
+  function handleEnhanceByUrl(url: string, tier: BgRemovalTier) {
     const index = photoUrls.indexOf(url);
-    if (index !== -1) onEnhancePhoto(index);
+    if (index !== -1) onEnhancePhoto(index, tier);
   }
 
   return (

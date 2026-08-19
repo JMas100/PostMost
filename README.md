@@ -126,6 +126,15 @@ npx tsx -r dotenv/config scripts/bake-off-bg-removal.ts --input ./samples --out 
 It writes each provider's cut-outs into `<out>/<provider>/` plus `results.csv` with per-image
 latency and output size, and skips providers whose keys are missing.
 
+### Quotas
+
+Removals are metered separately from OpenAI credits, because the two have very different marginal
+costs: `bgRemovalsPerMonth` covers the standard (BiRefNet) tier and is `-1`/unlimited on every paid
+plan, while `studioBgRemovalsPerMonth` meters the PhotoRoom "studio quality" retry that the second
+button on each photo triggers. A limit of `0` means the plan doesn't include that tier, and
+`canRemoveBackground()` rejects with an upgrade message rather than silently spending provider
+credit.
+
 ### Backfilling legacy base64 photos
 
 Optional, never run during a build:
