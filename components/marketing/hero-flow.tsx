@@ -1,8 +1,10 @@
 "use client";
 
+import { useId } from "react";
 import { motion, useReducedMotion } from "framer-motion";
 import { PLATFORMS } from "@/lib/marketplaces/platforms";
 import { LogoMark } from "@/components/logo";
+import { PlatformLogo } from "@/components/platform-logo";
 
 const FLOW_ORDER = [
   "ebay",
@@ -16,19 +18,21 @@ const FLOW_ORDER = [
   "shopify",
 ] as const;
 
-const VB_W = 720;
+const VB_W = 640;
 const VB_H = 420;
 const CARD_X = 40;
 const CARD_Y = 160;
 const CARD_W = 170;
 const CARD_H = 100;
-const CENTER_X = 300;
+const CENTER_X = 280;
 const CENTER_Y = 210;
 const CENTER_R = 30;
-const NODES_X = 620;
-const NODE_R = 12;
+const NODES_X = 560;
+const BADGE_W = 76;
+const BADGE_H = 30;
 const TOP_MARGIN = 24;
-const NODE_SPACING = (VB_H - TOP_MARGIN * 2) / (FLOW_ORDER.length - 1);
+const BOTTOM_MARGIN = 40;
+const NODE_SPACING = (VB_H - TOP_MARGIN - BOTTOM_MARGIN) / (FLOW_ORDER.length - 1);
 
 const cardVariants = {
   hidden: { opacity: 0, x: -20 },
@@ -45,16 +49,13 @@ const nodeVariants = {
   visible: { scale: 1, opacity: 1 },
 };
 
-const labelVariants = {
-  hidden: { opacity: 0, x: -8 },
-  visible: { opacity: 1, x: 0 },
-};
-
 export function HeroFlow() {
   const shouldReduceMotion = useReducedMotion();
   const duration = shouldReduceMotion ? 0 : 0.45;
   const nodeDuration = shouldReduceMotion ? 0 : 0.35;
-  const delayStep = shouldReduceMotion ? 0 : 0.22;
+  const delayStep = shouldReduceMotion ? 0 : 0.2;
+  const gradientId = useId();
+  const glowId = useId();
 
   const markets = FLOW_ORDER.map((id) => PLATFORMS.find((p) => p.id === id)).filter(
     (p): p is (typeof PLATFORMS)[number] => !!p
@@ -64,14 +65,21 @@ export function HeroFlow() {
     <div className="relative w-full max-w-3xl">
       <svg
         viewBox={`0 0 ${VB_W} ${VB_H}`}
-        className="h-auto w-full"
+        className="h-auto w-full overflow-visible"
         role="img"
         aria-label="One listing flows through PostMost to every marketplace"
       >
         <defs>
-          <marker id="arrow" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto">
-            <path d="M0,0 L8,4 L0,8 L0,0" fill="hsl(var(--muted-foreground))" />
-          </marker>
+          <linearGradient id={gradientId} gradientUnits="userSpaceOnUse" x1={CENTER_X} y1={CENTER_Y} x2={NODES_X} y2={CENTER_Y}>
+            <stop offset="0" stopColor="#b6f34a" />
+            <stop offset=".78" stopColor="#b6f34a" />
+            <stop offset=".89" stopColor="#a0e82c" />
+            <stop offset="1" stopColor="#629118" />
+          </linearGradient>
+          <radialGradient id={glowId}>
+            <stop offset="0%" stopColor="#b6f34a" stopOpacity="0.35" />
+            <stop offset="100%" stopColor="#b6f34a" stopOpacity="0" />
+          </radialGradient>
         </defs>
 
         {/* Listing card */}
@@ -131,13 +139,15 @@ export function HeroFlow() {
           stroke="hsl(var(--border))"
           strokeWidth="2"
           strokeLinecap="round"
-          markerEnd="url(#arrow)"
           fill="none"
           initial="hidden"
           animate="visible"
           variants={lineVariants}
           transition={{ duration: duration * 0.8, delay: duration * 0.6, ease: "easeInOut" }}
         />
+
+        {/* Glow behind the hub */}
+        <circle cx={CENTER_X} cy={CENTER_Y} r={CENTER_R + 60} fill={`url(#${glowId})`} />
 
         {/* Central PostMost node */}
         <motion.g
@@ -163,15 +173,15 @@ export function HeroFlow() {
           </text>
         </motion.g>
 
-        {/* Fan-out lines and marketplace nodes */}
+        {/* Fan-out lines and marketplace badges */}
         {markets.map((platform, i) => {
           const y = TOP_MARGIN + i * NODE_SPACING;
           const delay = duration * 1.6 + i * delayStep;
           return (
             <motion.g key={platform.id}>
               <motion.path
-                d={`M${CENTER_X + CENTER_R} ${CENTER_Y} L${NODES_X - NODE_R} ${y}`}
-                stroke="hsl(var(--border))"
+                d={`M${CENTER_X + CENTER_R} ${CENTER_Y} L${NODES_X - BADGE_W / 2} ${y}`}
+                stroke={`url(#${gradientId})`}
                 strokeWidth="1.5"
                 strokeLinecap="round"
                 fill="none"
@@ -186,47 +196,27 @@ export function HeroFlow() {
                 variants={nodeVariants}
                 transition={{ type: "spring", stiffness: 280, damping: 18, delay: delay + duration * 0.6 }}
               >
-                <circle
-                  cx={NODES_X}
-                  cy={y}
-                  r={NODE_R}
-                  fill={platform.color}
-                  stroke="hsl(var(--border))"
-                  strokeWidth="1"
-                />
-                <motion.text
-                  x={NODES_X + NODE_R + 12}
-                  y={y + 4}
-                  style={{ fill: "hsl(var(--foreground))" }}
-                  className="text-[11px] font-medium"
-                  initial="hidden"
-                  animate="visible"
-                  variants={labelVariants}
-                  transition={{ duration: nodeDuration, delay: delay + duration * 0.9 }}
-                >
-                  {platform.name}
-                </motion.text>
+                <foreignObject x={NODES_X - BADGE_W / 2} y={y - BADGE_H / 2} width={BADGE_W} height={BADGE_H}>
+                  <PlatformLogo platformId={platform.id} className="h-[30px] w-[76px]" />
+                </foreignObject>
               </motion.g>
             </motion.g>
           );
         })}
 
         {/* Final success state */}
-        <motion.g
+        <motion.text
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: nodeDuration, delay: duration * 1.6 + markets.length * delayStep + 0.4 }}
+          x={NODES_X}
+          y={VB_H - 8}
+          textAnchor="middle"
+          style={{ fill: "hsl(var(--success))" }}
+          className="text-xs font-semibold"
         >
-          <circle cx={NODES_X + 18} cy={CENTER_Y - 12} r="5" style={{ fill: "hsl(var(--success))" }} />
-          <text
-            x={NODES_X + 32}
-            y={CENTER_Y - 7}
-            style={{ fill: "hsl(var(--success))" }}
-            className="text-xs font-semibold"
-          >
-            Published everywhere
-          </text>
-        </motion.g>
+          ✓ Published everywhere
+        </motion.text>
       </svg>
     </div>
   );
