@@ -1,6 +1,6 @@
 ---
 name: testing-postmost-locally
-description: How to run and end-to-end test PostMost (Next.js + Prisma + Neon) locally, including the local-Postgres workaround, seeded demo login, how to exercise the cross-post job queue / worker endpoint, and how to test photo uploads against a local S3-compatible (MinIO) storage endpoint.
+description: How to run and end-to-end test PostMost (Next.js + Prisma + Neon) locally, including the local-Postgres workaround, seeded demo login, how to exercise the cross-post job queue / worker endpoint, how to test photo uploads against real R2 or a local S3-compatible (MinIO) endpoint, and how to test plan limits / usage meters (AI credits, background removals).
 ---
 
 # Testing PostMost locally
@@ -56,6 +56,22 @@ description: How to run and end-to-end test PostMost (Next.js + Prisma + Neon) l
 - Backfill script: `npx tsx -r dotenv/config scripts/migrate-photos-to-blob.ts [--dry-run] [--limit N]`. It only touches rows whose url starts with `data:`, so re-running should report `Found 0 base64 photo(s)` (idempotency check). Seed a legacy row first by inserting a small `data:image/png;base64,...` Photo via psql.
 - Saving a draft deletes and recreates its `Photo` rows (ids change) while preserving the url values — do not assert on photo ids across an edit.
 - AI "Enhance photo" needs `FAL_KEY` (BiRefNet, the default) or `PHOTOROOM_API_KEY` with `BG_REMOVER=photoroom`; other AI buttons need `OPENAI_API_KEY`. Without them that path cannot be exercised — mark it untested rather than faking it.
+- **Real R2 usually works and is preferable to MinIO when the `R2_*` session secrets exist.** Do not write secrets into `.env`; strip all `R2_*`/`S3_ENDPOINT`/`STORAGE_PROVIDER` storage lines from `.env` except `STORAGE_PROVIDER="r2"` and start the dev server with the secrets bound through the exec `env` parameter (`R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_BUCKET`, `R2_PUBLIC_BASE_URL`, plus `FAL_KEY`/`PHOTOROOM_API_KEY`). Next.js's dotenv loader does not override already-set process env vars, so bound values win. Public URLs then look like `https://images.postmost.co/listings/<userId>/<uuid>.jpg`.
+- Prefer real R2 over MinIO whenever an external provider must *fetch* the image URL: fal/BiRefNet is passed `image_url` and downloads it remotely, so `http://localhost:9000/...` cannot work. PhotoRoom is fine either way (the server loads the bytes itself via `imageToBlob`).
+- Smoke-test providers before UI testing: `curl -X POST https://fal.run/fal-ai/birefnet/v2 -H "Authorization: Key $FAL_KEY" -d '{"image_url":"https://placehold.co/600x600.png",...}'` and `curl -X POST https://sdk.photoroom.com/v1/segment -H "x-api-key: $PHOTOROOM_API_KEY" -F format=png -F image_file=@photo.jpg`. A PhotoRoom sandbox key returns a **watermarked** PNG — that watermark is handy proof the studio path really hit PhotoRoom rather than the default remover.
+
+## Plan limits & usage meters (billing quotas)
+- Plan definitions live in `lib/plans.ts` (`listingsPerMonth`, `aiCreditsPerMonth`, `bgRemovalsPerMonth`, `studioBgRemovalsPerMonth`; `-1` = unlimited, `0` = not included). A user's plan is just `User.plan` (default `free`), and counters live in one `UserUsage` row.
+- Drive quota states directly with SQL, then reload the page:
+  ```
+  docker exec pg psql -U postgres -d postmost \
+    -c "update \"User\" set plan='pro' where email='demo@postmost.co';" \
+    -c "update \"UserUsage\" set \"bgRemovalsUsed\"=25,\"studioBgRemovalsUsed\"=0,\"aiCreditsUsed\"=0;" \
+    -c 'select "bgRemovalsUsed","studioBgRemovalsUsed","aiCreditsUsed" from "UserUsage";'
+  ```
+  Free = 25 standard removals / 0 studio; Pro = unlimited standard / 200 studio. Always snapshot the counters before and after the UI action — the increment (or lack of one) is the real assertion.
+- Background removal UI: `/listings/new` step 1 ("Photos"). Upload a file, then **hover the photo tile** — two round buttons appear at the tile's top-left: the wand (`title="Remove background"`, standard tier) and the sparkles (`title="Remove background — studio quality"`, studio tier); the red trash button is top-right. Hovering is required, and after any click the buttons are re-disabled while the request runs, so hover again before the next click. The resulting hosted URL is visible in the text `Input` under the grid (it changes from `...jpg` to a new `...png` when a removal succeeds).
+- Usage meters render on `/settings/billing` ("Usage this month"): rows for Listings, AI photo analyses, Background removals, Studio-quality removals; `-1` renders as `Unlimited` and studio limit `0` renders as `Not included`.
 
 ## Cross-post job queue / worker
 - `crossPost()` only enqueues `CrossPostJob` rows and fires a non-blocking `POST ${APP_URL}/api/jobs/run` with the `x-master-key` header, so jobs are usually drained within a second or two locally. To observe the PENDING state you must snapshot the DB immediately after the toast, or drop `APP_URL`/`MASTER_KEY` to disable the auto-trigger.
