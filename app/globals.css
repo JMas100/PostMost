@@ -130,3 +130,46 @@
 .app-shell [data-slot="card-title"] {
   font-family: var(--font-sans);
 }
+
+/* Marketing pages are light-first by design and must not follow the
+   authenticated app's dark/light preference — re-declare the light token
+   set so it wins over an ancestor .dark class regardless of that toggle. */
+.marketing-light {
+  color-scheme: light;
+  --background: var(--cloud);
+  --foreground: var(--ink);
+  --card: var(--white);
+  --card-foreground: var(--ink);
+  --popover: var(--white);
+  --popover-foreground: var(--ink);
+  --primary: var(--lime-dark);
+  --primary-foreground: var(--ink);
+  --secondary: var(--cloud);
+  --secondary-foreground: var(--ink);
+  --muted: 216 20% 95%;
+  --muted-foreground: var(--slate);
+  --accent: 216 20% 95%;
+  --accent-foreground: var(--ink);
+  --destructive: 0 84% 60%;
+  --destructive-foreground: 0 0% 98%;
+  --success: 142 71% 40%;
+  --success-foreground: 0 0% 98%;
+  --warning-foreground: var(--ink);
+  --info-foreground: 0 0% 98%;
+  --border: var(--border-light);
+  --input: var(--border-light);
+  --ring: var(--lime-dark);
+  --chart-1: var(--lime-dark);
+  --chart-2: var(--info);
+  --chart-3: var(--warning);
+  --chart-4: var(--slate);
+  --chart-5: var(--ink);
+  --sidebar: var(--white);
+  --sidebar-foreground: var(--ink);
+  --sidebar-primary: var(--lime-dark);
+  --sidebar-primary-foreground: var(--ink);
+  --sidebar-accent: var(--cloud);
+  --sidebar-accent-foreground: var(--ink);
+  --sidebar-border: var(--border-light);
+  --sidebar-ring: var(--lime-dark);
+}

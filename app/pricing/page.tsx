@@ -2,6 +2,8 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { getPlan } from "@/lib/plans";
+import { MarketingNav } from "@/components/marketing/marketing-nav";
+import { MarketingFooter } from "@/components/marketing/marketing-footer";
 import { PricingGrid } from "./pricing-grid";
 
 export default async function PricingPage() {
@@ -16,16 +18,20 @@ export default async function PricingPage() {
   }
 
   return (
-    <main className="min-h-screen bg-gradient-to-b from-primary/[0.08] to-background">
-      <div className="mx-auto max-w-7xl px-4 py-20 sm:px-6 lg:px-8">
-        <div className="mb-12 text-center">
-          <h1 className="mb-4 text-4xl font-bold tracking-tight sm:text-5xl">Grow into your plan.</h1>
-          <p className="mx-auto max-w-2xl text-lg text-muted-foreground">
-            Start free. Upgrade when PostMost becomes part of your business.
-          </p>
+    <div className="marketing-light flex min-h-screen flex-col bg-background text-foreground">
+      <MarketingNav />
+      <main className="flex-1 bg-gradient-to-b from-primary/[0.08] to-background">
+        <div className="mx-auto max-w-7xl px-4 py-20 sm:px-6 lg:px-8">
+          <div className="mb-12 text-center">
+            <h1 className="mb-4 text-4xl font-bold tracking-tight sm:text-5xl">Grow into your plan.</h1>
+            <p className="mx-auto max-w-2xl text-lg text-muted-foreground">
+              Start free. Upgrade when PostMost becomes part of your business.
+            </p>
+          </div>
+          <PricingGrid currentPlanId={currentPlanId} />
         </div>
-        <PricingGrid currentPlanId={currentPlanId} />
-      </div>
-    </main>
+      </main>
+      <MarketingFooter />
+    </div>
   );
 }

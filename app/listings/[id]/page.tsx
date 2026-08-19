@@ -5,15 +5,15 @@ import { authOptions } from "@/lib/auth";
 import { Shell } from "@/components/sidebar";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { PlatformBadge } from "@/components/platform-badge";
 import { JobStatus } from "@/components/job-status";
 import { ListingForm } from "@/components/listing-form";
 import { getTemplates } from "@/lib/actions/templates";
 import { getShippingProfiles } from "@/lib/actions/shipping";
+import { getMarketplaceAccounts } from "@/lib/actions/accounts";
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
-import CrossPostForm from "./cross-post-form";
-import { ExtensionPublisher } from "./extension-publisher";
+import { PublishPanel } from "@/components/publish-panel";
+import { RetryablePlatformBadge } from "@/components/publish-panel/retry-platform-listing";
 import { SoldButton } from "./sold-button";
 
 export default async function ListingDetailPage({ params }: { params: { id: string } }) {
@@ -48,6 +48,9 @@ export default async function ListingDetailPage({ params }: { params: { id: stri
       </Shell>
     );
   }
+
+  const accounts = await getMarketplaceAccounts();
+  const hasActiveJobs = listing.jobs.some((j) => j.status === "PENDING" || j.status === "RUNNING");
 
   const extensionListing = {
     id: listing.id,
@@ -116,19 +119,16 @@ export default async function ListingDetailPage({ params }: { params: { id: stri
           <div className="w-full space-y-6 lg:w-96">
             <Card>
               <CardHeader>
-                <CardTitle>Cross-post</CardTitle>
+                <CardTitle>Publish</CardTitle>
               </CardHeader>
               <CardContent>
-                <CrossPostForm listingId={listing.id} />
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle>Browser extension</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <ExtensionPublisher listing={extensionListing} />
+                <PublishPanel
+                  listingId={listing.id}
+                  accounts={accounts}
+                  extensionListing={extensionListing}
+                  hasActiveJobs={hasActiveJobs}
+                  platformListings={listing.platformListings}
+                />
               </CardContent>
             </Card>
 
@@ -153,7 +153,7 @@ export default async function ListingDetailPage({ params }: { params: { id: stri
                 ) : (
                   <div className="flex flex-wrap gap-2">
                     {listing.platformListings.map((pl) => (
-                      <PlatformBadge key={pl.id} platform={pl.platform} status={pl.status} externalUrl={pl.externalUrl} />
+                      <RetryablePlatformBadge key={pl.id} listingId={listing.id} platform={pl.platform} status={pl.status} externalUrl={pl.externalUrl} />
                     ))}
                   </div>
                 )}

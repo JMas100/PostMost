@@ -1,5 +1,6 @@
 import { Badge } from "@/components/ui/badge";
 import { getPlatform } from "@/lib/marketplaces/platforms";
+import { RotateCcw } from "lucide-react";
 
 type PlatformListingStatus = "PENDING" | "POSTED" | "FAILED" | "DELISTED" | "SOLD";
 
@@ -11,15 +12,25 @@ const statusMap: Record<PlatformListingStatus, string> = {
   SOLD: "Sold",
 };
 
-const variantMap: Record<PlatformListingStatus, "default" | "secondary" | "destructive" | "outline"> = {
-  PENDING: "secondary",
-  POSTED: "default",
-  FAILED: "destructive",
+const variantMap: Record<PlatformListingStatus, "outline" | "success" | "error"> = {
+  PENDING: "outline",
+  POSTED: "success",
+  FAILED: "error",
   DELISTED: "outline",
-  SOLD: "default",
+  SOLD: "success",
 };
 
-export function PlatformBadge({ platform, status, externalUrl }: { platform: string; status: string; externalUrl?: string | null }) {
+export function PlatformBadge({
+  platform,
+  status,
+  externalUrl,
+  onRetry,
+}: {
+  platform: string;
+  status: string;
+  externalUrl?: string | null;
+  onRetry?: () => void;
+}) {
   const info = getPlatform(platform);
   const safeStatus = (statusMap[status as PlatformListingStatus] ? status : "PENDING") as PlatformListingStatus;
   const badge = (
@@ -28,12 +39,27 @@ export function PlatformBadge({ platform, status, externalUrl }: { platform: str
       <span className="opacity-70">{statusMap[safeStatus]}</span>
     </Badge>
   );
-  if (externalUrl) {
-    return (
-      <a href={externalUrl} target="_blank" rel="noopener noreferrer" className="inline-block">
-        {badge}
-      </a>
-    );
-  }
-  return badge;
+  const linked = externalUrl ? (
+    <a href={externalUrl} target="_blank" rel="noopener noreferrer" className="inline-block">
+      {badge}
+    </a>
+  ) : (
+    badge
+  );
+
+  if (!onRetry) return linked;
+
+  return (
+    <span className="inline-flex items-center gap-1">
+      {linked}
+      <button
+        type="button"
+        onClick={onRetry}
+        aria-label={`Retry ${platform}`}
+        className="text-muted-foreground hover:text-foreground"
+      >
+        <RotateCcw className="h-3 w-3" />
+      </button>
+    </span>
+  );
 }

@@ -149,7 +149,7 @@ export function HeroFlow() {
             cx={CENTER_X}
             cy={CENTER_Y}
             r={CENTER_R + 4}
-            style={{ fill: "hsl(var(--obsidian))" }}
+            style={{ fill: "hsl(var(--foreground))" }}
           />
           <LogoMark x={CENTER_X - 24} y={CENTER_Y - 24} width="48" height="48" />
           <text

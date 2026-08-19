@@ -1,11 +1,11 @@
 "use client";
 
-import { useState } from "react";
 import Link from "next/link";
 import { motion } from "framer-motion";
-import { Wordmark, LogoMark } from "@/components/logo";
 import { HeroFlow } from "@/components/marketing/hero-flow";
 import { SolutionFlow } from "@/components/marketing/solution-flow";
+import { MarketingNav } from "@/components/marketing/marketing-nav";
+import { MarketingFooter } from "@/components/marketing/marketing-footer";
 import { buttonVariants } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -15,8 +15,6 @@ import { PLANS, formatPrice } from "@/lib/plans";
 import {
   ArrowRight,
   Check,
-  Menu,
-  X,
   Camera,
   FileText,
   Tag,
@@ -33,76 +31,10 @@ import {
 
 const STRIP_ORDER = ["ebay", "poshmark", "mercari", "depop", "etsy", "whatnot", "grailed", "vinted", "shopify"];
 
-const navLinks = [
-  { href: "#product", label: "Product" },
-  { href: "#marketplaces", label: "Marketplaces" },
-  { href: "/pricing", label: "Pricing" },
-  { href: "#features", label: "Resources" },
-];
-
 const reveal = {
   hidden: { opacity: 0, y: 24 },
   visible: { opacity: 1, y: 0 },
 };
-
-function MarketingNav() {
-  const [open, setOpen] = useState(false);
-
-  return (
-    <header className="sticky top-0 z-50 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-      <nav className="mx-auto flex max-w-7xl items-center justify-between px-6 py-4">
-        <Link href="/" className="flex items-center gap-2">
-          <LogoMark className="h-7 w-7" />
-          <Wordmark className="text-xl" />
-        </Link>
-
-        <div className="hidden items-center gap-8 md:flex">
-          {navLinks.map((link) => (
-            <Link
-              key={link.href}
-              href={link.href}
-              className="text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
-            >
-              {link.label}
-            </Link>
-          ))}
-          <Link href="/login" className="text-sm font-medium text-muted-foreground transition-colors hover:text-foreground">
-            Log in
-          </Link>
-          <Link href="/login" className={cn(buttonVariants({ size: "sm" }), "gap-1")}>
-            Start free <ArrowRight className="h-4 w-4" />
-          </Link>
-        </div>
-
-        <button className="md:hidden" onClick={() => setOpen((o) => !o)} aria-label="Toggle menu">
-          {open ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
-        </button>
-      </nav>
-
-      {open && (
-        <motion.div
-          initial={{ opacity: 0, height: 0 }}
-          animate={{ opacity: 1, height: "auto" }}
-          className="border-t px-6 pb-4 md:hidden"
-        >
-          <div className="flex flex-col gap-4 pt-4">
-            {navLinks.map((link) => (
-              <Link key={link.href} href={link.href} onClick={() => setOpen(false)} className="text-sm font-medium">
-                {link.label}
-              </Link>
-            ))}
-            <Link href="/login" onClick={() => setOpen(false)} className="text-sm font-medium">
-              Log in
-            </Link>
-            <Link href="/login" className={cn(buttonVariants(), "w-fit gap-1")} onClick={() => setOpen(false)}>
-              Start free <ArrowRight className="h-4 w-4" />
-            </Link>
-          </div>
-        </motion.div>
-      )}
-    </header>
-  );
-}
 
 function MarketplaceStrip() {
   const markets = STRIP_ORDER.map((id) => PLATFORMS.find((p) => p.id === id)).filter(Boolean);
@@ -221,7 +153,7 @@ function PricingPreview() {
 
 export default function HomePage() {
   return (
-    <div className="flex min-h-screen flex-col">
+    <div className="marketing-light flex min-h-screen flex-col bg-background text-foreground">
       <MarketingNav />
 
       {/* Hero */}
@@ -449,13 +381,7 @@ export default function HomePage() {
         </div>
       </motion.section>
 
-      <footer className="border-t px-6 py-8 text-center text-sm text-muted-foreground">
-        <div className="mb-2 flex items-center justify-center gap-2">
-          <LogoMark className="h-5 w-5" />
-          <Wordmark className="text-sm" />
-        </div>
-        © {new Date().getFullYear()} PostMost. Built for resellers.
-      </footer>
+      <MarketingFooter />
     </div>
   );
 }

@@ -9,11 +9,11 @@ const statusMap: Record<JobStatus, string> = {
   FAILED: "Failed",
 };
 
-const variantMap: Record<JobStatus, "default" | "secondary" | "destructive" | "outline"> = {
-  PENDING: "secondary",
-  RUNNING: "default",
-  COMPLETED: "default",
-  FAILED: "destructive",
+const variantMap: Record<JobStatus, "outline" | "info" | "success" | "error"> = {
+  PENDING: "outline",
+  RUNNING: "info",
+  COMPLETED: "success",
+  FAILED: "error",
 };
 
 interface Job {
