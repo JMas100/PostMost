@@ -173,3 +173,78 @@
   --sidebar-border: var(--border-light);
   --sidebar-ring: var(--lime-dark);
 }
+
+/* Marketing "wow" pass: shadow scale, lime gradient washes, marquee, spotlight-hover cards.
+   All colors stay in the existing lime/obsidian family — no new palette. */
+:root {
+  --shadow-soft: 0 4px 24px -8px rgb(9 11 13 / 0.08);
+  --shadow-medium: 0 12px 40px -12px rgb(9 11 13 / 0.16);
+  --shadow-lifted: 0 24px 64px -16px rgb(9 11 13 / 0.22);
+  --shadow-glow-lime: 0 0 0 1px rgb(182 243 74 / 0.15), 0 8px 32px -8px rgb(182 243 74 / 0.35);
+}
+
+.shadow-soft { box-shadow: var(--shadow-soft); }
+.shadow-medium { box-shadow: var(--shadow-medium); }
+.shadow-lifted { box-shadow: var(--shadow-lifted); }
+.shadow-glow-lime { box-shadow: var(--shadow-glow-lime); }
+
+.bg-blob-hero {
+  background-image:
+    radial-gradient(600px circle at 15% 20%, rgb(182 243 74 / 0.22), transparent 60%),
+    radial-gradient(500px circle at 85% 60%, rgb(160 232 44 / 0.16), transparent 55%);
+}
+
+.bg-blob-soft {
+  background-image: radial-gradient(500px circle at 50% 0%, rgb(182 243 74 / 0.12), transparent 60%);
+}
+
+.gradient-border-lime {
+  position: relative;
+  border: 1px solid transparent;
+  background:
+    linear-gradient(hsl(var(--card)), hsl(var(--card))) padding-box,
+    linear-gradient(90deg, #b6f34a, #a0e82c 60%, #629118) border-box;
+}
+
+@keyframes marquee-scroll {
+  from { transform: translateX(0); }
+  to { transform: translateX(-50%); }
+}
+@keyframes marquee-scroll-reverse {
+  from { transform: translateX(-50%); }
+  to { transform: translateX(0); }
+}
+.animate-marquee {
+  animation: marquee-scroll 32s linear infinite;
+}
+.animate-marquee-reverse {
+  animation: marquee-scroll-reverse 32s linear infinite;
+}
+.marquee-mask {
+  mask-image: linear-gradient(to right, transparent, black 10%, black 90%, transparent);
+  -webkit-mask-image: linear-gradient(to right, transparent, black 10%, black 90%, transparent);
+}
+
+.spotlight-card {
+  position: relative;
+  overflow: hidden;
+}
+.spotlight-card::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  transition: opacity 0.3s;
+  background: radial-gradient(240px circle at var(--spot-x, 50%) var(--spot-y, 50%), rgb(182 243 74 / 0.15), transparent 70%);
+  pointer-events: none;
+}
+.spotlight-card:hover::before {
+  opacity: 1;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-marquee,
+  .animate-marquee-reverse {
+    animation: none;
+  }
+}

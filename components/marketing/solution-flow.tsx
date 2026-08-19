@@ -1,6 +1,7 @@
 "use client";
 
-import { motion } from "framer-motion";
+import { useEffect, useState } from "react";
+import { motion, useReducedMotion } from "framer-motion";
 import { ImageIcon } from "lucide-react";
 import { PLATFORMS } from "@/lib/marketplaces/platforms";
 import { PlatformMark } from "@/components/platform-logo";
@@ -17,6 +18,13 @@ const targets = [
 ];
 
 export function SolutionFlow() {
+  const shouldReduceMotion = useReducedMotion();
+  // See the identical comment in hero-flow.tsx: only trust the real
+  // reduced-motion preference after mount, so SSR and the first client
+  // render always agree (avoids a will-change style hydration mismatch).
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
+  const reduceMotion = mounted && shouldReduceMotion;
   const markets = SOLUTION_MARKETS.map((id) => PLATFORMS.find((p) => p.id === id)).filter(
     (p): p is (typeof PLATFORMS)[number] => !!p
   );
@@ -58,7 +66,7 @@ export function SolutionFlow() {
         return (
           <motion.div
             key={platform.id}
-            className="absolute flex items-center justify-center rounded-lg border bg-background px-3 py-2 shadow-sm"
+            className="absolute"
             initial={{ left: "42%", top: "50%", x: "-50%", y: "-50%", opacity: 0, scale: 0.6 }}
             animate={{ left: target.left, top: target.top, opacity: 1, scale: 1 }}
             transition={{
@@ -68,7 +76,17 @@ export function SolutionFlow() {
               damping: 18,
             }}
           >
-            <PlatformMark platformId={platform.id} className="h-4 w-16" />
+            <motion.div
+              className="flex items-center justify-center rounded-lg border bg-background px-3 py-2 shadow-sm"
+              animate={reduceMotion ? undefined : { y: [0, -5, 0] }}
+              transition={
+                reduceMotion
+                  ? undefined
+                  : { duration: 2.6 + (i % 3) * 0.4, repeat: Infinity, ease: "easeInOut", delay: 0.8 + i * 0.12 + 0.6 }
+              }
+            >
+              <PlatformMark platformId={platform.id} className="h-4 w-16" />
+            </motion.div>
           </motion.div>
         );
       })}
