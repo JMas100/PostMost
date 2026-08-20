@@ -188,63 +188,44 @@
 .shadow-lifted { box-shadow: var(--shadow-lifted); }
 .shadow-glow-lime { box-shadow: var(--shadow-glow-lime); }
 
-.bg-blob-hero {
-  background-image:
-    radial-gradient(600px circle at 15% 20%, rgb(182 243 74 / 0.22), transparent 60%),
-    radial-gradient(500px circle at 85% 60%, rgb(160 232 44 / 0.16), transparent 55%);
+/* Redesign motion primitives: shared pulse ring + connector draw-in, used by
+   hero-branch, publish-radial, and other ONE→MANY style diagrams. */
+@keyframes motion-pulse-ring {
+  0% { transform: scale(0.7); opacity: 0; }
+  20% { opacity: 0.5; }
+  45% { transform: scale(1.75); opacity: 0; }
+  100% { transform: scale(1.75); opacity: 0; }
+}
+.motion-pulse-ring {
+  animation-name: motion-pulse-ring;
+  animation-timing-function: ease-out;
+  animation-iteration-count: infinite;
 }
 
-.bg-blob-soft {
-  background-image: radial-gradient(500px circle at 50% 0%, rgb(182 243 74 / 0.12), transparent 60%);
+@keyframes motion-draw-path {
+  0% { stroke-dashoffset: var(--draw-dash); }
+  25% { stroke-dashoffset: 0; }
+  90% { stroke-dashoffset: 0; }
+  100% { stroke-dashoffset: var(--draw-dash); }
+}
+.motion-draw-path {
+  animation-name: motion-draw-path;
+  animation-timing-function: ease-in-out;
+  animation-iteration-count: infinite;
 }
 
-.gradient-border-lime {
-  position: relative;
-  border: 1px solid transparent;
-  background:
-    linear-gradient(hsl(var(--card)), hsl(var(--card))) padding-box,
-    linear-gradient(90deg, #b6f34a, #a0e82c 60%, #629118) border-box;
+@keyframes motion-marching-ants {
+  from { stroke-dashoffset: 0; }
+  to { stroke-dashoffset: -28; }
 }
-
-@keyframes marquee-scroll {
-  from { transform: translateX(0); }
-  to { transform: translateX(-50%); }
-}
-@keyframes marquee-scroll-reverse {
-  from { transform: translateX(-50%); }
-  to { transform: translateX(0); }
-}
-.animate-marquee {
-  animation: marquee-scroll 32s linear infinite;
-}
-.animate-marquee-reverse {
-  animation: marquee-scroll-reverse 32s linear infinite;
-}
-.marquee-mask {
-  mask-image: linear-gradient(to right, transparent, black 10%, black 90%, transparent);
-  -webkit-mask-image: linear-gradient(to right, transparent, black 10%, black 90%, transparent);
-}
-
-.spotlight-card {
-  position: relative;
-  overflow: hidden;
-}
-.spotlight-card::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  opacity: 0;
-  transition: opacity 0.3s;
-  background: radial-gradient(240px circle at var(--spot-x, 50%) var(--spot-y, 50%), rgb(182 243 74 / 0.15), transparent 70%);
-  pointer-events: none;
-}
-.spotlight-card:hover::before {
-  opacity: 1;
+.motion-marching-ants {
+  animation: motion-marching-ants 1.2s linear infinite;
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .animate-marquee,
-  .animate-marquee-reverse {
+  .motion-pulse-ring,
+  .motion-draw-path,
+  .motion-marching-ants {
     animation: none;
   }
 }
