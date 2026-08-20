@@ -13,9 +13,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Sparkles } from "lucide-react";
+import { Sparkles, Wand2 } from "lucide-react";
 import { PhotoSortableGrid } from "./photo-sortable-grid";
-import { OptimizingState } from "./types";
+import { isPhotoUrl, OptimizingState } from "./types";
 import { BgRemovalTier } from "@/lib/plans";
 
 const NO_TEMPLATE = "__none__";
@@ -33,7 +33,9 @@ export function StepPhotos({
   onRemovePhoto,
   onAnalyzeWithAI,
   onEnhancePhoto,
-  enhancingUrl,
+  onEnhanceAllPhotos,
+  enhancingUrls,
+  batchProgress,
   studioAvailable,
   templates,
   selectedTemplate,
@@ -52,7 +54,9 @@ export function StepPhotos({
   onRemovePhoto: (index: number) => void;
   onAnalyzeWithAI: () => void;
   onEnhancePhoto: (index: number, tier: BgRemovalTier) => void;
-  enhancingUrl: string | null;
+  onEnhanceAllPhotos: (tier: BgRemovalTier) => void;
+  enhancingUrls: string[];
+  batchProgress: { done: number; total: number } | null;
   studioAvailable: boolean;
   templates: { id: string; name: string; payload: string }[];
   selectedTemplate: string;
@@ -65,7 +69,7 @@ export function StepPhotos({
   } = useFormContext<ListingFormData>();
   const watchedPhotos = watch("photos");
 
-  const validPhotos = photoUrls.filter((u) => u.trim().startsWith("http") || u.trim().startsWith("data:"));
+  const validPhotos = photoUrls.filter(isPhotoUrl);
 
   function handleReorder(nextOrder: string[]) {
     const placeholders = photoUrls.filter((u) => !validPhotos.includes(u));
@@ -131,10 +135,30 @@ export function StepPhotos({
           onReorder={handleReorder}
           onRemove={handleRemoveByUrl}
           onEnhance={handleEnhanceByUrl}
-          enhancingUrl={enhancingUrl}
+          enhancingUrls={enhancingUrls}
           disabled={!!optimizing}
           studioAvailable={studioAvailable}
         />
+
+        {validPhotos.length > 1 && (
+          <div className="flex items-center gap-3">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => onEnhanceAllPhotos("standard")}
+              disabled={uploading || !!optimizing}
+            >
+              <Wand2 className="mr-2 h-4 w-4" />
+              Remove all backgrounds
+            </Button>
+            {batchProgress && (
+              <p className="text-xs text-muted-foreground">
+                Removing backgrounds… {batchProgress.done}/{batchProgress.total}
+              </p>
+            )}
+          </div>
+        )}
 
         {photoUrls.map(
           (url, index) =>

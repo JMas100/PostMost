@@ -96,7 +96,7 @@ export function PhotoSortableGrid({
   onReorder,
   onRemove,
   onEnhance,
-  enhancingUrl,
+  enhancingUrls,
   disabled,
   studioAvailable,
 }: {
@@ -104,7 +104,7 @@ export function PhotoSortableGrid({
   onReorder: (next: string[]) => void;
   onRemove: (url: string) => void;
   onEnhance: (url: string, tier: BgRemovalTier) => void;
-  enhancingUrl: string | null;
+  enhancingUrls: string[];
   disabled: boolean;
   studioAvailable: boolean;
 }) {
@@ -131,7 +131,7 @@ export function PhotoSortableGrid({
               url={url}
               onRemove={() => onRemove(url)}
               onEnhance={(tier) => onEnhance(url, tier)}
-              enhancing={enhancingUrl === url}
+              enhancing={enhancingUrls.includes(url)}
               disabled={disabled}
               studioAvailable={studioAvailable}
             />

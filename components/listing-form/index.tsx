@@ -20,7 +20,7 @@ import { BgRemovalTier } from "@/lib/plans";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { toast } from "sonner";
 import { uploadDataUrl, uploadImages } from "@/lib/upload-client";
-import { computeInitialStep, ListingFormProps, OptimizingState, STEP_FIELDS, STEPS } from "./types";
+import { computeInitialStep, isPhotoUrl, ListingFormProps, OptimizingState, STEP_FIELDS, STEPS } from "./types";
 import { useListingWizard } from "./use-listing-wizard";
 import { WizardStepper } from "./wizard-stepper";
 import { WizardNav } from "./wizard-nav";
@@ -38,7 +38,8 @@ export function ListingForm({ mode = "create", draftId, initialData, templates =
   const [saving, setSaving] = useState(false);
   const [templateName, setTemplateName] = useState("");
   const [selectedTemplate, setSelectedTemplate] = useState(defaultTemplateId);
-  const [enhancingUrl, setEnhancingUrl] = useState<string | null>(null);
+  const [enhancingUrls, setEnhancingUrls] = useState<string[]>([]);
+  const [batchProgress, setBatchProgress] = useState<{ done: number; total: number } | null>(null);
   const [studioAvailable, setStudioAvailable] = useState(false);
 
   const [optimizing, setOptimizing] = useState<OptimizingState>("");
@@ -221,33 +222,103 @@ export function ListingForm({ mode = "create", draftId, initialData, templates =
     }
   }
 
+  async function removeBackgroundFor(
+    image: string,
+    tier: BgRemovalTier
+  ): Promise<
+    | { ok: true; url: string; tier: BgRemovalTier }
+    | { ok: false; error: string; code?: "quota" | "auth" }
+  > {
+    const result = await enhancePhoto(image, { tier });
+    if (!result.success) {
+      return { ok: false, error: result.error || "Photo enhancement failed", code: result.code };
+    }
+    const url = result.result.startsWith("data:") ? await uploadDataUrl(result.result) : result.result;
+    return { ok: true, url, tier: result.tier };
+  }
+
   async function handleEnhancePhoto(index: number, tier: BgRemovalTier = "standard") {
     const image = photoUrls[index];
-    if (!image || !(image.startsWith("http") || image.startsWith("data:"))) {
+    if (!image || !isPhotoUrl(image)) {
       return toast.error("Upload a photo first");
     }
     setOptimizing("photo");
-    setEnhancingUrl(image);
+    setEnhancingUrls([image]);
     try {
-      const result = await enhancePhoto(image, { tier });
-      if (!result.success) {
-        toast.error(result.error || "Photo enhancement failed");
+      const outcome = await removeBackgroundFor(image, tier);
+      if (!outcome.ok) {
+        toast.error(outcome.error);
         return;
       }
-      if (tier === "studio" && result.tier === "standard") {
+      if (tier === "studio" && outcome.tier === "standard") {
         toast.warning("Studio quality is unavailable right now — used standard removal instead");
       }
-      const enhanced = result.result.startsWith("data:") ? await uploadDataUrl(result.result) : result.result;
       const next = [...photoUrls];
-      next[index] = enhanced;
+      next[index] = outcome.url;
       setPhotoUrls(next);
-      toast.success(result.tier === "studio" ? "Photo enhanced (studio quality)" : "Photo enhanced");
+      toast.success(outcome.tier === "studio" ? "Photo enhanced (studio quality)" : "Photo enhanced");
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Failed to save enhanced photo");
       console.error(err);
     } finally {
       setOptimizing("");
-      setEnhancingUrl(null);
+      setEnhancingUrls([]);
+    }
+  }
+
+  async function handleEnhanceAllPhotos(tier: BgRemovalTier = "standard") {
+    // Deduped: replacements are keyed by URL, so a repeated photo is processed (and billed) once.
+    const targets = Array.from(new Set(photoUrls.filter(isPhotoUrl)));
+    if (targets.length === 0) return toast.error("Upload a photo first");
+
+    setOptimizing("photo");
+    setEnhancingUrls(targets);
+    setBatchProgress({ done: 0, total: targets.length });
+    const replacements = new Map<string, string>();
+    const failures: string[] = [];
+    let degraded = 0;
+
+    try {
+      // Sequential: each photo is billed and quota-checked server-side on its own, and a shared
+      // provider is friendlier to one request at a time than to a burst.
+      for (const image of targets) {
+        let stop = false;
+        try {
+          const outcome = await removeBackgroundFor(image, tier);
+          if (outcome.ok) {
+            replacements.set(image, outcome.url);
+            if (tier === "studio" && outcome.tier === "standard") degraded++;
+          } else {
+            failures.push(outcome.error);
+            // A quota or auth rejection will reject every remaining photo too.
+            stop = !!outcome.code;
+          }
+        } catch (err) {
+          failures.push(err instanceof Error ? err.message : "Failed to save enhanced photo");
+        }
+        setEnhancingUrls((prev) => prev.filter((u) => u !== image));
+        setBatchProgress((prev) => (prev ? { ...prev, done: prev.done + 1 } : prev));
+        if (stop) break;
+      }
+
+      if (replacements.size > 0) {
+        setPhotoUrls((prev) => prev.map((u) => replacements.get(u) ?? u));
+        toast.success(
+          replacements.size === targets.length
+            ? `Removed background on ${targets.length} photo${targets.length === 1 ? "" : "s"}`
+            : `Removed background on ${replacements.size} of ${targets.length} photos`
+        );
+      }
+      if (degraded > 0) {
+        toast.warning(`Studio quality is unavailable right now — used standard removal on ${degraded} photo${degraded === 1 ? "" : "s"}`);
+      }
+      if (failures.length > 0) {
+        toast.error(failures[0]);
+      }
+    } finally {
+      setOptimizing("");
+      setEnhancingUrls([]);
+      setBatchProgress(null);
     }
   }
 
@@ -413,7 +484,9 @@ export function ListingForm({ mode = "create", draftId, initialData, templates =
                 onRemovePhoto={removePhoto}
                 onAnalyzeWithAI={analyzeWithAI}
                 onEnhancePhoto={handleEnhancePhoto}
-                enhancingUrl={enhancingUrl}
+                onEnhanceAllPhotos={handleEnhanceAllPhotos}
+                enhancingUrls={enhancingUrls}
+                batchProgress={batchProgress}
                 studioAvailable={studioAvailable}
                 templates={templates}
                 selectedTemplate={selectedTemplate}

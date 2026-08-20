@@ -81,13 +81,18 @@ export async function isStudioRemovalAvailable(): Promise<boolean> {
   return isPremiumBgRemoverConfigured();
 }
 
+/** `code` marks failures that apply to every subsequent photo too, so batch callers stop on them. */
+export type RemovalFailure = { success: false; error: string; code?: "quota" | "auth" };
+
 async function runRemoval(
   userId: string,
   dataUrl: string,
   tier: BgRemovalTier
-): Promise<{ success: true; result: string } | { success: false; error: string }> {
+): Promise<{ success: true; result: string } | RemovalFailure> {
   const quota = await canRemoveBackground(userId, tier);
-  if (!quota.allowed) return { success: false, error: quota.reason || "Background removal limit reached" };
+  if (!quota.allowed) {
+    return { success: false, error: quota.reason || "Background removal limit reached", code: "quota" };
+  }
 
   try {
     const result = await enhancePhotoAi(dataUrl, tier === "studio" ? PREMIUM_BG_REMOVER : undefined);
@@ -102,11 +107,11 @@ async function runRemoval(
 export async function enhancePhoto(
   dataUrl: string,
   options: { tier?: BgRemovalTier } = {}
-): Promise<{ success: true; result: string; tier: BgRemovalTier } | { success: false; error: string }> {
+): Promise<{ success: true; result: string; tier: BgRemovalTier } | RemovalFailure> {
   const requestedTier: BgRemovalTier = options.tier ?? "standard";
   const session = await getServerSession(authOptions);
   const userId = session?.user?.id;
-  if (!userId) return { success: false, error: "You must be logged in." };
+  if (!userId) return { success: false, error: "You must be logged in.", code: "auth" };
 
   // Studio is a best-effort upgrade: an unconfigured or failing premium provider (missing key,
   // exhausted credits, provider outage) degrades to the standard remover instead of erroring.
@@ -116,7 +121,7 @@ export async function enhancePhoto(
       if (studio.success) return { ...studio, tier: "studio" };
       const quota = await canRemoveBackground(userId, "studio");
       // A quota/plan rejection is a product decision, not a provider failure: surface it.
-      if (!quota.allowed) return studio;
+      if (!quota.allowed) return { ...studio, code: "quota" };
     }
     const fallback = await runRemoval(userId, dataUrl, "standard");
     return fallback.success ? { ...fallback, tier: "standard" } : fallback;
