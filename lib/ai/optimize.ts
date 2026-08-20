@@ -1,4 +1,12 @@
 import { getBackgroundRemover, getConfiguredBackgroundRemover } from "@/lib/ai/background";
+import { imageToBuffer } from "@/lib/ai/background/image";
+import { composePhoto } from "@/lib/images/compose";
+import { DEFAULT_PHOTO_PRESET, isFormattingRequested, PhotoBackground } from "@/lib/images/presets";
+
+export interface PhotoFormatOptions {
+  background: PhotoBackground;
+  preset: string;
+}
 
 export interface PricingEstimate {
   price: number;
@@ -153,15 +161,38 @@ export async function generatePlatformCaption(
   };
 }
 
-export async function removeBackground(imageUrl: string, provider?: string): Promise<string> {
+export async function removeBackground(
+  imageUrl: string,
+  provider?: string,
+  format?: PhotoFormatOptions
+): Promise<string> {
   const remover = provider ? getBackgroundRemover(provider) : getConfiguredBackgroundRemover();
   if (!remover) throw new Error("Background removal is not configured");
 
-  const { bytes, contentType } = await remover.removeBackground(imageUrl);
-  return `data:${contentType};base64,${bytes.toString("base64")}`;
+  const cutOut = await remover.removeBackground(imageUrl);
+  const output =
+    format && isFormattingRequested(format.background, format.preset)
+      ? await composePhoto(cutOut.bytes, format)
+      : cutOut;
+  return `data:${output.contentType};base64,${output.bytes.toString("base64")}`;
 }
 
-export async function enhancePhoto(imageUrl: string, provider?: string): Promise<string> {
-  // MVP: background removal only. In the future this can upscale, correct lighting, etc.
-  return removeBackground(imageUrl, provider);
+export async function enhancePhoto(
+  imageUrl: string,
+  provider?: string,
+  format?: PhotoFormatOptions
+): Promise<string> {
+  // MVP: background removal (plus optional background/aspect composition). In the future this
+  // can upscale, correct lighting, etc.
+  return removeBackground(imageUrl, provider, format);
+}
+
+/** Re-formats an existing photo (background/aspect) without touching a removal provider. */
+export async function formatPhoto(imageUrl: string, format: PhotoFormatOptions): Promise<string> {
+  const source = await imageToBuffer(imageUrl);
+  const output = await composePhoto(source, {
+    background: format.background,
+    preset: format.preset || DEFAULT_PHOTO_PRESET,
+  });
+  return `data:${output.contentType};base64,${output.bytes.toString("base64")}`;
 }

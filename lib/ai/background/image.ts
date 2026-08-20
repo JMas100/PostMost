@@ -1,3 +1,13 @@
+/** Loads an http(s) or `data:` image URL into raw bytes. */
+export async function imageToBuffer(url: string): Promise<Buffer> {
+  if (url.startsWith("data:")) {
+    return Buffer.from(url.split(",")[1] ?? "", "base64");
+  }
+  const res = await fetch(url);
+  if (!res.ok) throw new Error(`Failed to fetch image: ${res.status}`);
+  return Buffer.from(await res.arrayBuffer());
+}
+
 /** Loads an http(s) or `data:` image URL into a Blob suitable for multipart upload. */
 export async function imageToBlob(url: string): Promise<{ blob: Blob; filename: string }> {
   if (!url.startsWith("data:")) {

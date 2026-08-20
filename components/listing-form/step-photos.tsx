@@ -13,10 +13,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Sparkles, Wand2 } from "lucide-react";
+import { Crop, Sparkles, Wand2 } from "lucide-react";
 import { PhotoSortableGrid } from "./photo-sortable-grid";
 import { isPhotoUrl, OptimizingState } from "./types";
 import { BgRemovalTier } from "@/lib/plans";
+import { getPlatform } from "@/lib/marketplaces/platforms";
+import { DEFAULT_PHOTO_PRESET, isFormattingRequested, PHOTO_PRESETS, PhotoBackground } from "@/lib/images/presets";
 
 const NO_TEMPLATE = "__none__";
 
@@ -34,6 +36,11 @@ export function StepPhotos({
   onAnalyzeWithAI,
   onEnhancePhoto,
   onEnhanceAllPhotos,
+  onFormatAllPhotos,
+  background,
+  onBackgroundChange,
+  preset,
+  onPresetChange,
   enhancingUrls,
   batchProgress,
   studioAvailable,
@@ -55,8 +62,13 @@ export function StepPhotos({
   onAnalyzeWithAI: () => void;
   onEnhancePhoto: (index: number, tier: BgRemovalTier) => void;
   onEnhanceAllPhotos: (tier: BgRemovalTier) => void;
+  onFormatAllPhotos: () => void;
+  background: PhotoBackground;
+  onBackgroundChange: (value: PhotoBackground) => void;
+  preset: string;
+  onPresetChange: (value: string) => void;
   enhancingUrls: string[];
-  batchProgress: { done: number; total: number } | null;
+  batchProgress: { label: string; done: number; total: number } | null;
   studioAvailable: boolean;
   templates: { id: string; name: string; payload: string }[];
   selectedTemplate: string;
@@ -140,23 +152,77 @@ export function StepPhotos({
           studioAvailable={studioAvailable}
         />
 
-        {validPhotos.length > 1 && (
-          <div className="flex items-center gap-3">
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={() => onEnhanceAllPhotos("standard")}
-              disabled={uploading || !!optimizing}
-            >
-              <Wand2 className="mr-2 h-4 w-4" />
-              Remove all backgrounds
-            </Button>
-            {batchProgress && (
+        {validPhotos.length > 0 && (
+          <div className="space-y-3 rounded-lg border bg-card p-4">
+            <div>
+              <p className="text-sm font-medium">Photo finish</p>
               <p className="text-xs text-muted-foreground">
-                Removing backgrounds… {batchProgress.done}/{batchProgress.total}
+                Applied to background removals, or on its own to photos you already have.
               </p>
-            )}
+            </div>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div className="space-y-1">
+                <Label htmlFor="photo-background">Background</Label>
+                <Select value={background} onValueChange={(v) => onBackgroundChange(v as PhotoBackground)}>
+                  <SelectTrigger id="photo-background">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="transparent">Transparent (PNG)</SelectItem>
+                    <SelectItem value="white">White (JPG)</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1">
+                <Label htmlFor="photo-preset">Size</Label>
+                <Select value={preset} onValueChange={(v) => onPresetChange(v || DEFAULT_PHOTO_PRESET)}>
+                  <SelectTrigger id="photo-preset">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {PHOTO_PRESETS.map((p) => (
+                      <SelectItem key={p.id} value={p.id}>
+                        {p.label}
+                        {p.platforms.length > 0 &&
+                          ` — ${p.platforms
+                            .map((id) => getPlatform(id)?.name ?? id)
+                            .slice(0, 3)
+                            .join(", ")}`}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <div className="flex flex-wrap items-center gap-3">
+              {validPhotos.length > 1 && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => onEnhanceAllPhotos("standard")}
+                  disabled={uploading || !!optimizing}
+                >
+                  <Wand2 className="mr-2 h-4 w-4" />
+                  Remove all backgrounds
+                </Button>
+              )}
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={onFormatAllPhotos}
+                disabled={uploading || !!optimizing || !isFormattingRequested(background, preset)}
+              >
+                <Crop className="mr-2 h-4 w-4" />
+                Apply finish to all
+              </Button>
+              {batchProgress && (
+                <p className="text-xs text-muted-foreground">
+                  {batchProgress.label} {batchProgress.done}/{batchProgress.total}
+                </p>
+              )}
+            </div>
           </div>
         )}
 
