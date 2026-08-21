@@ -16,9 +16,12 @@ import {
   suggestPrice as suggestPriceAi,
   generatePlatformCaption as generatePlatformCaptionAi,
   enhancePhoto as enhancePhotoAi,
+  formatPhoto as formatPhotoAi,
+  PhotoFormatOptions,
   PricingEstimate,
   PlatformCaption,
 } from "@/lib/ai/optimize";
+import { DEFAULT_PHOTO_PRESET, isFormattingRequested } from "@/lib/images/presets";
 
 async function withAiUsage<T>(fn: () => Promise<T>): Promise<{ success: true; result: T } | { success: false; error: string }> {
   const session = await getServerSession(authOptions);
@@ -87,7 +90,8 @@ export type RemovalFailure = { success: false; error: string; code?: "quota" | "
 async function runRemoval(
   userId: string,
   dataUrl: string,
-  tier: BgRemovalTier
+  tier: BgRemovalTier,
+  format?: PhotoFormatOptions
 ): Promise<{ success: true; result: string } | RemovalFailure> {
   const quota = await canRemoveBackground(userId, tier);
   if (!quota.allowed) {
@@ -95,7 +99,7 @@ async function runRemoval(
   }
 
   try {
-    const result = await enhancePhotoAi(dataUrl, tier === "studio" ? PREMIUM_BG_REMOVER : undefined);
+    const result = await enhancePhotoAi(dataUrl, tier === "studio" ? PREMIUM_BG_REMOVER : undefined, format);
     await incrementBgRemovalUsage(userId, tier);
     return { success: true, result };
   } catch (err) {
@@ -106,9 +110,10 @@ async function runRemoval(
 
 export async function enhancePhoto(
   dataUrl: string,
-  options: { tier?: BgRemovalTier } = {}
+  options: { tier?: BgRemovalTier; format?: PhotoFormatOptions } = {}
 ): Promise<{ success: true; result: string; tier: BgRemovalTier } | RemovalFailure> {
   const requestedTier: BgRemovalTier = options.tier ?? "standard";
+  const format = options.format;
   const session = await getServerSession(authOptions);
   const userId = session?.user?.id;
   if (!userId) return { success: false, error: "You must be logged in.", code: "auth" };
@@ -117,16 +122,39 @@ export async function enhancePhoto(
   // exhausted credits, provider outage) degrades to the standard remover instead of erroring.
   if (requestedTier === "studio") {
     if (isPremiumBgRemoverConfigured()) {
-      const studio = await runRemoval(userId, dataUrl, "studio");
+      const studio = await runRemoval(userId, dataUrl, "studio", format);
       if (studio.success) return { ...studio, tier: "studio" };
       const quota = await canRemoveBackground(userId, "studio");
       // A quota/plan rejection is a product decision, not a provider failure: surface it.
       if (!quota.allowed) return { ...studio, code: "quota" };
     }
-    const fallback = await runRemoval(userId, dataUrl, "standard");
+    const fallback = await runRemoval(userId, dataUrl, "standard", format);
     return fallback.success ? { ...fallback, tier: "standard" } : fallback;
   }
 
-  const standard = await runRemoval(userId, dataUrl, "standard");
+  const standard = await runRemoval(userId, dataUrl, "standard", format);
   return standard.success ? { ...standard, tier: "standard" } : standard;
+}
+
+/**
+ * Background/aspect formatting only. This runs locally (sharp, no provider call), so it is not
+ * metered against the background-removal quotas — it just needs a signed-in user.
+ */
+export async function formatPhoto(
+  url: string,
+  format: PhotoFormatOptions
+): Promise<{ success: true; result: string } | { success: false; error: string; code?: "auth" }> {
+  const session = await getServerSession(authOptions);
+  if (!session?.user?.id) return { success: false, error: "You must be logged in.", code: "auth" };
+
+  const preset = format.preset || DEFAULT_PHOTO_PRESET;
+  if (!isFormattingRequested(format.background, preset)) {
+    return { success: false, error: "Pick a background or size first" };
+  }
+
+  try {
+    return { success: true, result: await formatPhotoAi(url, { background: format.background, preset }) };
+  } catch (err) {
+    return { success: false, error: err instanceof Error ? err.message : "Failed to format photo" };
+  }
 }
