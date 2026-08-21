@@ -4,7 +4,13 @@ import { motion } from "framer-motion";
 import { LogoMark } from "@/components/logo";
 import { MarketingButton, reveal } from "@/components/marketing/motion-primitives";
 
-export function FinalCta() {
+export function FinalCta({
+  heading = "Ready to sell everywhere?",
+  sub = "Create your first listing and see how much simpler reselling can be.",
+}: {
+  heading?: string;
+  sub?: string | null;
+}) {
   return (
     <motion.section
       id="start"
@@ -31,12 +37,14 @@ export function FinalCta() {
       />
       <div className="relative mx-auto max-w-[1440px] px-6 lg:px-[48px] xl:px-[80px]">
         <h2 className="max-w-[600px] font-display text-[42px] font-extrabold leading-[1.03] tracking-[-0.035em] text-white lg:text-[52px] xl:text-[64px] xl:leading-[1.02]">
-          Ready to sell everywhere?
+          {heading}
         </h2>
-        <p className="mt-5 max-w-[520px] text-[17px] leading-relaxed text-[#68727D] lg:text-[19px]">
-          Create your first listing and see how much simpler reselling can be.
-        </p>
-        <div className="mt-9 flex flex-col items-center gap-4 lg:flex-row lg:items-center">
+        {sub && (
+          <p className="mt-5 max-w-[520px] text-[17px] leading-relaxed text-[#68727D] lg:text-[19px]">
+            {sub}
+          </p>
+        )}
+        <div className={`flex flex-col items-center gap-4 lg:flex-row lg:items-center ${sub ? "mt-9" : "mt-7"}`}>
           <MarketingButton href="/login" variant="primary" size={54} fullWidth className="lg:w-auto">
             Start for free
           </MarketingButton>
