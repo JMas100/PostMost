@@ -83,13 +83,13 @@ export function MarketingNav() {
     <>
       <header
       className={cn(
-        "sticky top-0 z-50 h-[58px] bg-[#F7F8FA]/90 backdrop-blur-[14px] lg:h-[76px]",
+        "sticky top-0 z-50 h-[58px] bg-[#F7F8FA]/90 backdrop-blur-[14px] lg:h-[72px] xl:h-[76px]",
         "border-b",
         scrolled ? "border-[#E5E7EB]" : "border-transparent"
       )}
       style={{ transitionProperty: "border-color", transitionDuration: "250ms" }}
     >
-      <nav className="mx-auto flex h-full max-w-[1280px] items-center justify-between px-6 lg:px-[80px]">
+      <nav className="mx-auto flex h-full max-w-[1440px] items-center justify-between px-6 lg:px-[48px] xl:px-[80px]">
         <Link href="/" className="flex items-center gap-2">
           <LogoMark className="h-[22px] w-[28px] lg:h-6 lg:w-[30px]" />
           <span className="font-heading text-[18px] font-bold tracking-[-0.02em] text-[#090B0D] lg:text-[19px]">
@@ -97,12 +97,12 @@ export function MarketingNav() {
           </span>
         </Link>
 
-        <div className="hidden items-center gap-8 lg:flex">
+        <div className="hidden items-center gap-[22px] lg:flex xl:gap-8">
           {navLinks.map((link) => (
             <Link
               key={link.href}
               href={resolveHref(link.href)}
-              className="text-[14.5px] font-medium text-[#68727D] transition-colors hover:text-[#090B0D]"
+              className="text-[14px] font-medium text-[#68727D] transition-colors hover:text-[#090B0D] xl:text-[14.5px]"
             >
               {link.label}
             </Link>
@@ -110,7 +110,7 @@ export function MarketingNav() {
         </div>
 
         <div className="hidden items-center gap-5 lg:flex">
-          <Link href="/login" className="text-[14.5px] font-medium text-[#68727D] transition-colors hover:text-[#090B0D]">
+          <Link href="/login" className="text-[14px] font-medium text-[#68727D] transition-colors hover:text-[#090B0D] xl:text-[14.5px]">
             Log In
           </Link>
           <Link

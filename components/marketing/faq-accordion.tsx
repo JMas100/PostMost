@@ -52,14 +52,14 @@ export function FaqAccordion() {
       whileInView="visible"
       viewport={{ once: true, margin: "-100px" }}
       variants={reveal}
-      className="bg-[#F7F8FA] py-[72px] lg:py-[120px]"
+      className="bg-[#F7F8FA] py-[72px] lg:py-[88px] xl:py-[120px]"
     >
-      <div className="mx-auto grid max-w-[1280px] gap-8 px-6 lg:grid-cols-[380px_1fr] lg:gap-20 lg:px-[80px]">
+      <div className="mx-auto grid max-w-[1440px] gap-8 px-6 lg:px-[48px] xl:grid-cols-[380px_1fr] xl:gap-20 xl:px-[80px]">
         <div>
-          <h2 className="font-display text-[32px] font-bold leading-[1.12] tracking-[-0.03em] text-[#090B0D] lg:text-[46px] lg:leading-[1.05]">
+          <h2 className="font-display text-[32px] font-bold leading-[1.12] tracking-[-0.03em] text-[#090B0D] lg:text-[40px] xl:text-[46px] xl:leading-[1.05]">
             Questions, answered.
           </h2>
-          <p className="mt-4 hidden text-[16px] text-[#68727D] lg:block">
+          <p className="mt-4 hidden text-[16px] text-[#68727D] xl:block">
             Still unsure about something?{" "}
             <Link href="mailto:hello@postmost.co" className="font-semibold text-[#090B0D] underline underline-offset-4">
               Talk to us
@@ -85,7 +85,7 @@ export function FaqAccordion() {
           ))}
         </Accordion>
 
-        <p className="text-[16px] text-[#68727D] lg:hidden">
+        <p className="text-[16px] text-[#68727D] xl:hidden">
           Still unsure about something?{" "}
           <Link href="mailto:hello@postmost.co" className="font-semibold text-[#090B0D] underline underline-offset-4">
             Talk to us

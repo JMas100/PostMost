@@ -18,14 +18,27 @@ const CHIP_POS = [
   { left: 199, top: 102 },
 ];
 
+const TABLET_CHIP_POS = [
+  { left: 254, top: 33 },
+  { left: 367, top: 80 },
+  { left: 414, top: 193 },
+  { left: 367, top: 306 },
+  { left: 254, top: 353 },
+  { left: 141, top: 306 },
+  { left: 94, top: 193 },
+  { left: 141, top: 80 },
+];
+
 const CENTER = { x: 400, y: 250 };
 const RADIUS = 200;
+const TABLET_CENTER = { x: 320, y: 215 };
+const TABLET_RADIUS = 160;
 
-function rayEndpoint(index: number) {
+function rayEndpoint(index: number, center: { x: number; y: number }, radius: number) {
   const angle = (-90 + index * 45) * (Math.PI / 180);
   return {
-    x: Math.round(CENTER.x + RADIUS * Math.cos(angle)),
-    y: Math.round(CENTER.y + RADIUS * Math.sin(angle)),
+    x: Math.round(center.x + radius * Math.cos(angle)),
+    y: Math.round(center.y + radius * Math.sin(angle)),
   };
 }
 
@@ -38,13 +51,13 @@ export function PublishRadial() {
   );
 
   return (
-    <section className="bg-[#090B0D] py-[72px] lg:py-32">
-      <div className="mx-auto max-w-[1280px] px-6 lg:px-[80px]">
+    <section className="bg-[#090B0D] py-[72px] lg:py-[88px] xl:py-32">
+      <div className="mx-auto max-w-[1440px] px-6 lg:px-[48px] xl:px-[80px]">
         <p className="text-[12px] font-semibold uppercase tracking-[0.12em] text-[#68727D]">02 — PUBLISH</p>
-        <h2 className="mt-4 font-display text-[34px] font-bold leading-[1.08] tracking-[-0.03em] text-white lg:text-[46px] lg:leading-[1.05]">
+        <h2 className="mt-4 max-w-[620px] font-display text-[34px] font-bold leading-[1.08] tracking-[-0.03em] text-white lg:text-[40px] xl:text-[46px] xl:leading-[1.05]">
           Sell everywhere.
         </h2>
-        <p className="mt-5 max-w-[520px] text-[17px] leading-relaxed text-[#68727D] lg:text-[19px]">
+        <p className="mt-5 max-w-[520px] text-[17px] leading-relaxed text-[#68727D] lg:text-[18px] xl:text-[19px]">
           Select your marketplaces once. PostMost handles the rest.
         </p>
 
@@ -86,11 +99,73 @@ export function PublishRadial() {
           </div>
         </div>
 
-        <div className="relative mx-auto mt-14 hidden h-[520px] w-full max-w-[800px] lg:block">
+        {/* Tablet: same radial, scaled down */}
+        <div className="relative mx-auto mt-14 hidden h-[440px] w-full max-w-[640px] lg:block xl:hidden">
+          <svg viewBox="0 0 640 440" className="pointer-events-none absolute inset-0 h-full w-full" aria-hidden="true">
+            <circle cx={TABLET_CENTER.x} cy={TABLET_CENTER.y} r={TABLET_RADIUS} fill="none" stroke="#24282D" strokeWidth="1" />
+            {markets.map((platform, i) => {
+              const end = rayEndpoint(i, TABLET_CENTER, TABLET_RADIUS);
+              return (
+                <path
+                  key={platform.id}
+                  d={`M${TABLET_CENTER.x},${TABLET_CENTER.y} L${end.x},${end.y}`}
+                  fill="none"
+                  stroke="#B6F34A"
+                  strokeWidth="2"
+                  strokeDasharray="170"
+                  className={reduceMotion ? undefined : "motion-draw-path"}
+                  style={
+                    reduceMotion
+                      ? { strokeDashoffset: 0 }
+                      : ({
+                          animationDuration: `${LOOP}s`,
+                          animationDelay: `${i * 0.12}s`,
+                          "--draw-dash": 170,
+                        } as React.CSSProperties)
+                  }
+                />
+              );
+            })}
+          </svg>
+
+          <div className="absolute" style={{ left: 286, top: 181 }}>
+            <PulseNode size={68} reduceMotion={reduceMotion} duration={LOOP} />
+          </div>
+
+          {markets.map((platform, i) => {
+            const pos = TABLET_CHIP_POS[i];
+            return (
+              <div
+                key={platform.id}
+                className="absolute flex h-11 w-[132px] items-center gap-2 rounded-[10px] border border-[#24282D] bg-[#15181C] px-2.5"
+                style={{ left: pos.left, top: pos.top }}
+              >
+                <PlatformLogo platform={platform.id} size={24} onDark showLabel={false} />
+                <span className="truncate text-[12.5px] font-medium text-white">{platform.name}</span>
+              </div>
+            );
+          })}
+
+          <motion.div
+            key={`tablet-badge-${reduceMotion}`}
+            className="absolute bottom-0 left-1/2 flex -translate-x-1/2 items-center gap-1.5 rounded-full bg-[#15181C] px-3.5 py-1.5 text-[12.5px] font-semibold text-[#B6F34A]"
+            animate={reduceMotion ? { opacity: 1 } : { opacity: [0, 0, 1, 1, 0] }}
+            transition={
+              reduceMotion
+                ? undefined
+                : { duration: LOOP, repeat: Infinity, ease: "easeInOut", times: [0.58, 0.61, 0.66, 0.94, 0.97] }
+            }
+          >
+            ✓ Published everywhere
+          </motion.div>
+        </div>
+
+        {/* Desktop: full radial */}
+        <div className="relative mx-auto mt-14 hidden h-[520px] w-full max-w-[800px] xl:block">
           <svg viewBox="0 0 800 520" className="pointer-events-none absolute inset-0 h-full w-full" aria-hidden="true">
             <circle cx={CENTER.x} cy={CENTER.y} r={RADIUS} fill="none" stroke="#24282D" strokeWidth="1" />
             {markets.map((platform, i) => {
-              const end = rayEndpoint(i);
+              const end = rayEndpoint(i, CENTER, RADIUS);
               return (
                 <path
                   key={platform.id}

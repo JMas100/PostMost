@@ -19,7 +19,7 @@ const COLUMNS = [
 
 function Connector({ reduceMotion }: { reduceMotion: boolean }) {
   return (
-    <svg width="52" height="12" viewBox="0 0 52 12" className="hidden shrink-0 self-center sm:block" aria-hidden="true">
+    <svg width="52" height="12" viewBox="0 0 52 12" className="hidden shrink-0 self-center xl:block" aria-hidden="true">
       <path
         d="M0,6 L52,6"
         stroke="#B6F34A"
@@ -39,18 +39,18 @@ export function AutomationFlow() {
       whileInView="visible"
       viewport={{ once: true, margin: "-100px" }}
       variants={reveal}
-      className="bg-white py-32"
+      className="bg-white py-[72px] lg:py-[88px] xl:py-32"
     >
-      <div className="mx-auto max-w-[1280px] px-6 lg:px-[80px]">
-        <h2 className="font-display text-[46px] font-bold leading-[1.05] tracking-[-0.03em] text-[#090B0D] sm:text-[48px]">
+      <div className="mx-auto max-w-[1440px] px-6 lg:px-[48px] xl:px-[80px]">
+        <h2 className="font-display text-[34px] font-bold leading-[1.1] tracking-[-0.03em] text-[#090B0D] lg:text-[40px] xl:text-[46px] xl:leading-[1.05]">
           Post it. Then let PostMost work.
         </h2>
-        <p className="mt-5 max-w-[520px] text-[19px] leading-relaxed text-[#68727D]">
+        <p className="mt-5 max-w-[520px] text-[17px] leading-relaxed text-[#68727D] lg:text-[18px] xl:text-[19px]">
           You shouldn&apos;t have to babysit your inventory.
         </p>
 
-        <div className="mt-14 rounded-[16px] bg-[#090B0D] px-8 py-11 sm:px-10">
-          <div className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-stretch">
+        <div className="mt-10 rounded-[16px] bg-[#090B0D] px-6 py-8 lg:mt-14 sm:px-10">
+          <div className="flex flex-col items-stretch gap-3 xl:flex-row xl:items-stretch">
             {STEPS.map((step, i) => (
               <motion.div
                 key={`${step}-${reduceMotion}`}
@@ -73,12 +73,12 @@ export function AutomationFlow() {
               </motion.div>
             ))}
             <Connector reduceMotion={reduceMotion} />
-            <div className="flex min-h-[104px] w-full shrink-0 items-center justify-center rounded-[10px] bg-[#B6F34A] px-4 py-3 text-[15px] font-semibold text-[#090B0D] sm:w-[150px]">
+            <div className="flex min-h-[104px] w-full shrink-0 items-center justify-center rounded-[10px] bg-[#B6F34A] px-4 py-3 text-[15px] font-semibold text-[#090B0D] xl:w-[150px]">
               You&apos;re done.
             </div>
           </div>
 
-          <div className="mt-9 grid gap-8 border-t border-[#24282D] pt-9 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="mt-9 grid gap-8 border-t border-[#24282D] pt-9 sm:grid-cols-2 xl:grid-cols-4">
             {COLUMNS.map((col) => (
               <div key={col.title}>
                 <p className="text-[15px] font-semibold text-white">{col.title}</p>

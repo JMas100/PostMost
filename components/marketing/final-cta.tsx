@@ -12,7 +12,7 @@ export function FinalCta() {
       whileInView="visible"
       viewport={{ once: true, margin: "-100px" }}
       variants={reveal}
-      className="relative overflow-hidden bg-[#090B0D] py-[88px] lg:py-[140px]"
+      className="relative overflow-hidden bg-[#090B0D] py-[88px] xl:py-[140px]"
     >
       <LogoMark
         className="pointer-events-none absolute opacity-[0.07] lg:hidden"
@@ -20,12 +20,17 @@ export function FinalCta() {
         aria-hidden="true"
       />
       <LogoMark
-        className="pointer-events-none absolute top-1/2 hidden -translate-y-1/2 opacity-[0.07] lg:block"
+        className="pointer-events-none absolute top-1/2 hidden -translate-y-1/2 opacity-[0.07] lg:block xl:hidden"
+        style={{ right: -80, width: 480, height: 387 }}
+        aria-hidden="true"
+      />
+      <LogoMark
+        className="pointer-events-none absolute top-1/2 hidden -translate-y-1/2 opacity-[0.07] xl:block"
         style={{ right: -60, width: 620, height: 500 }}
         aria-hidden="true"
       />
-      <div className="relative mx-auto max-w-[1280px] px-6 lg:px-[80px]">
-        <h2 className="max-w-[600px] font-display text-[42px] font-extrabold leading-[1.03] tracking-[-0.035em] text-white lg:text-[64px] lg:leading-[1.02]">
+      <div className="relative mx-auto max-w-[1440px] px-6 lg:px-[48px] xl:px-[80px]">
+        <h2 className="max-w-[600px] font-display text-[42px] font-extrabold leading-[1.03] tracking-[-0.035em] text-white lg:text-[52px] xl:text-[64px] xl:leading-[1.02]">
           Ready to sell everywhere?
         </h2>
         <p className="mt-5 max-w-[520px] text-[17px] leading-relaxed text-[#68727D] lg:text-[19px]">

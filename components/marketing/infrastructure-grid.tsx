@@ -44,18 +44,18 @@ export function InfrastructureGrid() {
       whileInView="visible"
       viewport={{ once: true, margin: "-100px" }}
       variants={reveal}
-      className="bg-[#090B0D] py-[72px] lg:py-32"
+      className="bg-[#090B0D] py-[72px] lg:py-[88px] xl:py-32"
     >
-      <div className="mx-auto max-w-[1280px] px-6 lg:px-[80px]">
-        <h2 className="max-w-[720px] font-display text-[32px] font-bold leading-[1.15] tracking-[-0.03em] text-white lg:text-[46px] lg:leading-[1.05]">
+      <div className="mx-auto max-w-[1440px] px-6 lg:px-[48px] xl:px-[80px]">
+        <h2 className="max-w-[720px] font-display text-[32px] font-bold leading-[1.15] tracking-[-0.03em] text-white lg:text-[40px] xl:text-[46px] xl:leading-[1.05]">
           Built like infrastructure, not a browser plugin.
         </h2>
-        <p className="mt-5 max-w-[600px] text-[17px] leading-relaxed text-[#68727D] lg:text-[19px]">
+        <p className="mt-5 max-w-[600px] text-[17px] leading-relaxed text-[#68727D] lg:text-[18px] xl:text-[19px]">
           Most of this you&apos;ll never have to think about. It&apos;s the reason listings
           land, inventory stays honest, and a growing operation doesn&apos;t outgrow the tool.
         </p>
 
-        <div className="mt-10 grid gap-4 sm:grid-cols-2 lg:mt-14 lg:grid-cols-3">
+        <div className="mt-10 grid gap-4 sm:grid-cols-2 lg:mt-14 lg:grid-cols-2 xl:grid-cols-3">
           {CARDS.map((card) => (
             <div key={card.title} className="rounded-[12px] border border-[#24282D] bg-[#0E1114] p-7">
               <div className="flex h-[34px] w-[34px] items-center justify-center rounded-[8px] border border-[#24282D] bg-[#15181C]">

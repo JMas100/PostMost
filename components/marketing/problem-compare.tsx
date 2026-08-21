@@ -25,18 +25,18 @@ export function ProblemCompare() {
       whileInView="visible"
       viewport={{ once: true, margin: "-100px" }}
       variants={reveal}
-      className="bg-[#F7F8FA] py-[72px] lg:py-[120px]"
+      className="bg-[#F7F8FA] py-[72px] lg:py-[88px] xl:py-[120px]"
     >
-      <div className="mx-auto max-w-[1280px] px-6 lg:px-[80px]">
-        <h2 className="max-w-[760px] font-display text-[32px] font-bold leading-[1.12] tracking-[-0.03em] text-[#090B0D] lg:text-[46px] lg:leading-[1.05]">
+      <div className="mx-auto max-w-[1440px] px-6 lg:px-[48px] xl:px-[80px]">
+        <h2 className="max-w-[760px] font-display text-[32px] font-bold leading-[1.12] tracking-[-0.03em] text-[#090B0D] lg:text-[40px] xl:text-[46px] xl:leading-[1.05]">
           Selling everywhere shouldn&apos;t mean doing everything twice.
         </h2>
-        <p className="mt-5 max-w-[620px] text-[17px] leading-relaxed text-[#68727D] lg:text-[19px]">
+        <p className="mt-5 max-w-[620px] text-[17px] leading-relaxed text-[#68727D] lg:text-[18px] xl:text-[19px]">
           Every marketplace has its own forms, categories, requirements, and workflows.
           PostMost turns all of that repetition into one streamlined process.
         </p>
 
-        <div className="mt-10 grid gap-6 lg:mt-14 lg:grid-cols-2">
+        <div className="mt-10 grid gap-6 lg:mt-14 lg:grid-cols-2 lg:gap-5 xl:gap-6">
           <div className="rounded-[16px] bg-white p-8 shadow-[0_4px_24px_-8px_rgba(9,11,13,.08)]">
             <p className="mb-5 text-[12px] font-semibold uppercase tracking-[0.12em] text-[#68727D]">Traditional</p>
             <div className="flex flex-col gap-2">

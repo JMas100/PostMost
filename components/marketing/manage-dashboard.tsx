@@ -33,14 +33,14 @@ export function ManageDashboard() {
       whileInView="visible"
       viewport={{ once: true, margin: "-100px" }}
       variants={reveal}
-      className="bg-[#F7F8FA] py-[72px] lg:py-32"
+      className="bg-[#F7F8FA] py-[72px] lg:py-[88px] xl:py-32"
     >
-      <div className="mx-auto max-w-[1280px] px-6 lg:px-[80px]">
+      <div className="mx-auto max-w-[1440px] px-6 lg:px-[48px] xl:px-[80px]">
         <p className="text-[12px] font-semibold uppercase tracking-[0.12em] text-[#68727D]">03 — MANAGE</p>
-        <h2 className="mt-4 font-display text-[34px] font-bold leading-[1.08] tracking-[-0.03em] text-[#090B0D] lg:text-[46px] lg:leading-[1.05]">
+        <h2 className="mt-4 font-display text-[34px] font-bold leading-[1.08] tracking-[-0.03em] text-[#090B0D] lg:text-[40px] xl:text-[46px] xl:leading-[1.05]">
           One inventory. Every marketplace.
         </h2>
-        <p className="mt-5 max-w-[560px] text-[17px] leading-relaxed text-[#68727D] lg:text-[19px]">
+        <p className="mt-5 max-w-[560px] text-[17px] leading-relaxed text-[#68727D] lg:text-[18px] xl:text-[19px]">
           Keep your listings, inventory, orders, and marketplace activity organized from one
           place.
         </p>
@@ -89,7 +89,7 @@ export function ManageDashboard() {
               ))}
             </div>
 
-            <div className="mt-4 grid gap-4 lg:grid-cols-[380px_1fr]">
+            <div className="mt-4 grid gap-4 xl:grid-cols-[380px_1fr]">
               <div className="rounded-[12px] border border-[#24282D] bg-[#0E1114] p-5">
                 <p className="mb-4 text-[13px] font-semibold text-white">Marketplace Health</p>
                 <div className="flex flex-col gap-3">

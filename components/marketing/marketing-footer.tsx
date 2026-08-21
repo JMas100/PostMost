@@ -40,7 +40,7 @@ const COLUMNS = [
 export function MarketingFooter() {
   return (
     <footer className="border-t border-[#24282D] bg-[#090B0D] pb-8 pt-12 lg:pb-10 lg:pt-[72px]">
-      <div className="mx-auto grid max-w-[1280px] gap-8 px-6 lg:grid-cols-[300px_1fr] lg:gap-10 lg:px-[80px]">
+      <div className="mx-auto grid max-w-[1440px] gap-8 px-6 lg:px-[48px] xl:grid-cols-[300px_1fr] xl:gap-10 xl:px-[80px]">
         <div>
           <div className="flex items-center gap-2">
             <LogoMark className="h-[22px] w-[28px]" />
@@ -67,7 +67,7 @@ export function MarketingFooter() {
         </div>
       </div>
 
-      <div className="mx-auto mt-12 max-w-[1280px] border-t border-[#24282D] px-6 pt-6 lg:px-[80px]">
+      <div className="mx-auto mt-12 max-w-[1440px] border-t border-[#24282D] px-6 pt-6 lg:px-[48px] xl:px-[80px]">
         <p className="text-[13px] text-[#68727D]">© {new Date().getFullYear()} PostMost. Built for resellers.</p>
       </div>
     </footer>

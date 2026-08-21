@@ -71,10 +71,10 @@ export function PricingGrid() {
       whileInView="visible"
       viewport={{ once: true, margin: "-100px" }}
       variants={reveal}
-      className="bg-white py-[72px] lg:py-32"
+      className="bg-white py-[72px] lg:py-[88px] xl:py-32"
     >
-      <div className="mx-auto max-w-[1280px] px-6 lg:px-[80px]">
-        <h2 className="font-display text-[34px] font-bold leading-[1.08] tracking-[-0.03em] text-[#090B0D] lg:text-[46px] lg:leading-[1.05]">
+      <div className="mx-auto max-w-[1440px] px-6 lg:px-[48px] xl:px-[80px]">
+        <h2 className="font-display text-[34px] font-bold leading-[1.08] tracking-[-0.03em] text-[#090B0D] lg:text-[40px] xl:text-[46px] xl:leading-[1.05]">
           Start free.
           <br />
           Upgrade when you grow.
@@ -160,7 +160,7 @@ export function PricingGrid() {
           })}
         </div>
 
-        <div className="mt-14 hidden gap-4 lg:grid lg:grid-cols-3">
+        <div className="mt-14 hidden gap-[14px] lg:grid lg:grid-cols-3 xl:gap-4">
           {PLANS.map((plan) => {
             const isPro = plan.id === "pro";
             const isEnterprise = plan.id === "enterprise";
@@ -168,9 +168,9 @@ export function PricingGrid() {
               <div
                 key={plan.id}
                 className={cn(
-                  "relative rounded-[12px] border p-7",
+                  "relative rounded-[12px] border p-6 xl:p-7",
                   isPro
-                    ? "border-[1.5px] border-[#B6F34A] bg-[#090B0D] p-8 shadow-[0_10px_40px_rgba(9,11,13,.16)]"
+                    ? "border-[1.5px] border-[#B6F34A] bg-[#090B0D] shadow-[0_10px_40px_rgba(9,11,13,.16)] xl:p-8"
                     : "border-[#E5E7EB] bg-white"
                 )}
               >
@@ -189,8 +189,8 @@ export function PricingGrid() {
                 </p>
                 <p
                   className={cn(
-                    "mt-2 font-display font-bold tracking-[-0.02em]",
-                    isPro ? "text-[44px] text-white" : "text-[40px] text-[#090B0D]"
+                    "mt-2 font-display text-[34px] font-bold tracking-[-0.02em]",
+                    isPro ? "text-white xl:text-[44px]" : "text-[#090B0D] xl:text-[40px]"
                   )}
                 >
                   {isEnterprise ? "Custom" : formatPrice(plan.priceMonthly)}
@@ -216,7 +216,7 @@ export function PricingGrid() {
 
                 <ul className={cn("mt-6 flex flex-col gap-1", isPro ? "text-[#aab2ba]" : "text-[#68727D]")}>
                   {LIMITS[plan.id]?.map((limit) => (
-                    <li key={limit} className="text-[13.5px] leading-[1.9]">
+                    <li key={limit} className="text-[13px] leading-[1.9] xl:text-[13.5px]">
                       {limit}
                     </li>
                   ))}

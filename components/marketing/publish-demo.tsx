@@ -67,15 +67,15 @@ export function PublishDemo() {
       whileInView="visible"
       viewport={{ once: true, margin: "-100px" }}
       variants={reveal}
-      className="bg-[#090B0D] py-[72px] lg:py-32"
+      className="bg-[#090B0D] py-[72px] lg:py-[88px] xl:py-32"
     >
-      <div className="mx-auto max-w-[1280px] px-6 lg:px-[80px]">
-        <h2 className="font-display text-[34px] font-bold leading-[1.1] tracking-[-0.03em] text-white lg:text-[46px] lg:leading-[1.05]">
+      <div className="mx-auto max-w-[1440px] px-6 lg:px-[48px] xl:px-[80px]">
+        <h2 className="font-display text-[34px] font-bold leading-[1.1] tracking-[-0.03em] text-white lg:text-[40px] xl:text-[46px] xl:leading-[1.05]">
           One listing.
           <br />
           Everywhere you sell.
         </h2>
-        <p className="mt-5 max-w-[560px] text-[17px] leading-relaxed text-[#68727D] lg:text-[19px]">
+        <p className="mt-5 max-w-[560px] text-[17px] leading-relaxed text-[#68727D] lg:text-[18px] xl:text-[19px]">
           Build your listing once. PostMost handles the marketplace-specific details behind
           the scenes.
         </p>
@@ -154,12 +154,12 @@ export function PublishDemo() {
           </div>
 
           {/* Body */}
-          <div className="grid lg:grid-cols-[1fr_380px]">
+          <div className="grid lg:grid-cols-[1fr_330px] xl:grid-cols-[1fr_380px]">
             <div className="border-b border-[#24282D] p-8 lg:border-b-0 lg:border-r">
               <div className="flex flex-col gap-6 sm:flex-row">
                 <div className="flex shrink-0 flex-col gap-2">
                   <div
-                    className="h-[220px] w-[220px] rounded-[10px]"
+                    className="h-[180px] w-[180px] rounded-[10px] xl:h-[220px] xl:w-[220px]"
                     style={{ backgroundImage: "repeating-linear-gradient(135deg, #15181C 0 10px, #1b1f24 10px 20px)" }}
                   />
                   <div className="flex gap-2">

@@ -10,7 +10,7 @@ export function MarketplaceStrip() {
 
   return (
     <section id="marketplaces" className="border-y border-[#E5E7EB] bg-white py-14">
-      <div className="mx-auto flex max-w-[1280px] flex-col gap-6 px-6 lg:flex-row lg:flex-nowrap lg:items-center lg:gap-x-10 lg:px-[80px]">
+      <div className="mx-auto flex max-w-[1440px] flex-col gap-6 px-6 lg:flex-row lg:flex-nowrap lg:items-center lg:gap-x-10 lg:px-[48px] xl:px-[80px]">
         <p className="shrink-0 text-[14px] font-medium text-[#68727D] lg:w-[230px] lg:text-[14.5px]">
           Sell where your customers already shop.
         </p>

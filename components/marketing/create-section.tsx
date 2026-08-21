@@ -18,15 +18,15 @@ export function CreateSection() {
       whileInView="visible"
       viewport={{ once: true, margin: "-100px" }}
       variants={reveal}
-      className="bg-white py-[72px] lg:py-32"
+      className="bg-white py-[72px] lg:py-[88px] xl:py-32"
     >
-      <div className="mx-auto grid max-w-[1280px] items-center gap-10 px-6 lg:grid-cols-2 lg:gap-[88px] lg:px-[80px]">
+      <div className="mx-auto grid max-w-[1440px] items-center gap-10 px-6 lg:grid-cols-2 lg:gap-14 lg:px-[48px] xl:gap-[88px] xl:px-[80px]">
         <div>
           <p className="text-[12px] font-semibold uppercase tracking-[0.12em] text-[#68727D]">01 — CREATE</p>
-          <h2 className="mt-4 font-display text-[34px] font-bold leading-[1.08] tracking-[-0.03em] text-[#090B0D] lg:text-[46px] lg:leading-[1.05]">
+          <h2 className="mt-4 font-display text-[34px] font-bold leading-[1.08] tracking-[-0.03em] text-[#090B0D] lg:text-[40px] xl:text-[46px] xl:leading-[1.05]">
             Create once.
           </h2>
-          <p className="mt-5 max-w-[460px] text-[17px] leading-relaxed text-[#68727D] lg:text-[19px]">
+          <p className="mt-5 max-w-[460px] text-[17px] leading-relaxed text-[#68727D] lg:text-[18px] xl:text-[19px]">
             Everything starts with one listing. Add your photos and details once, then let
             PostMost handle the repetitive work.
           </p>
