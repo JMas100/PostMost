@@ -6,6 +6,7 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { decrypt } from "@/lib/crypto";
 import { getAdapter } from "@/lib/marketplaces";
+import { getPlan } from "@/lib/plans";
 
 function getUserId(session: { user?: { id?: string } } | null) {
   if (!session?.user?.id) throw new Error("Unauthorized");
@@ -87,3 +88,32 @@ export async function markListingSold(listingId: string, soldPlatform?: string, 
   revalidatePath("/analytics");
   return { success: true, results };
 }
+
+export async function getInventory() {
+  const session = await getServerSession(authOptions);
+  const userId = session?.user?.id;
+  if (!userId) throw new Error("Unauthorized");
+
+  const [listings, user] = await Promise.all([
+    prisma.listing.findMany({
+      where: { userId, isDraft: false },
+      include: { photos: true, platformListings: true },
+      orderBy: { createdAt: "desc" },
+    }),
+    prisma.user.findUnique({ where: { id: userId }, select: { plan: true } }),
+  ]);
+
+  const plan = getPlan(user?.plan);
+  const activeCount = listings.filter((l) => l.quantity > 0).length;
+  const totalValue = listings.reduce((sum, l) => sum + l.price * l.quantity, 0);
+
+  return {
+    listings,
+    plan,
+    activeCount,
+    activeLimit: plan.activeInventoryLimit,
+    totalValue,
+  };
+}
+
+export type InventoryData = Awaited<ReturnType<typeof getInventory>>;

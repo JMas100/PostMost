@@ -6,7 +6,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { listingSchema, ListingFormData } from "@/lib/schemas/listing";
-import { canCreateListing, incrementListingUsage } from "@/lib/actions/usage";
+import { canCreateListing, canImportCSV, incrementListingUsage } from "@/lib/actions/usage";
 
 function getUserId(session: { user?: { id?: string } } | null) {
   if (!session?.user?.id) throw new Error("Unauthorized");
@@ -100,6 +100,11 @@ export interface ImportResult {
 export async function importCSV(csvText: string, options: { publish?: boolean } = {}): Promise<ImportResult> {
   const session = await getServerSession(authOptions);
   const userId = getUserId(session);
+
+  const gate = await canImportCSV(userId);
+  if (!gate.allowed) {
+    return { created: 0, drafted: 0, errors: [{ row: 0, message: gate.reason || "CSV import isn't available on your plan." }] };
+  }
 
   const parsed = parse<Record<string, string>>(csvText, {
     header: true,
