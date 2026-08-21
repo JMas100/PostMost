@@ -17,6 +17,11 @@ export const STEP_LABELS: Record<StepId, string> = {
   review: "Review",
 };
 
+export function isPhotoUrl(value: string): boolean {
+  const trimmed = value.trim();
+  return trimmed.startsWith("http") || trimmed.startsWith("data:");
+}
+
 export type OptimizingState = "" | "title" | "description" | "caption" | "price" | "photo";
 
 export interface ShippingProfileOption {
