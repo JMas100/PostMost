@@ -2,7 +2,7 @@
 
 import { motion } from "framer-motion";
 import { PLATFORMS } from "@/lib/marketplaces/platforms";
-import { PlatformMark } from "@/components/platform-logo";
+import { PlatformLogo } from "@/components/platform-logo";
 import {
   Eyebrow,
   GrowBar,
@@ -152,9 +152,7 @@ export function HeroBranch() {
                     : { duration: LOOP, repeat: Infinity, ease: "easeInOut", delay: i * 0.07, times: [0, 0.21, 0.32] }
                 }
               >
-                <span className="flex h-6 flex-1 items-center overflow-hidden">
-                  <PlatformMark platformId={platform.id} className="h-5 w-auto max-w-full overflow-visible whitespace-nowrap" />
-                </span>
+                <PlatformLogo platform={platform.id} size={50} className="h-6 flex-1 overflow-hidden" />
                 <motion.span
                   className="relative h-5 w-5 shrink-0 rounded-full"
                   initial={{ backgroundColor: "transparent" }}
@@ -279,9 +277,7 @@ export function HeroBranch() {
                     }
               }
             >
-              <span className="flex h-6 flex-1 items-center overflow-hidden">
-                <PlatformMark platformId={platform.id} className="h-5 w-auto max-w-full overflow-visible whitespace-nowrap" />
-              </span>
+              <PlatformLogo platform={platform.id} size={50} className="h-6 flex-1 overflow-hidden" />
               <motion.span
                 className="relative h-[18px] w-[18px] shrink-0 rounded-full"
                 initial={{ backgroundColor: "transparent", borderColor: "#E5E7EB" }}

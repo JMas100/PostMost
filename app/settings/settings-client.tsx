@@ -73,7 +73,7 @@ function AccountCard({ platform, account }: AccountCardProps) {
   return (
     <div className="flex items-center justify-between rounded-lg border p-4">
       <div className="flex items-center gap-3">
-        <PlatformLogo platformId={platform.id} />
+        <PlatformLogo platform={platform.id} size={40} />
         <div>
           <p className="font-medium">{platform.name}</p>
           <p className="text-xs text-muted-foreground">
@@ -104,7 +104,7 @@ function ConnectDialog({ platform, account }: AccountCardProps) {
         <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <PlatformLogo platformId={platform.id} className="h-5 w-16 px-1.5" />
+            <PlatformLogo platform={platform.id} size={40} />
             {account ? "Manage" : "Connect"} {platform.name}
           </DialogTitle>
           <DialogDescription>

@@ -2,7 +2,7 @@
 
 import { motion } from "framer-motion";
 import { PLATFORMS } from "@/lib/marketplaces/platforms";
-import { PlatformMark } from "@/components/platform-logo";
+import { PlatformLogo } from "@/components/platform-logo";
 import { PulseNode, useMountedReducedMotion } from "@/components/marketing/motion-primitives";
 
 const RADIAL_ORDER = ["ebay", "poshmark", "mercari", "depop", "etsy", "whatnot", "vinted", "grailed"] as const;
@@ -72,9 +72,7 @@ export function PublishRadial() {
                     : { duration: LOOP, repeat: Infinity, ease: "easeInOut", delay: i * 0.1, times: [0, 0.2, 0.3, 1] }
                 }
               >
-                <span className="flex h-[26px] w-auto min-w-[30px] shrink-0 items-center justify-center self-start rounded-[5px] bg-white px-1.5">
-                  <PlatformMark platformId={platform.id} className="h-3.5 w-auto overflow-visible whitespace-nowrap" />
-                </span>
+                <PlatformLogo platform={platform.id} size={26} onDark showLabel={false} className="self-start" />
                 <span className="truncate text-[14px] font-medium text-white">{platform.name}</span>
                 <span className="text-[12px] font-semibold text-[#B6F34A]">✓ Published</span>
               </motion.div>
@@ -128,9 +126,7 @@ export function PublishRadial() {
                 className="absolute flex h-11 w-[148px] items-center gap-2 rounded-[10px] border border-[#24282D] bg-[#15181C] px-2.5"
                 style={{ left: pos.left, top: pos.top }}
               >
-                <span className="flex h-[22px] w-auto min-w-[30px] shrink-0 items-center justify-center rounded-[5px] bg-white px-1">
-                  <PlatformMark platformId={platform.id} className="h-3 w-auto overflow-visible whitespace-nowrap" />
-                </span>
+                <PlatformLogo platform={platform.id} size={30} onDark showLabel={false} />
                 <span className="truncate text-[12px] font-medium text-white">{platform.name}</span>
               </div>
             );

@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { motion } from "framer-motion";
 import { ArrowRight, Plus } from "lucide-react";
 import { PLATFORMS } from "@/lib/marketplaces/platforms";
-import { PlatformMark } from "@/components/platform-logo";
+import { PlatformLogo } from "@/components/platform-logo";
 import { reveal } from "@/components/marketing/motion-primitives";
 
 const DEMO_MARKETS = ["ebay", "poshmark", "mercari", "depop", "etsy", "whatnot"] as const;
@@ -236,9 +236,7 @@ function PublishRows({
             key={platform.id}
             className="flex h-[52px] items-center gap-3 rounded-[10px] border border-[#24282D] bg-[#15181C] px-3"
           >
-            <span className="flex h-7 w-auto min-w-[36px] shrink-0 items-center justify-center rounded-[6px] bg-white px-1.5">
-              <PlatformMark platformId={platform.id} className="h-4 w-auto overflow-visible whitespace-nowrap" />
-            </span>
+            <PlatformLogo platform={platform.id} size={28} onDark showLabel={false} />
             <span className="flex-1 truncate text-[13.5px] font-medium text-white">{platform.name}</span>
             <span
               className="shrink-0 text-[12.5px] font-semibold text-[#B6F34A] transition-opacity"

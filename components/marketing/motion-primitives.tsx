@@ -6,6 +6,7 @@ import Link from "next/link";
 import { ArrowRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { LogoMark } from "@/components/logo";
+import { buttonVariants as shadcnButtonVariants } from "@/components/ui/button";
 
 /**
  * useReducedMotion() reads matchMedia, which isn't available during SSR — its
@@ -25,19 +26,20 @@ export const reveal = {
   visible: { opacity: 1, y: 0 },
 };
 
-const buttonBase =
-  "inline-flex items-center justify-center gap-2 rounded-[8px] text-[15px] font-semibold transition-colors";
-
-const buttonVariants = {
+// Brand colors the shared button system doesn't own — layered on top of
+// buttonVariants' shared sizing/radius/transition classes.
+const colorVariants = {
   primary: "bg-[#B6F34A] text-[#090B0D] hover:bg-[#c6f96c]",
   secondary: "border border-[#E5E7EB] bg-white text-[#090B0D] hover:border-[#68727D]",
   "outline-dark": "border border-[#24282D] bg-[#15181C] text-white hover:border-[#68727D]",
 } as const;
 
-const buttonSizes = {
-  44: "h-11 px-5",
-  52: "h-[52px] px-6",
-  54: "h-[54px] px-7",
+// 44/52 reuse the shared `marketing`/`hero` sizes from buttonVariants
+// (see components/ui/button.tsx); 54 has no shared equivalent yet.
+const sizeVariants = {
+  44: shadcnButtonVariants({ size: "marketing" }),
+  52: shadcnButtonVariants({ size: "hero" }),
+  54: cn(shadcnButtonVariants({ size: "hero" }), "h-[54px] px-7"),
 } as const;
 
 export function MarketingButton({
@@ -50,8 +52,8 @@ export function MarketingButton({
   children,
 }: {
   href: string;
-  variant?: keyof typeof buttonVariants;
-  size?: keyof typeof buttonSizes;
+  variant?: keyof typeof colorVariants;
+  size?: keyof typeof sizeVariants;
   arrow?: boolean;
   fullWidth?: boolean;
   className?: string;
@@ -60,7 +62,7 @@ export function MarketingButton({
   return (
     <Link
       href={href}
-      className={cn(buttonBase, buttonVariants[variant], buttonSizes[size], fullWidth && "w-full", className)}
+      className={cn(sizeVariants[size], colorVariants[variant], fullWidth && "w-full", className)}
     >
       {children}
       {arrow && <ArrowRight className="h-4 w-4" />}

@@ -1,7 +1,7 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { PlatformMark } from "@/components/platform-logo";
+import { PlatformLogo } from "@/components/platform-logo";
 import { getPlatform } from "@/lib/marketplaces/platforms";
 import { reveal } from "@/components/marketing/motion-primitives";
 
@@ -95,9 +95,7 @@ export function ManageDashboard() {
                 <div className="flex flex-col gap-3">
                   {HEALTH.map((row) => (
                     <div key={row.id} className="flex items-center gap-3">
-                      <span className="flex h-[22px] w-auto min-w-[22px] shrink-0 items-center justify-center rounded-[5px] bg-white px-1">
-                        <PlatformMark platformId={row.id} className="h-3 w-auto overflow-visible whitespace-nowrap" />
-                      </span>
+                      <PlatformLogo platform={row.id} size={30} onDark showLabel={false} />
                       <span className="flex-1 text-[13px] text-white">{getPlatform(row.id)?.name}</span>
                       <span
                         className="flex items-center gap-1.5 text-[12px] font-medium"
