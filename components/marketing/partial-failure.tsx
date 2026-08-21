@@ -18,14 +18,14 @@ export function PartialFailure() {
       whileInView="visible"
       viewport={{ once: true, margin: "-100px" }}
       variants={reveal}
-      className="bg-[#F7F8FA] py-[120px]"
+      className="bg-[#F7F8FA] py-[72px] lg:py-[120px]"
     >
-      <div className="mx-auto grid max-w-[1280px] items-center gap-20 px-6 lg:grid-cols-[1fr_480px] lg:px-[80px]">
+      <div className="mx-auto grid max-w-[1280px] items-center gap-10 px-6 lg:grid-cols-[1fr_480px] lg:gap-20 lg:px-[80px]">
         <div>
-          <h2 className="font-display text-[42px] font-bold leading-[1.1] tracking-[-0.03em] text-[#090B0D]">
+          <h2 className="font-display text-[32px] font-bold leading-[1.15] tracking-[-0.03em] text-[#090B0D] lg:text-[42px] lg:leading-[1.1]">
             PostMost doesn&apos;t make you start over when one marketplace needs attention.
           </h2>
-          <p className="mt-5 text-[19px] leading-relaxed text-[#68727D]">
+          <p className="mt-5 text-[17px] leading-relaxed text-[#68727D] lg:text-[19px]">
             Marketplaces have their own rules, and sometimes one of them wants something extra.
             The five that went through stay published. You fix the one that didn&apos;t and it
             joins them.

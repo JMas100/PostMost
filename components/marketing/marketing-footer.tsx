@@ -39,8 +39,8 @@ const COLUMNS = [
 
 export function MarketingFooter() {
   return (
-    <footer className="border-t border-[#24282D] bg-[#090B0D] pb-10 pt-[72px]">
-      <div className="mx-auto grid max-w-[1280px] gap-10 px-6 lg:grid-cols-[300px_1fr] lg:px-[80px]">
+    <footer className="border-t border-[#24282D] bg-[#090B0D] pb-8 pt-12 lg:pb-10 lg:pt-[72px]">
+      <div className="mx-auto grid max-w-[1280px] gap-8 px-6 lg:grid-cols-[300px_1fr] lg:gap-10 lg:px-[80px]">
         <div>
           <div className="flex items-center gap-2">
             <LogoMark className="h-[22px] w-[28px]" />
@@ -49,7 +49,7 @@ export function MarketingFooter() {
           <p className="mt-3 text-[14px] text-[#68727D]">Post once. Sell most.</p>
         </div>
 
-        <div className="grid grid-cols-2 gap-8 sm:grid-cols-4">
+        <div className="grid grid-cols-2 gap-x-4 gap-y-8 sm:grid-cols-4">
           {COLUMNS.map((col) => (
             <div key={col.heading}>
               <p className="text-[12px] font-semibold uppercase tracking-[0.1em] text-white">{col.heading}</p>

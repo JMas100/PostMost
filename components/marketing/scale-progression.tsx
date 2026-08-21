@@ -2,12 +2,13 @@
 
 import { motion } from "framer-motion";
 import { reveal } from "@/components/marketing/motion-primitives";
+import { cn } from "@/lib/utils";
 
 const TIERS = [
-  { value: "12", label: "listings", padding: 24, numeral: 34, fill: 12, fillColor: "#C9CFD6", dark: false },
-  { value: "184", label: "listings", padding: 28, numeral: 40, fill: 34, fillColor: "#8b949e", dark: false },
-  { value: "1,842", label: "listings", padding: 32, numeral: 46, fill: 66, fillColor: "#15181C", dark: false },
-  { value: "10,000+", label: "listings", padding: 36, numeral: 52, fill: 100, fillColor: "#B6F34A", dark: true },
+  { value: "12", label: "listings", padding: "p-4 lg:p-6", numeral: "text-[28px] lg:text-[34px]", fill: 12, fillColor: "#C9CFD6", dark: false },
+  { value: "184", label: "listings", padding: "p-[18px] lg:p-7", numeral: "text-[32px] lg:text-[40px]", fill: 34, fillColor: "#8b949e", dark: false },
+  { value: "1,842", label: "listings", padding: "p-5 lg:p-8", numeral: "text-[34px] lg:text-[46px]", fill: 66, fillColor: "#15181C", dark: false },
+  { value: "10,000+", label: "listings", padding: "p-6 lg:p-9", numeral: "text-[34px] lg:text-[52px]", fill: 100, fillColor: "#B6F34A", dark: true },
 ];
 
 export function ScaleProgression() {
@@ -17,11 +18,11 @@ export function ScaleProgression() {
       whileInView="visible"
       viewport={{ once: true, margin: "-100px" }}
       variants={reveal}
-      className="bg-[#F7F8FA] py-32"
+      className="bg-[#F7F8FA] py-[72px] lg:py-32"
     >
       <div className="mx-auto max-w-[1280px] px-6 lg:px-[80px]">
         <div className="flex flex-col items-start justify-between gap-6 lg:flex-row lg:items-end">
-          <h2 className="font-display text-[46px] font-bold leading-[1.05] tracking-[-0.03em] text-[#090B0D] sm:text-[48px]">
+          <h2 className="font-display text-[32px] font-bold leading-[1.12] tracking-[-0.03em] text-[#090B0D] lg:text-[46px] lg:leading-[1.05]">
             Start small.
             <br />
             Scale without starting over.
@@ -32,20 +33,19 @@ export function ScaleProgression() {
           </p>
         </div>
 
-        <div className="mt-14 grid items-end gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="mt-10 grid grid-cols-2 items-end gap-3 lg:mt-14 lg:grid-cols-4 lg:gap-4">
           {TIERS.map((tier, i) => (
             <div
               key={tier.value}
-              className="rounded-[12px]"
+              className={cn("rounded-[12px]", tier.padding)}
               style={{
-                padding: tier.padding,
                 backgroundColor: tier.dark ? "#090B0D" : "white",
                 border: tier.dark ? "none" : "1px solid #E5E7EB",
               }}
             >
               <p
-                className="font-display font-bold tracking-[-0.02em]"
-                style={{ fontSize: tier.numeral, color: tier.dark ? "#B6F34A" : "#090B0D" }}
+                className={cn("font-display font-bold tracking-[-0.02em]", tier.numeral)}
+                style={{ color: tier.dark ? "#B6F34A" : "#090B0D" }}
               >
                 {tier.value}
               </p>

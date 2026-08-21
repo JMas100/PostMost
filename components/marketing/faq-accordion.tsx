@@ -52,14 +52,14 @@ export function FaqAccordion() {
       whileInView="visible"
       viewport={{ once: true, margin: "-100px" }}
       variants={reveal}
-      className="bg-[#F7F8FA] py-[120px]"
+      className="bg-[#F7F8FA] py-[72px] lg:py-[120px]"
     >
-      <div className="mx-auto grid max-w-[1280px] gap-20 px-6 lg:grid-cols-[380px_1fr] lg:px-[80px]">
+      <div className="mx-auto grid max-w-[1280px] gap-8 px-6 lg:grid-cols-[380px_1fr] lg:gap-20 lg:px-[80px]">
         <div>
-          <h2 className="font-display text-[46px] font-bold leading-[1.05] tracking-[-0.03em] text-[#090B0D] sm:text-[48px]">
+          <h2 className="font-display text-[32px] font-bold leading-[1.12] tracking-[-0.03em] text-[#090B0D] lg:text-[46px] lg:leading-[1.05]">
             Questions, answered.
           </h2>
-          <p className="mt-4 text-[16px] text-[#68727D]">
+          <p className="mt-4 hidden text-[16px] text-[#68727D] lg:block">
             Still unsure about something?{" "}
             <Link href="mailto:hello@postmost.co" className="font-semibold text-[#090B0D] underline underline-offset-4">
               Talk to us
@@ -73,17 +73,25 @@ export function FaqAccordion() {
             <AccordionItem
               key={faq.q}
               value={`item-${i}`}
-              className="border-b border-[#E5E7EB] py-1.5"
+              className="border-b border-[#E5E7EB] py-1"
             >
-              <AccordionTrigger className="py-[22px] text-[17px] font-semibold text-[#15181C] hover:no-underline">
+              <AccordionTrigger className="py-5 text-[16px] font-semibold text-[#15181C] hover:no-underline lg:py-[22px] lg:text-[17px]">
                 {faq.q}
               </AccordionTrigger>
-              <AccordionContent className="pr-[60px] text-[15.5px] leading-[1.65] text-[#68727D]">
+              <AccordionContent className="pr-6 text-[15px] leading-[1.65] lg:pr-[60px] lg:text-[15.5px] text-[#68727D]">
                 {faq.a}
               </AccordionContent>
             </AccordionItem>
           ))}
         </Accordion>
+
+        <p className="text-[16px] text-[#68727D] lg:hidden">
+          Still unsure about something?{" "}
+          <Link href="mailto:hello@postmost.co" className="font-semibold text-[#090B0D] underline underline-offset-4">
+            Talk to us
+          </Link>
+          .
+        </p>
       </div>
     </motion.section>
   );

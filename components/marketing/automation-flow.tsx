@@ -53,7 +53,7 @@ export function AutomationFlow() {
           <div className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-stretch">
             {STEPS.map((step, i) => (
               <motion.div
-                key={step}
+                key={`${step}-${reduceMotion}`}
                 className="flex min-h-[104px] flex-1 flex-col justify-center gap-1.5 rounded-[10px] border bg-[#15181C] px-4 py-3"
                 animate={
                   reduceMotion

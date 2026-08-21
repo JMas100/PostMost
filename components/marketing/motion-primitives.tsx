@@ -45,6 +45,7 @@ export function MarketingButton({
   variant = "primary",
   size = 52,
   arrow = true,
+  fullWidth = false,
   className,
   children,
 }: {
@@ -52,11 +53,15 @@ export function MarketingButton({
   variant?: keyof typeof buttonVariants;
   size?: keyof typeof buttonSizes;
   arrow?: boolean;
+  fullWidth?: boolean;
   className?: string;
   children: React.ReactNode;
 }) {
   return (
-    <Link href={href} className={cn(buttonBase, buttonVariants[variant], buttonSizes[size], className)}>
+    <Link
+      href={href}
+      className={cn(buttonBase, buttonVariants[variant], buttonSizes[size], fullWidth && "w-full", className)}
+    >
       {children}
       {arrow && <ArrowRight className="h-4 w-4" />}
     </Link>
@@ -102,6 +107,35 @@ export function PulseNode({
         />
       )}
     </div>
+  );
+}
+
+/** Solid-bar equivalent of DrawPath for the mobile hero's vertical spine/stubs. */
+export function GrowBar({
+  axis,
+  delay = 0,
+  duration = 9,
+  reduceMotion,
+  className,
+  style,
+}: {
+  axis: "y" | "x";
+  delay?: number;
+  duration?: number;
+  reduceMotion: boolean;
+  className?: string;
+  style?: React.CSSProperties;
+}) {
+  return (
+    <span
+      className={cn("block", reduceMotion ? undefined : axis === "y" ? "motion-grow-y" : "motion-grow-x", className)}
+      style={{
+        ...style,
+        transform: reduceMotion ? (axis === "y" ? "scaleY(1)" : "scaleX(1)") : undefined,
+        animationDuration: reduceMotion ? undefined : `${duration}s`,
+        animationDelay: reduceMotion ? undefined : `${delay}s`,
+      }}
+    />
   );
 }
 

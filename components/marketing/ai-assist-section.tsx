@@ -17,18 +17,18 @@ export function AiAssistSection() {
       whileInView="visible"
       viewport={{ once: true, margin: "-100px" }}
       variants={reveal}
-      className="bg-[#F7F8FA] py-32"
+      className="bg-[#F7F8FA] py-[72px] lg:py-32"
     >
       <div className="mx-auto max-w-[1280px] px-6 lg:px-[80px]">
-        <h2 className="font-display text-[46px] font-bold leading-[1.05] tracking-[-0.03em] text-[#090B0D] sm:text-[48px]">
+        <h2 className="font-display text-[34px] font-bold leading-[1.08] tracking-[-0.03em] text-[#090B0D] lg:text-[46px] lg:leading-[1.05]">
           Let PostMost do the busywork.
         </h2>
-        <p className="mt-5 max-w-[560px] text-[19px] leading-relaxed text-[#68727D]">
+        <p className="mt-5 max-w-[560px] text-[17px] leading-relaxed text-[#68727D] lg:text-[19px]">
           From photos to polished listings, PostMost can help turn the information you already
           have into marketplace-ready content.
         </p>
 
-        <div className="mt-14 grid gap-8 lg:grid-cols-[300px_1fr]">
+        <div className="mt-10 grid gap-8 lg:mt-14 lg:grid-cols-[300px_1fr]">
           <div className="flex flex-col gap-4">
             <div className="rounded-[16px] border border-[#E5E7EB] bg-white p-5">
               <p className="mb-3 text-[11px] font-semibold uppercase tracking-[0.08em] text-[#68727D]">Upload photo</p>

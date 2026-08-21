@@ -18,15 +18,15 @@ export function CreateSection() {
       whileInView="visible"
       viewport={{ once: true, margin: "-100px" }}
       variants={reveal}
-      className="bg-white py-32"
+      className="bg-white py-[72px] lg:py-32"
     >
-      <div className="mx-auto grid max-w-[1280px] items-center gap-[88px] px-6 lg:grid-cols-2 lg:px-[80px]">
+      <div className="mx-auto grid max-w-[1280px] items-center gap-10 px-6 lg:grid-cols-2 lg:gap-[88px] lg:px-[80px]">
         <div>
           <p className="text-[12px] font-semibold uppercase tracking-[0.12em] text-[#68727D]">01 — CREATE</p>
-          <h2 className="mt-4 font-display text-[46px] font-bold leading-[1.05] tracking-[-0.03em] text-[#090B0D] sm:text-[48px]">
+          <h2 className="mt-4 font-display text-[34px] font-bold leading-[1.08] tracking-[-0.03em] text-[#090B0D] lg:text-[46px] lg:leading-[1.05]">
             Create once.
           </h2>
-          <p className="mt-5 max-w-[460px] text-[19px] leading-relaxed text-[#68727D]">
+          <p className="mt-5 max-w-[460px] text-[17px] leading-relaxed text-[#68727D] lg:text-[19px]">
             Everything starts with one listing. Add your photos and details once, then let
             PostMost handle the repetitive work.
           </p>
@@ -76,7 +76,7 @@ export function CreateSection() {
                   Excellent condition. Worn a handful of times, no visible flaws.
                 </div>
               </div>
-              <div className="grid grid-cols-3 gap-2">
+              <div className="hidden grid-cols-3 gap-2 lg:grid">
                 {["Condition", "Price", "Shipping"].map((label) => (
                   <div key={label}>
                     <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-[0.08em] text-[#68727D]">{label}</p>
@@ -86,7 +86,7 @@ export function CreateSection() {
                   </div>
                 ))}
               </div>
-              <div className="flex items-center justify-between rounded-[8px] bg-[#F7F8FA] px-3 py-2.5 text-[13px] text-[#68727D]">
+              <div className="hidden items-center justify-between rounded-[8px] bg-[#F7F8FA] px-3 py-2.5 text-[13px] text-[#68727D] lg:flex">
                 <span>
                   Suggested category: <span className="font-semibold text-[#090B0D]">Men&apos;s → Shoes → Sneakers</span>
                 </span>

@@ -38,17 +38,57 @@ export function PublishRadial() {
   );
 
   return (
-    <section className="bg-[#090B0D] py-32">
+    <section className="bg-[#090B0D] py-[72px] lg:py-32">
       <div className="mx-auto max-w-[1280px] px-6 lg:px-[80px]">
         <p className="text-[12px] font-semibold uppercase tracking-[0.12em] text-[#68727D]">02 — PUBLISH</p>
-        <h2 className="mt-4 font-display text-[46px] font-bold leading-[1.05] tracking-[-0.03em] text-white sm:text-[48px]">
+        <h2 className="mt-4 font-display text-[34px] font-bold leading-[1.08] tracking-[-0.03em] text-white lg:text-[46px] lg:leading-[1.05]">
           Sell everywhere.
         </h2>
-        <p className="mt-5 max-w-[520px] text-[19px] leading-relaxed text-[#68727D]">
+        <p className="mt-5 max-w-[520px] text-[17px] leading-relaxed text-[#68727D] lg:text-[19px]">
           Select your marketplaces once. PostMost handles the rest.
         </p>
 
-        <div className="relative mx-auto mt-14 h-[380px] w-full max-w-[800px] lg:h-[520px]">
+        {/* Mobile: centered node + horizontal swipe rail */}
+        <div className="mt-10 lg:hidden">
+          <div className="flex flex-col items-center">
+            <PulseNode size={64} reduceMotion={reduceMotion} duration={LOOP} />
+            <span className="mt-1 h-7 w-[2px] rounded-full bg-[#B6F34A]" />
+          </div>
+
+          <div
+            className="mt-6 flex snap-x snap-mandatory gap-2.5 overflow-x-auto pb-2 [&::-webkit-scrollbar]:hidden"
+            style={{ scrollbarWidth: "none", margin: "0 -24px", padding: "0 24px 8px" }}
+          >
+            {markets.map((platform, i) => (
+              <motion.div
+                key={`${platform.id}-${reduceMotion}`}
+                className="flex w-[132px] shrink-0 snap-start flex-col gap-2 rounded-[12px] border border-[#24282D] bg-[#15181C] p-3"
+                style={{ borderTop: "2px solid #B6F34A" }}
+                initial={reduceMotion ? false : { opacity: 0, scale: 0.94 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={
+                  reduceMotion
+                    ? undefined
+                    : { duration: LOOP, repeat: Infinity, ease: "easeInOut", delay: i * 0.1, times: [0, 0.2, 0.3, 1] }
+                }
+              >
+                <span className="flex h-[26px] w-auto min-w-[30px] shrink-0 items-center justify-center self-start rounded-[5px] bg-white px-1.5">
+                  <PlatformMark platformId={platform.id} className="h-3.5 w-auto overflow-visible whitespace-nowrap" />
+                </span>
+                <span className="truncate text-[14px] font-medium text-white">{platform.name}</span>
+                <span className="text-[12px] font-semibold text-[#B6F34A]">✓ Published</span>
+              </motion.div>
+            ))}
+          </div>
+
+          <div className="mt-3 flex items-center gap-3">
+            <span className="font-mono text-[10.5px] uppercase tracking-[0.06em] text-[#68727D]">Swipe →</span>
+            <span className="h-px flex-1 bg-[#24282D]" />
+            <span className="text-[12px] text-[#68727D]">{markets.length} marketplaces</span>
+          </div>
+        </div>
+
+        <div className="relative mx-auto mt-14 hidden h-[520px] w-full max-w-[800px] lg:block">
           <svg viewBox="0 0 800 520" className="pointer-events-none absolute inset-0 h-full w-full" aria-hidden="true">
             <circle cx={CENTER.x} cy={CENTER.y} r={RADIUS} fill="none" stroke="#24282D" strokeWidth="1" />
             {markets.map((platform, i) => {
@@ -97,6 +137,7 @@ export function PublishRadial() {
           })}
 
           <motion.div
+            key={`badge-${reduceMotion}`}
             className="absolute bottom-0 left-1/2 flex -translate-x-1/2 items-center gap-1.5 rounded-full bg-[#15181C] px-3.5 py-1.5 text-[12.5px] font-semibold text-[#B6F34A]"
             animate={
               reduceMotion

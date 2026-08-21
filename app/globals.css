@@ -222,10 +222,40 @@
   animation: motion-marching-ants 1.2s linear infinite;
 }
 
+/* Solid-bar equivalent of motion-draw-path, for the mobile hero's vertical
+   spine/stubs (plain divs, not SVG strokes). Same draw-then-hold-then-reset
+   cadence, driven by scale instead of stroke-dashoffset. */
+@keyframes motion-grow-y {
+  0% { transform: scaleY(0); }
+  25% { transform: scaleY(1); }
+  90% { transform: scaleY(1); }
+  100% { transform: scaleY(0); }
+}
+@keyframes motion-grow-x {
+  0% { transform: scaleX(0); }
+  25% { transform: scaleX(1); }
+  90% { transform: scaleX(1); }
+  100% { transform: scaleX(0); }
+}
+.motion-grow-y {
+  transform-origin: top;
+  animation-name: motion-grow-y;
+  animation-timing-function: ease-in-out;
+  animation-iteration-count: infinite;
+}
+.motion-grow-x {
+  transform-origin: left;
+  animation-name: motion-grow-x;
+  animation-timing-function: ease-in-out;
+  animation-iteration-count: infinite;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .motion-pulse-ring,
   .motion-draw-path,
-  .motion-marching-ants {
+  .motion-marching-ants,
+  .motion-grow-y,
+  .motion-grow-x {
     animation: none;
   }
 }
