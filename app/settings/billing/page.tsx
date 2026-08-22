@@ -26,7 +26,8 @@ function indicatorColor(pct: number) {
   return undefined;
 }
 
-export default async function BillingPage({ searchParams }: { searchParams: { success?: string; canceled?: string } }) {
+export default async function BillingPage(props: { searchParams: Promise<{ success?: string; canceled?: string }> }) {
+  const searchParams = await props.searchParams;
   const billing = await getBilling();
   if (!billing) redirect("/login");
 

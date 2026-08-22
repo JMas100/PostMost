@@ -49,7 +49,7 @@ export function StepPhotos({
   onSelectTemplate,
   onSkipToNext,
 }: {
-  fileInputRef: RefObject<HTMLInputElement>;
+  fileInputRef: RefObject<HTMLInputElement | null>;
   photoUrls: string[];
   setPhotoUrls: (next: string[]) => void;
   uploading: boolean;

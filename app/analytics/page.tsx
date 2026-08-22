@@ -20,11 +20,12 @@ function StatusBadge({ status }: { status: string }) {
   return <Badge variant={variant}>{status}</Badge>;
 }
 
-export default async function AnalyticsPage({
-  searchParams,
-}: {
-  searchParams: { range?: string };
-}) {
+export default async function AnalyticsPage(
+  props: {
+    searchParams: Promise<{ range?: string }>;
+  }
+) {
+  const searchParams = await props.searchParams;
   const session = await getServerSession(authOptions);
   if (!session?.user?.id) redirect("/login");
 

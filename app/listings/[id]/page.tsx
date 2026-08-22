@@ -16,7 +16,8 @@ import { PublishPanel } from "@/components/publish-panel";
 import { RetryablePlatformBadge } from "@/components/publish-panel/retry-platform-listing";
 import { SoldButton } from "./sold-button";
 
-export default async function ListingDetailPage({ params }: { params: { id: string } }) {
+export default async function ListingDetailPage(props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const session = await getServerSession(authOptions);
   if (!session?.user?.id) redirect("/login");
 
