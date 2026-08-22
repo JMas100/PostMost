@@ -129,18 +129,20 @@ export async function saveDraft(data: Partial<ListingFormData>, id?: string) {
   if (id) {
     const existing = await prisma.listing.findFirst({ where: { id, userId, isDraft: true } });
     if (!existing) return { error: "Draft not found" };
-    await prisma.photo.deleteMany({ where: { listingId: id } });
-    const listing = await prisma.listing.update({
-      where: { id },
-      data: {
-        ...draftData,
-        isDraft: true,
-        status: "DRAFT",
-        photos: {
-          create: photoUrls.map((url: string, index: number) => ({ url, order: index })),
+    const listing = await prisma.$transaction(async (tx) => {
+      await tx.photo.deleteMany({ where: { listingId: id } });
+      return tx.listing.update({
+        where: { id },
+        data: {
+          ...draftData,
+          isDraft: true,
+          status: "DRAFT",
+          photos: {
+            create: photoUrls.map((url: string, index: number) => ({ url, order: index })),
+          },
         },
-      },
-      include: { photos: true, platformListings: true },
+        include: { photos: true, platformListings: true },
+      });
     });
     revalidatePath(`/listings/${id}`);
     revalidatePath("/listings/drafts");
@@ -182,19 +184,21 @@ export async function publishDraft(id: string, data: ListingFormData) {
     return { error: usage.reason };
   }
 
-  await prisma.photo.deleteMany({ where: { listingId: id } });
-  const listing = await prisma.listing.update({
-    where: { id },
-    data: {
-      ...rest,
-      tags: tags || null,
-      isDraft: false,
-      status: "PUBLISHED",
-      photos: {
-        create: photos.map((url, index) => ({ url, order: index })),
+  const listing = await prisma.$transaction(async (tx) => {
+    await tx.photo.deleteMany({ where: { listingId: id } });
+    return tx.listing.update({
+      where: { id },
+      data: {
+        ...rest,
+        tags: tags || null,
+        isDraft: false,
+        status: "PUBLISHED",
+        photos: {
+          create: photos.map((url, index) => ({ url, order: index })),
+        },
       },
-    },
-    include: { photos: true, platformListings: true },
+      include: { photos: true, platformListings: true },
+    });
   });
 
   await incrementListingUsage(userId);
