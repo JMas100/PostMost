@@ -10,7 +10,7 @@ import { Upload, CheckCircle, AlertCircle } from "lucide-react";
 
 const SAMPLE_CSV = `title,description,price,quantity,condition,category,brand,size,color,photos
 Vintage Denim Jacket,Blue denim jacket in great condition,24.99,1,Used,Jackets,Levi's,M,Blue,https://example.com/jacket1.jpg
-Nike Air Max 90,Comfortable running shoes,45.00,1,New,Shoes,Nike,10,Black,https://example.com/shoe1.jpg`;
+Nike Phantom GX Elite FG,Firm ground soccer cleats,150.00,1,New,Cleats,Nike,10,White/Pink,https://example.com/cleats1.jpg`;
 
 export function CsvImporter() {
   const [fileName, setFileName] = useState<string>("");

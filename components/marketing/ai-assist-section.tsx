@@ -1,12 +1,11 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { ImageIcon } from "lucide-react";
 import { reveal } from "@/components/marketing/motion-primitives";
 
 const ATTRIBUTES = [
-  { label: "Category", value: "Sneakers" },
-  { label: "Color", value: "Black / White" },
+  { label: "Category", value: "Cleats" },
+  { label: "Color", value: "White / Pink" },
   { label: "Brand", value: "Nike" },
 ];
 
@@ -32,11 +31,13 @@ export function AiAssistSection() {
           <div className="flex flex-col gap-4">
             <div className="rounded-[16px] border border-[#E5E7EB] bg-white p-5">
               <p className="mb-3 text-[11px] font-semibold uppercase tracking-[0.08em] text-[#68727D]">Upload photo</p>
-              <div
-                className="flex h-[150px] items-center justify-center rounded-[10px]"
-                style={{ backgroundImage: "repeating-linear-gradient(135deg, #F1F3F6 0 10px, #EAEDF1 10px 20px)" }}
-              >
-                <ImageIcon className="h-6 w-6 text-[#aab2ba]" />
+              <div className="h-[150px] overflow-hidden rounded-[10px]">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src="/marketing/phantom-gx-wide.jpg"
+                  alt=""
+                  className="h-full w-full object-cover"
+                />
               </div>
             </div>
             <div className="rounded-[16px] border border-[#E5E7EB] bg-white p-5 text-[13.5px] text-[#68727D]">
@@ -48,7 +49,7 @@ export function AiAssistSection() {
           <div className="grid gap-0 overflow-hidden rounded-[16px] bg-white shadow-[0_4px_24px_-8px_rgba(9,11,13,.08)] lg:grid-cols-[1fr_260px]">
             <div className="p-7">
               <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[#68727D]">Suggested listing</p>
-              <p className="mt-3 font-display text-[30px] font-bold text-[#090B0D]">Nike Air Max 90</p>
+              <p className="mt-3 font-display text-[30px] font-bold text-[#090B0D]">Nike Phantom GX Elite FG</p>
               <p className="mt-1 text-[14px] text-[#68727D]">Men&apos;s Size 10 · Excellent Condition</p>
               <div className="mt-5 flex flex-wrap gap-2">
                 {ATTRIBUTES.map((attr) => (
@@ -63,7 +64,7 @@ export function AiAssistSection() {
             </div>
             <div className="flex flex-col justify-center gap-3 bg-[#090B0D] p-7">
               <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[#68727D]">Suggested price</p>
-              <p className="font-display text-[34px] font-bold tracking-[-0.02em] text-[#B6F34A]">$129–$145</p>
+              <p className="font-display text-[34px] font-bold tracking-[-0.02em] text-[#B6F34A]">$165–$185</p>
               <p className="text-[13px] text-[#68727D]">Based on the details you provided.</p>
               <button
                 type="button"

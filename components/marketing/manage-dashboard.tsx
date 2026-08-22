@@ -21,7 +21,7 @@ const HEALTH = [
 ];
 
 const ACTIVITY = [
-  { item: "Nike Air Max 90", event: "Published to 6 marketplaces", lime: false, time: "2m ago", timeShort: "2m" },
+  { item: "Nike Phantom GX Elite FG", event: "Published to 6 marketplaces", lime: false, time: "2m ago", timeShort: "2m" },
   { item: "Vintage Levi's 501", event: "Sold on eBay", lime: true, time: "18m ago", timeShort: "18m" },
   { item: "Jordan 1 Retro", event: "Price updated", lime: false, time: "1h ago", timeShort: "1h" },
 ];
