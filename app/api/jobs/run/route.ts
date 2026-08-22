@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { processPendingCrossPostJobs } from "@/lib/jobs/crosspost-runner";
+import { runStockSyncRule, runRelistStaleRule } from "@/lib/jobs/automation-runner";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -32,7 +33,10 @@ export async function POST(request: NextRequest) {
   }
 
   const summary = await processPendingCrossPostJobs(listingId);
-  return NextResponse.json({ success: true, ...summary });
+  const automation = listingId
+    ? undefined
+    : { stockSync: await runStockSyncRule(), relist: await runRelistStaleRule() };
+  return NextResponse.json({ success: true, ...summary, automation });
 }
 
 export async function GET(request: NextRequest) {
@@ -40,5 +44,8 @@ export async function GET(request: NextRequest) {
 
   const listingId = request.nextUrl.searchParams.get("listingId") || undefined;
   const summary = await processPendingCrossPostJobs(listingId);
-  return NextResponse.json({ success: true, ...summary });
+  const automation = listingId
+    ? undefined
+    : { stockSync: await runStockSyncRule(), relist: await runRelistStaleRule() };
+  return NextResponse.json({ success: true, ...summary, automation });
 }

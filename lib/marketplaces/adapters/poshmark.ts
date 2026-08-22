@@ -1,5 +1,7 @@
 import { createManualAdapter } from "../automation/create-adapter";
 
+// Delete-flow selectors are best-effort, written from general knowledge of Poshmark's UI —
+// not verified against a live account. Needs real-account testing before it's trusted.
 export const poshmarkAdapter = createManualAdapter({
   id: "poshmark",
   name: "Poshmark",
@@ -8,4 +10,21 @@ export const poshmarkAdapter = createManualAdapter({
   usernameSelector: "input[name=\"login_form[username_email]\"]",
   passwordSelector: "input[name=\"login_form[password]\"]",
   submitSelector: "button[type=\"submit\"]",
+  delete: {
+    openMenuSelectors: [
+      "[aria-label='More options']",
+      "button:has-text('...')",
+      "[data-et-name='more_options']",
+    ],
+    deleteSelectors: [
+      "text=Delete Listing",
+      "button:has-text('Delete Listing')",
+      "a:has-text('Delete Listing')",
+    ],
+    confirmSelectors: [
+      "button:has-text('Yes, Delete It')",
+      "button:has-text('Delete')",
+      "button:has-text('Confirm')",
+    ],
+  },
 });
