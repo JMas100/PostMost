@@ -1,5 +1,7 @@
 import { createManualAdapter } from "../automation/create-adapter";
 
+// Delete-flow selectors are best-effort, written from general knowledge of Vinted's UI —
+// not verified against a live account. Needs real-account testing before it's trusted.
 export const vintedAdapter = createManualAdapter({
   id: "vinted",
   name: "Vinted",
@@ -8,4 +10,20 @@ export const vintedAdapter = createManualAdapter({
   usernameSelector: "input[type=\"email\"]",
   passwordSelector: "input[type=\"password\"]",
   submitSelector: "button[type=\"submit\"]",
+  delete: {
+    openMenuSelectors: [
+      "[aria-label='More options']",
+      "button:has-text('...')",
+    ],
+    deleteSelectors: [
+      "text=Delete",
+      "button:has-text('Delete')",
+      "a:has-text('Delete')",
+    ],
+    confirmSelectors: [
+      "button:has-text('Yes, delete')",
+      "button:has-text('Delete')",
+      "button:has-text('Confirm')",
+    ],
+  },
 });

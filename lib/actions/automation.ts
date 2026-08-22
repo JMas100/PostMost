@@ -5,7 +5,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { getPlan, meetsMinimumTier } from "@/lib/plans";
-import { STOCK_SYNC_RULE, DELIST_ON_SALE_RULE } from "@/lib/automation/rule-types";
+import { STOCK_SYNC_RULE, DELIST_ON_SALE_RULE, RELIST_STALE_RULE, RELIST_STALE_DAYS } from "@/lib/automation/rule-types";
 
 function getUserId(session: { user?: { id?: string } } | null) {
   if (!session?.user?.id) throw new Error("Unauthorized");
@@ -16,15 +16,34 @@ export async function getAutomationOverview() {
   const session = await getServerSession(authOptions);
   const userId = getUserId(session);
 
-  const [user, stockSyncRule, stockSyncCandidates, monthEvents, recentEvents, delistOnSaleEvents] = await Promise.all([
+  const staleBefore = new Date(Date.now() - RELIST_STALE_DAYS * 24 * 60 * 60 * 1000);
+
+  const [
+    user,
+    stockSyncRule,
+    relistRule,
+    stockSyncCandidates,
+    relistCandidates,
+    monthEvents,
+    recentEvents,
+    delistOnSaleEvents,
+  ] = await Promise.all([
     prisma.user.findUnique({ where: { id: userId }, select: { plan: true } }),
     prisma.automationRule.findUnique({ where: { userId_ruleType: { userId, ruleType: STOCK_SYNC_RULE } } }),
+    prisma.automationRule.findUnique({ where: { userId_ruleType: { userId, ruleType: RELIST_STALE_RULE } } }),
     prisma.listing.count({
       where: {
         userId,
         isDraft: false,
         quantity: 0,
         platformListings: { some: { status: "POSTED" } },
+      },
+    }),
+    prisma.platformListing.count({
+      where: {
+        status: "POSTED",
+        postedAt: { lt: staleBefore },
+        listing: { userId, isDraft: false, quantity: { gt: 0 } },
       },
     }),
     prisma.automationEvent.count({
@@ -49,7 +68,10 @@ export async function getAutomationOverview() {
     stockSyncEnabled: stockSyncRule?.enabled ?? false,
     stockSyncAvailable: meetsMinimumTier(plan.id, "pro"),
     stockSyncCandidates,
-    relistAvailable: false,
+    relistEnabled: relistRule?.enabled ?? false,
+    relistAvailable: meetsMinimumTier(plan.id, "grow"),
+    relistCandidates,
+    relistStaleDays: RELIST_STALE_DAYS,
     priceDropAvailable: false,
     actionsThisMonth: monthEvents,
     listingsPulledAfterSale: delistOnSaleEvents._count._all,
@@ -72,6 +94,26 @@ export async function setStockSyncEnabled(enabled: boolean) {
     where: { userId_ruleType: { userId, ruleType: STOCK_SYNC_RULE } },
     update: { enabled },
     create: { userId, ruleType: STOCK_SYNC_RULE, enabled },
+  });
+
+  revalidatePath("/automation");
+  return { success: true };
+}
+
+export async function setRelistEnabled(enabled: boolean) {
+  const session = await getServerSession(authOptions);
+  const userId = getUserId(session);
+
+  const user = await prisma.user.findUnique({ where: { id: userId }, select: { plan: true } });
+  const plan = getPlan(user?.plan);
+  if (!meetsMinimumTier(plan.id, "grow")) {
+    return { error: `The ${plan.name} plan doesn't include relisting automation. Upgrade to Grow or higher to unlock it.` };
+  }
+
+  await prisma.automationRule.upsert({
+    where: { userId_ruleType: { userId, ruleType: RELIST_STALE_RULE } },
+    update: { enabled },
+    create: { userId, ruleType: RELIST_STALE_RULE, enabled },
   });
 
   revalidatePath("/automation");

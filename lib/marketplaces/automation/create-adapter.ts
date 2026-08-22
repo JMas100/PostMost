@@ -1,11 +1,24 @@
 import { MarketplaceAdapter, ListingData, PlatformAccount, PostResult } from "../types";
-import { runPlaywrightAutomation, uploadPhotoOnPage } from "./playwright-runner";
-import type { AutomationConfig } from "./playwright-runner";
+import { runPlaywrightAutomation, runPlaywrightDelist, genericVerifyRemoved, uploadPhotoOnPage } from "./playwright-runner";
+import type { AutomationConfig, DelistConfig } from "./playwright-runner";
 import type { Page } from "playwright";
 
 export interface ManualAdapterConfig extends AutomationConfig {
   id: string;
   name: string;
+  /**
+   * How to remove a live listing on this platform. Selectors here are best-effort — written
+   * from general knowledge of each site's UI, not verified against a live account. They're
+   * tried in order and the whole thing fails loudly (never reports a false success) if none
+   * match or removal can't be confirmed afterward. Needs real-account testing before this is
+   * trusted for real users.
+   */
+  delete: {
+    openMenuSelectors?: string[];
+    deleteSelectors: string[];
+    confirmSelectors?: string[];
+    verifyRemoved?: DelistConfig["verifyRemoved"];
+  };
 }
 
 function defaultListingSteps(listing: ListingData) {
@@ -96,10 +109,34 @@ export function createManualAdapter(config: ManualAdapterConfig): MarketplaceAda
         ...config,
         preSubmitSteps: config.preSubmitSteps || defaultListingSteps(listing),
       };
-      return runPlaywrightAutomation(config.id, mergedConfig, listing, account);
+      const result = await runPlaywrightAutomation(config.id, mergedConfig, listing, account);
+      // These platforms have no API-issued id we can capture — the listing's own URL is the
+      // only stable handle we have, so it doubles as externalId (delist() below navigates to it).
+      if (result.success && result.externalUrl && !result.externalId) {
+        result.externalId = result.externalUrl;
+      }
+      return result;
     },
-    async delist() {
-      return { success: false, error: `${config.name} delisting is not yet automated.` };
+    async delist(externalId: string, account: PlatformAccount) {
+      if (!externalId) {
+        return { success: false, error: `No listing URL recorded for this ${config.name} listing.` };
+      }
+      return runPlaywrightDelist(
+        config.id,
+        {
+          loginUrl: config.loginUrl,
+          usernameSelector: config.usernameSelector,
+          passwordSelector: config.passwordSelector,
+          submitSelector: config.submitSelector,
+          postLoginSteps: config.postLoginSteps,
+          openMenuSelectors: config.delete.openMenuSelectors,
+          deleteSelectors: config.delete.deleteSelectors,
+          confirmSelectors: config.delete.confirmSelectors,
+          verifyRemoved: config.delete.verifyRemoved || genericVerifyRemoved,
+        },
+        externalId,
+        account
+      );
     },
   };
 }

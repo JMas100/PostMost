@@ -10,6 +10,9 @@ async function main() {
     loginUrl: listingUrl,
     successUrlFragment: "success",
     headless: true,
+    delete: {
+      deleteSelectors: ["button:has-text('Delete')"],
+    },
   });
 
   const result = await adapter.post(

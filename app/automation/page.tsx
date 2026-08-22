@@ -6,6 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { EmptyState } from "@/components/ui/empty-state";
 import { StockSyncToggle } from "@/components/automation/stock-sync-toggle";
+import { RelistToggle } from "@/components/automation/relist-toggle";
 import { getAutomationOverview } from "@/lib/actions/automation";
 import { formatDistanceToNow } from "date-fns";
 
@@ -106,19 +107,35 @@ export default async function AutomationPage() {
             </CardContent>
           </Card>
 
-          <Card className="opacity-60">
+          <Card>
             <CardContent className="flex items-center justify-between gap-4 py-4">
-              <div>
-                <div className="flex items-center gap-2">
-                  <p className="font-medium">Relist stale items</p>
-                  <TierBadge label="GROW" />
+              <div className="flex items-center gap-3">
+                <div>
+                  <div className="flex items-center gap-2">
+                    <p className="font-medium">Relist stale items</p>
+                    <TierBadge label="GROW" />
+                  </div>
+                  <p className="text-sm text-muted-foreground">
+                    {overview.relistAvailable
+                      ? overview.relistCandidates > 0
+                        ? `${overview.relistCandidates} listing${overview.relistCandidates === 1 ? "" : "s"} posted over ${overview.relistStaleDays} days ago would be taken down and reposted fresh on the next run.`
+                        : `Delists and reposts anything still live after ${overview.relistStaleDays} days. Removal is confirmed before we repost — if we can't confirm it came down, we leave it alone rather than risk a duplicate.`
+                      : "Upgrade to Grow to automatically refresh stale listings."}
+                  </p>
+                  {overview.relistAvailable && (
+                    <p className="mt-1 text-xs text-warning">
+                      Solid on eBay and Etsy. Best-effort on the rest for now — those removal steps haven&apos;t
+                      been verified against live accounts yet, so start with a listing you don&apos;t mind
+                      watching closely.
+                    </p>
+                  )}
                 </div>
-                <p className="text-sm text-muted-foreground">
-                  Not yet available — refreshing a live listing on most marketplaces isn&apos;t possible through our
-                  current integrations without creating a duplicate.
-                </p>
               </div>
-              <span className="shrink-0 text-xs font-medium text-muted-foreground">Coming soon</span>
+              {overview.relistAvailable ? (
+                <RelistToggle initialEnabled={overview.relistEnabled} />
+              ) : (
+                <span className="shrink-0 text-xs font-medium text-muted-foreground">Locked</span>
+              )}
             </CardContent>
           </Card>
 
