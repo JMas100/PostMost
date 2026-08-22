@@ -1,15 +1,29 @@
+import Link from "next/link";
 import { getBilling } from "@/lib/actions/billing";
-import { formatPrice } from "@/lib/plans";
+import { formatPrice, PLANS } from "@/lib/plans";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { BillingPortalButton } from "@/components/billing-portal-button";
+import { buttonVariants } from "@/components/ui/button";
 import { ChangePlan } from "./change-plan";
 import { redirect } from "next/navigation";
 import { Shell } from "@/components/sidebar";
+import { AlertTriangle } from "lucide-react";
 
 function getLimitLabel(value: number, limit: number) {
   if (limit === -1) return "Unlimited";
   return `${value} / ${limit}`;
+}
+
+function usagePct(value: number, limit: number) {
+  if (limit <= 0) return 0;
+  return (value / limit) * 100;
+}
+
+function indicatorColor(pct: number) {
+  if (pct >= 100) return "bg-destructive";
+  if (pct >= 80) return "bg-warning";
+  return undefined;
 }
 
 export default async function BillingPage({ searchParams }: { searchParams: { success?: string; canceled?: string } }) {
@@ -18,6 +32,19 @@ export default async function BillingPage({ searchParams }: { searchParams: { su
 
   const { plan, usage, stripeCustomerId, subscriptionStatus } = billing;
   const resetAt = usage?.resetAt ? new Date(usage.resetAt) : new Date();
+
+  const meters = [
+    { label: "listings", value: usage?.listingsThisMonth ?? 0, limit: plan.listingsPerMonth },
+    { label: "AI photo analyses", value: usage?.aiCreditsUsed ?? 0, limit: plan.aiCreditsPerMonth },
+    { label: "background removals", value: usage?.bgRemovalsUsed ?? 0, limit: plan.bgRemovalsPerMonth },
+    { label: "studio-quality removals", value: usage?.studioBgRemovalsUsed ?? 0, limit: plan.studioBgRemovalsPerMonth },
+  ];
+  const closestToLimit = meters
+    .filter((m) => m.limit > 0)
+    .map((m) => ({ ...m, pct: usagePct(m.value, m.limit) }))
+    .sort((a, b) => b.pct - a.pct)[0];
+  const nextPlan = PLANS[PLANS.findIndex((p) => p.id === plan.id) + 1];
+  const showUpgradePrompt = closestToLimit && closestToLimit.pct >= 80 && nextPlan;
 
   return (
     <Shell>
@@ -71,7 +98,10 @@ export default async function BillingPage({ searchParams }: { searchParams: { su
                 <span>{getLimitLabel(usage?.listingsThisMonth ?? 0, plan.listingsPerMonth)}</span>
               </div>
               {plan.listingsPerMonth > 0 && (
-                <Progress value={Math.min(100, ((usage?.listingsThisMonth ?? 0) / plan.listingsPerMonth) * 100)} />
+                <Progress
+                  value={Math.min(100, usagePct(usage?.listingsThisMonth ?? 0, plan.listingsPerMonth))}
+                  indicatorClassName={indicatorColor(usagePct(usage?.listingsThisMonth ?? 0, plan.listingsPerMonth))}
+                />
               )}
             </div>
             <div>
@@ -80,7 +110,10 @@ export default async function BillingPage({ searchParams }: { searchParams: { su
                 <span>{getLimitLabel(usage?.aiCreditsUsed ?? 0, plan.aiCreditsPerMonth)}</span>
               </div>
               {plan.aiCreditsPerMonth > 0 && (
-                <Progress value={Math.min(100, ((usage?.aiCreditsUsed ?? 0) / plan.aiCreditsPerMonth) * 100)} />
+                <Progress
+                  value={Math.min(100, usagePct(usage?.aiCreditsUsed ?? 0, plan.aiCreditsPerMonth))}
+                  indicatorClassName={indicatorColor(usagePct(usage?.aiCreditsUsed ?? 0, plan.aiCreditsPerMonth))}
+                />
               )}
             </div>
             <div>
@@ -89,7 +122,10 @@ export default async function BillingPage({ searchParams }: { searchParams: { su
                 <span>{getLimitLabel(usage?.bgRemovalsUsed ?? 0, plan.bgRemovalsPerMonth)}</span>
               </div>
               {plan.bgRemovalsPerMonth > 0 && (
-                <Progress value={Math.min(100, ((usage?.bgRemovalsUsed ?? 0) / plan.bgRemovalsPerMonth) * 100)} />
+                <Progress
+                  value={Math.min(100, usagePct(usage?.bgRemovalsUsed ?? 0, plan.bgRemovalsPerMonth))}
+                  indicatorClassName={indicatorColor(usagePct(usage?.bgRemovalsUsed ?? 0, plan.bgRemovalsPerMonth))}
+                />
               )}
             </div>
             <div>
@@ -103,7 +139,8 @@ export default async function BillingPage({ searchParams }: { searchParams: { su
               </div>
               {plan.studioBgRemovalsPerMonth > 0 && (
                 <Progress
-                  value={Math.min(100, ((usage?.studioBgRemovalsUsed ?? 0) / plan.studioBgRemovalsPerMonth) * 100)}
+                  value={Math.min(100, usagePct(usage?.studioBgRemovalsUsed ?? 0, plan.studioBgRemovalsPerMonth))}
+                  indicatorClassName={indicatorColor(usagePct(usage?.studioBgRemovalsUsed ?? 0, plan.studioBgRemovalsPerMonth))}
                 />
               )}
             </div>
@@ -111,7 +148,29 @@ export default async function BillingPage({ searchParams }: { searchParams: { su
           </CardContent>
         </Card>
 
-        <Card>
+        {showUpgradePrompt && (
+          <Card className="border-warning/40">
+            <CardContent className="flex flex-wrap items-center justify-between gap-4 py-4">
+              <div className="flex items-center gap-3">
+                <AlertTriangle className="h-5 w-5 shrink-0 text-warning" />
+                <div>
+                  <p className="text-sm font-medium">
+                    You&apos;re close to your {closestToLimit.label} limit ({closestToLimit.value} of{" "}
+                    {closestToLimit.limit})
+                  </p>
+                  <p className="text-sm text-muted-foreground">
+                    Upgrade to {nextPlan.name} for more room.
+                  </p>
+                </div>
+              </div>
+              <Link href="#change-plan" className={buttonVariants({ variant: "outline" })}>
+                View plans
+              </Link>
+            </CardContent>
+          </Card>
+        )}
+
+        <Card id="change-plan">
           <CardHeader>
             <CardTitle>Change plan</CardTitle>
           </CardHeader>
