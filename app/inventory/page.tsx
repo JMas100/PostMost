@@ -19,11 +19,12 @@ import {
   TableRow,
 } from "@/components/ui/table";
 
-export default async function InventoryPage({
-  searchParams,
-}: {
-  searchParams: { q?: string; filter?: string };
-}) {
+export default async function InventoryPage(
+  props: {
+    searchParams: Promise<{ q?: string; filter?: string }>;
+  }
+) {
+  const searchParams = await props.searchParams;
   const session = await getServerSession(authOptions);
   if (!session?.user?.id) redirect("/login");
 

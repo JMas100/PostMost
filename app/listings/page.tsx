@@ -24,11 +24,12 @@ import {
 
 const PAGE_SIZE = 25;
 
-export default async function ListingsPage({
-  searchParams,
-}: {
-  searchParams: { q?: string; status?: string; platform?: string; page?: string };
-}) {
+export default async function ListingsPage(
+  props: {
+    searchParams: Promise<{ q?: string; status?: string; platform?: string; page?: string }>;
+  }
+) {
+  const searchParams = await props.searchParams;
   const session = await getServerSession(authOptions);
   if (!session?.user?.id) redirect("/login");
 

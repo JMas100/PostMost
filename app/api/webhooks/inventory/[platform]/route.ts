@@ -11,10 +11,8 @@ function verifySignature(rawBody: string, signature: string | null, secret: stri
   return crypto.timingSafeEqual(expectedBuf, signatureBuf);
 }
 
-export async function POST(
-  request: NextRequest,
-  { params }: { params: { platform: string } }
-) {
+export async function POST(request: NextRequest, props: { params: Promise<{ platform: string }> }) {
+  const params = await props.params;
   const secret = process.env.INVENTORY_WEBHOOK_SECRET;
   if (!secret) {
     return NextResponse.json({ error: "Webhook not configured" }, { status: 500 });

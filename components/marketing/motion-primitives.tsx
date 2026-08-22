@@ -17,6 +17,7 @@ import { buttonVariants as shadcnButtonVariants } from "@/components/ui/button";
 export function useMountedReducedMotion() {
   const shouldReduceMotion = useReducedMotion();
   const [mounted, setMounted] = useState(false);
+  // eslint-disable-next-line react-hooks/set-state-in-effect -- see the mount comment above
   useEffect(() => setMounted(true), []);
   return mounted && !!shouldReduceMotion;
 }

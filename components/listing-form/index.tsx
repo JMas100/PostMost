@@ -89,6 +89,9 @@ export function ListingForm({ mode = "create", draftId, initialData, templates =
             ...payload,
             photos: payload.photos || [],
           });
+          // Resetting local state to match an externally-selected template, not deriving
+          // state from props during render — an effect is the right place for this.
+          // eslint-disable-next-line react-hooks/set-state-in-effect
           setPhotoUrls(payload.photos?.length ? payload.photos : [""]);
           wizard.resetTo(computeInitialStep(payload));
           toast.success(`Loaded template: ${template.name}`);

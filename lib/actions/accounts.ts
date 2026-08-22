@@ -112,7 +112,7 @@ export async function getOAuthUrl(platform: string) {
   if (platform === "etsy") {
     codeVerifier = generateCodeVerifier();
     const challenge = getCodeChallenge(codeVerifier);
-    cookies().set(
+    (await cookies()).set(
       "postmost_oauth_verifier",
       JSON.stringify({ platform, verifier: codeVerifier, expiresAt: Date.now() + 600_000 }),
       { httpOnly: true, secure: process.env.NODE_ENV === "production", sameSite: "lax", maxAge: 600 }

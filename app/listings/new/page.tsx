@@ -8,7 +8,8 @@ import { getShippingProfiles } from "@/lib/actions/shipping";
 import { trackListingStarted } from "@/lib/actions/analytics";
 import { TrackOnMount } from "@/components/track-on-mount";
 
-export default async function NewListingPage({ searchParams }: { searchParams?: { templateId?: string } }) {
+export default async function NewListingPage(props: { searchParams?: Promise<{ templateId?: string }> }) {
+  const searchParams = await props.searchParams;
   const session = await getServerSession(authOptions);
   if (!session?.user?.id) redirect("/login");
 
