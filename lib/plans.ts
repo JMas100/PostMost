@@ -5,6 +5,8 @@ export type BgRemovalTier = "standard" | "studio";
 
 export interface Plan {
   id: PlanId;
+  /** Ordinal rank among plans, 0 (free) to 5 (enterprise) — for "is this plan at least X" checks. */
+  tier: number;
   name: string;
   priceMonthly: number;
   description: string;
@@ -22,6 +24,7 @@ export interface Plan {
 export const PLANS: Plan[] = [
   {
     id: "free",
+    tier: 0,
     name: "Free",
     priceMonthly: 0,
     description: "For people trying it out.",
@@ -46,6 +49,7 @@ export const PLANS: Plan[] = [
   },
   {
     id: "launch",
+    tier: 1,
     name: "Launch",
     priceMonthly: 999,
     description: "For casual sellers.",
@@ -72,6 +76,7 @@ export const PLANS: Plan[] = [
   },
   {
     id: "grow",
+    tier: 2,
     name: "Grow",
     priceMonthly: 1999,
     description: "For active resellers.",
@@ -98,6 +103,7 @@ export const PLANS: Plan[] = [
   },
   {
     id: "pro",
+    tier: 3,
     name: "Pro",
     priceMonthly: 3499,
     description: "For serious resellers. Most popular.",
@@ -123,6 +129,7 @@ export const PLANS: Plan[] = [
   },
   {
     id: "scale",
+    tier: 4,
     name: "Scale",
     priceMonthly: 5999,
     description: "For high-volume sellers & small businesses.",
@@ -149,6 +156,7 @@ export const PLANS: Plan[] = [
   },
   {
     id: "enterprise",
+    tier: 5,
     name: "Enterprise",
     priceMonthly: 14900,
     description: "For warehouses & multi-user operations.",
@@ -182,6 +190,10 @@ export const PLAN_BY_ID: Record<PlanId, Plan> = PLANS.reduce((acc, plan) => {
 
 export function getPlan(id: string | null | undefined): Plan {
   return PLAN_BY_ID[(id as PlanId) ?? "free"] ?? PLAN_BY_ID.free;
+}
+
+export function meetsMinimumTier(planId: string | null | undefined, minimumId: PlanId): boolean {
+  return getPlan(planId).tier >= getPlan(minimumId).tier;
 }
 
 export function formatPrice(cents: number): string {

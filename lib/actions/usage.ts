@@ -1,7 +1,7 @@
 "use server";
 
 import { prisma } from "@/lib/prisma";
-import { BgRemovalTier, getPlan } from "@/lib/plans";
+import { BgRemovalTier, getPlan, meetsMinimumTier } from "@/lib/plans";
 
 function getMonthWindow(now = new Date()): { start: Date; end: Date } {
   const start = new Date(now.getFullYear(), now.getMonth(), 1);
@@ -103,6 +103,17 @@ export async function canRemoveBackground(
   }
   if (used >= limit) {
     return { allowed: false, reason: `You have used all ${limit} ${label} on the ${plan.name} plan.` };
+  }
+  return { allowed: true };
+}
+
+export async function canImportCSV(userId: string): Promise<{ allowed: boolean; reason?: string }> {
+  const { plan } = await getUsage(userId);
+  if (!meetsMinimumTier(plan.id, "grow")) {
+    return {
+      allowed: false,
+      reason: `The ${plan.name} plan doesn't include CSV import. Upgrade to Grow or higher to unlock it.`,
+    };
   }
   return { allowed: true };
 }
