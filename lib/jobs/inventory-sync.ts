@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { decrypt } from "@/lib/crypto";
 import { getAdapter } from "@/lib/marketplaces";
+import { DELIST_ON_SALE_RULE } from "@/lib/automation/rule-types";
 
 const PlatformListingStatus = {
   PENDING: "PENDING",
@@ -89,6 +90,18 @@ export async function syncInventorySale(platform: string, externalId: string): P
           errorMessage: delistResult.error || null,
         },
       });
+      if (delistResult.success) {
+        await prisma.automationEvent.create({
+          data: {
+            userId: soldListing.listing.userId,
+            ruleType: DELIST_ON_SALE_RULE,
+            listingId: soldListing.listingId,
+            platform: platformListing.platform,
+            message: `"${soldListing.listing.title}" sold on ${platform} — delisted from ${adapter.name}`,
+            savedAmount: platformListing.price ?? soldListing.listing.price,
+          },
+        });
+      }
       results.push({
         platform: platformListing.platform,
         externalId: platformListing.externalId,

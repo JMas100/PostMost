@@ -33,6 +33,8 @@ model User {
   teamMemberships   TeamMember[]
   apiKeys           ApiKey[]
   events            Event[]
+  automationRules   AutomationRule[]
+  automationEvents  AutomationEvent[]
 }
 
 model Listing {
@@ -218,6 +220,33 @@ model ApiKey {
   updatedAt   DateTime @updatedAt
 
   @@index([userId])
+}
+
+model AutomationRule {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  ruleType  String
+  enabled   Boolean  @default(false)
+  config    Json?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([userId, ruleType])
+}
+
+model AutomationEvent {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  ruleType  String
+  listingId String?
+  platform  String?
+  message   String
+  savedAmount Float?
+  createdAt DateTime @default(now())
+
+  @@index([userId, createdAt])
 }
 
 model Event {

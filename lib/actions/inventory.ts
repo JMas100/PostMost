@@ -7,6 +7,7 @@ import { prisma } from "@/lib/prisma";
 import { decrypt } from "@/lib/crypto";
 import { getAdapter } from "@/lib/marketplaces";
 import { getPlan } from "@/lib/plans";
+import { DELIST_ON_SALE_RULE } from "@/lib/automation/rule-types";
 
 function getUserId(session: { user?: { id?: string } } | null) {
   if (!session?.user?.id) throw new Error("Unauthorized");
@@ -72,6 +73,17 @@ export async function markListingSold(listingId: string, soldPlatform?: string, 
               await prisma.platformListing.update({
                 where: { id: platformListing.id },
                 data: { errorMessage: result.error || "Delist failed" },
+              });
+            } else {
+              await prisma.automationEvent.create({
+                data: {
+                  userId,
+                  ruleType: DELIST_ON_SALE_RULE,
+                  listingId,
+                  platform: platformListing.platform,
+                  message: `"${listing.title}" sold — delisted from ${adapter.name}`,
+                  savedAmount: platformListing.price ?? listing.price,
+                },
               });
             }
           } catch (err) {
