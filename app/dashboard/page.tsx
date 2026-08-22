@@ -8,6 +8,7 @@ import { Shell } from "@/components/sidebar";
 import { TrackOnMount } from "@/components/track-on-mount";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { buttonVariants } from "@/components/ui/button";
+import { EmptyState } from "@/components/ui/empty-state";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { StatValue } from "@/components/stat-value";
@@ -150,7 +151,7 @@ export default async function DashboardPage() {
               <AlertTitle>No marketplaces connected yet</AlertTitle>
               <AlertDescription>
                 Connect a marketplace to start cross-posting listings.{" "}
-                <Link href="/marketplaces">Connect a marketplace</Link>
+                <Link href="/settings">Connect a marketplace</Link>
               </AlertDescription>
             </Alert>
           ) : (
@@ -178,11 +179,12 @@ export default async function DashboardPage() {
         </div>
 
         {recentListings.length === 0 ? (
-          <Card>
-            <CardContent className="py-10 text-center text-muted-foreground">
-              No listings yet. Create your first listing to get started.
-            </CardContent>
-          </Card>
+          <EmptyState
+            variant="first-run"
+            headline="No listings yet"
+            body="Post an item once and it goes live everywhere you sell."
+            primaryAction={{ label: "Create your first listing", href: "/listings/new" }}
+          />
         ) : (
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
             {recentListings.map((listing) => (

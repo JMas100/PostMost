@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { Shell } from "@/components/sidebar";
 import { Card, CardContent } from "@/components/ui/card";
 import { buttonVariants } from "@/components/ui/button";
+import { EmptyState } from "@/components/ui/empty-state";
 import Link from "next/link";
 
 export default async function DraftsPage() {
@@ -28,14 +29,12 @@ export default async function DraftsPage() {
         </div>
 
         {drafts.length === 0 ? (
-          <Card>
-            <CardContent className="py-12 text-center text-muted-foreground">
-              <p className="mb-4">No drafts yet.</p>
-              <Link href="/listings/new" className={buttonVariants()}>
-                Create a draft
-              </Link>
-            </CardContent>
-          </Card>
+          <EmptyState
+            variant="first-run"
+            headline="No drafts yet"
+            body="Drafts save automatically as you build a listing, so you can pick up right where you left off."
+            primaryAction={{ label: "Create a draft", href: "/listings/new" }}
+          />
         ) : (
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
             {drafts.map((draft) => (

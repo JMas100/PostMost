@@ -5,6 +5,7 @@ import { authOptions } from "@/lib/auth";
 import { Shell } from "@/components/sidebar";
 import { Card, CardContent } from "@/components/ui/card";
 import { buttonVariants } from "@/components/ui/button";
+import { EmptyState } from "@/components/ui/empty-state";
 import Link from "next/link";
 import { PlatformBadge } from "@/components/platform-badge";
 
@@ -29,14 +30,13 @@ export default async function ListingsPage() {
         </div>
 
         {listings.length === 0 ? (
-          <Card>
-            <CardContent className="py-12 text-center text-muted-foreground">
-              <p className="mb-4">You don&apos;t have any listings yet.</p>
-              <Link href="/listings/new" className={buttonVariants()}>
-                Create your first listing
-              </Link>
-            </CardContent>
-          </Card>
+          <EmptyState
+            variant="first-run"
+            headline="No listings yet"
+            body="Post an item once and it goes live everywhere you sell. Already listed elsewhere? Import what you have and cross-post from there."
+            primaryAction={{ label: "Create your first listing", href: "/listings/new" }}
+            secondaryAction={{ label: "Import a CSV", href: "/listings/import", badge: "GROW" }}
+          />
         ) : (
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
             {listings.map((listing) => (
