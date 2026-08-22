@@ -5,7 +5,9 @@ import { authOptions } from "@/lib/auth";
 import { trackDashboardViewed } from "@/lib/actions/analytics";
 import { getPlatform } from "@/lib/marketplaces/platforms";
 import { getActivationState } from "@/lib/actions/activation";
+import { getUsage } from "@/lib/actions/usage";
 import { Shell } from "@/components/sidebar";
+import { Progress } from "@/components/ui/progress";
 import { TrackOnMount } from "@/components/track-on-mount";
 import { ActivationChecklist } from "@/components/activation-checklist";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -15,7 +17,8 @@ import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { StatValue } from "@/components/stat-value";
 import Link from "next/link";
-import { Package, Activity, DollarSign, TrendingUp, Store, AlertTriangle } from "lucide-react";
+import { cn } from "@/lib/utils";
+import { Package, Activity, DollarSign, TrendingUp, TrendingDown, Store, AlertTriangle } from "lucide-react";
 
 type AccountStatus = "connected" | "action_required" | "failed";
 
@@ -39,27 +42,62 @@ export default async function DashboardPage() {
   const session = await getServerSession(authOptions);
   if (!session?.user?.id) redirect("/login");
 
-  const [listingCount, postedCount, failedCount, accounts, soldAgg, activationState] = await Promise.all([
-    prisma.listing.count({ where: { userId: session.user.id, isDraft: false } }),
+  const userId = session.user.id;
+  const now = new Date();
+  const start30 = new Date(now);
+  start30.setDate(start30.getDate() - 30);
+  const start60 = new Date(now);
+  start60.setDate(start60.getDate() - 60);
+
+  const [
+    listingCount,
+    postedCount,
+    failedCount,
+    accounts,
+    soldAgg,
+    activationState,
+    usage,
+    platformListingsAll,
+    listingsLast30,
+    listingsPrev30,
+    profitLast30Agg,
+    profitPrev30Agg,
+  ] = await Promise.all([
+    prisma.listing.count({ where: { userId, isDraft: false } }),
     prisma.platformListing.count({
-      where: { listing: { userId: session.user.id, isDraft: false }, status: "POSTED" },
+      where: { listing: { userId, isDraft: false }, status: "POSTED" },
     }),
     prisma.platformListing.count({
-      where: { listing: { userId: session.user.id, isDraft: false }, status: "FAILED" },
+      where: { listing: { userId, isDraft: false }, status: "FAILED" },
     }),
     prisma.marketplaceAccount.findMany({
-      where: { userId: session.user.id },
+      where: { userId },
       select: { id: true, platform: true, displayName: true, isActive: true, tokenExpiresAt: true },
     }),
     prisma.platformListing.aggregate({
-      where: { listing: { userId: session.user.id }, status: "SOLD" },
+      where: { listing: { userId }, status: "SOLD" },
       _sum: { soldPrice: true, profit: true },
     }),
-    getActivationState(session.user.id),
+    getActivationState(userId),
+    getUsage(userId),
+    prisma.platformListing.findMany({
+      where: { listing: { userId, isDraft: false } },
+      select: { platform: true, status: true },
+    }),
+    prisma.listing.count({ where: { userId, isDraft: false, createdAt: { gte: start30 } } }),
+    prisma.listing.count({ where: { userId, isDraft: false, createdAt: { gte: start60, lt: start30 } } }),
+    prisma.platformListing.aggregate({
+      where: { listing: { userId }, status: "SOLD", soldAt: { gte: start30 } },
+      _sum: { profit: true },
+    }),
+    prisma.platformListing.aggregate({
+      where: { listing: { userId }, status: "SOLD", soldAt: { gte: start60, lt: start30 } },
+      _sum: { profit: true },
+    }),
   ]);
 
   const recentListings = await prisma.listing.findMany({
-    where: { userId: session.user.id, isDraft: false },
+    where: { userId, isDraft: false },
     include: { photos: true, platformListings: true },
     orderBy: { createdAt: "desc" },
     take: 5,
@@ -70,6 +108,19 @@ export default async function DashboardPage() {
   const profitMargin = totalRevenue > 0 ? (totalProfit / totalRevenue) * 100 : 0;
   const accountCount = accounts.length;
   const accountsNeedingAttention = accounts.filter((a) => accountStatus(a) !== "connected");
+
+  const listingsDelta = listingsLast30 - listingsPrev30;
+  const profitLast30 = profitLast30Agg._sum.profit ?? 0;
+  const profitPrev30 = profitPrev30Agg._sum.profit ?? 0;
+  const profitDelta = profitLast30 - profitPrev30;
+
+  const platformCounts = new Map<string, { live: number; sold: number }>();
+  for (const pl of platformListingsAll) {
+    const existing = platformCounts.get(pl.platform) ?? { live: 0, sold: 0 };
+    if (pl.status === "POSTED") existing.live += 1;
+    if (pl.status === "SOLD") existing.sold += 1;
+    platformCounts.set(pl.platform, existing);
+  }
 
   return (
     <Shell>
@@ -125,6 +176,18 @@ export default async function DashboardPage() {
               <div className="text-3xl font-bold text-foreground">
                 <StatValue value={listingCount} />
               </div>
+              {listingsDelta !== 0 && (
+                <div
+                  className={cn(
+                    "mt-1 inline-flex items-center gap-1 text-xs font-semibold",
+                    listingsDelta > 0 ? "text-primary" : "text-muted-foreground"
+                  )}
+                >
+                  {listingsDelta > 0 ? <TrendingUp className="h-3 w-3" /> : <TrendingDown className="h-3 w-3" />}
+                  {listingsDelta > 0 ? "+" : ""}
+                  {listingsDelta} vs prior 30 days
+                </div>
+              )}
             </CardContent>
           </Card>
 
@@ -177,39 +240,98 @@ export default async function DashboardPage() {
               </div>
               {profitMargin > 0 && (
                 <div className="mt-1 inline-flex items-center gap-1 text-xs font-semibold text-primary">
-                  <TrendingUp className="h-3 w-3" /> +{profitMargin.toFixed(1)}%
+                  <TrendingUp className="h-3 w-3" /> +{profitMargin.toFixed(1)}% margin
+                </div>
+              )}
+              {profitDelta !== 0 && (
+                <div
+                  className={cn(
+                    "mt-1 inline-flex items-center gap-1 text-xs font-semibold",
+                    profitDelta > 0 ? "text-primary" : "text-muted-foreground"
+                  )}
+                >
+                  {profitDelta > 0 ? <TrendingUp className="h-3 w-3" /> : <TrendingDown className="h-3 w-3" />}
+                  {profitDelta > 0 ? "+" : "-"}${Math.abs(profitDelta).toFixed(2)} vs prior 30 days
                 </div>
               )}
             </CardContent>
           </Card>
         </div>
 
-        <div className="space-y-3">
-          <h2 className="text-sm font-medium text-muted-foreground">Marketplace connections</h2>
-          {accounts.length === 0 ? (
-            <Alert>
-              <Store />
-              <AlertTitle>No marketplaces connected yet</AlertTitle>
-              <AlertDescription>
-                Connect a marketplace to start cross-posting listings.{" "}
-                <Link href="/settings">Connect a marketplace</Link>
-              </AlertDescription>
-            </Alert>
-          ) : (
-            <div className="flex flex-wrap gap-2">
-              {accounts.map((account) => {
-                const status = accountStatus(account);
-                const meta = statusMeta[status];
-                const platformName = getPlatform(account.platform)?.name ?? account.platform;
-                return (
-                  <Badge key={account.id} variant={meta.variant} className="gap-1.5 py-1">
-                    {platformName}
-                    <span className="opacity-80">· {meta.label}</span>
-                  </Badge>
-                );
-              })}
-            </div>
-          )}
+        <div className="grid gap-4 lg:grid-cols-[1fr_280px]">
+          <div className="space-y-3">
+            <h2 className="text-sm font-medium text-muted-foreground">Marketplace connections</h2>
+            {accounts.length === 0 ? (
+              <Alert>
+                <Store />
+                <AlertTitle>No marketplaces connected yet</AlertTitle>
+                <AlertDescription>
+                  Connect a marketplace to start cross-posting listings.{" "}
+                  <Link href="/settings">Connect a marketplace</Link>
+                </AlertDescription>
+              </Alert>
+            ) : (
+              <Card>
+                <CardContent className="divide-y p-0">
+                  {accounts.map((account) => {
+                    const status = accountStatus(account);
+                    const meta = statusMeta[status];
+                    const platformName = getPlatform(account.platform)?.name ?? account.platform;
+                    const counts = platformCounts.get(account.platform) ?? { live: 0, sold: 0 };
+                    return (
+                      <div key={account.id} className="flex items-center justify-between gap-3 px-4 py-3">
+                        <div className="flex items-center gap-3">
+                          <Badge variant={meta.variant} className="gap-1.5 py-1">
+                            {platformName}
+                            <span className="opacity-80">· {meta.label}</span>
+                          </Badge>
+                          <span className="text-xs text-muted-foreground">
+                            {counts.live} live · {counts.sold} sold
+                          </span>
+                        </div>
+                        {status !== "connected" && (
+                          <Link href="/settings" className="text-xs font-medium text-primary hover:underline">
+                            Fix
+                          </Link>
+                        )}
+                      </div>
+                    );
+                  })}
+                </CardContent>
+              </Card>
+            )}
+          </div>
+
+          <div className="space-y-3">
+            <h2 className="text-sm font-medium text-muted-foreground">Plan usage</h2>
+            <Card>
+              <CardContent className="space-y-3 pt-4">
+                <div>
+                  <div className="mb-1 flex justify-between text-xs">
+                    <span className="text-muted-foreground">Listings</span>
+                    <span>
+                      {usage.listingsLimit === -1 ? "Unlimited" : `${usage.listingsThisMonth} / ${usage.listingsLimit}`}
+                    </span>
+                  </div>
+                  {usage.listingsLimit > 0 && (
+                    <Progress value={Math.min(100, (usage.listingsThisMonth / usage.listingsLimit) * 100)} />
+                  )}
+                </div>
+                <div>
+                  <div className="mb-1 flex justify-between text-xs">
+                    <span className="text-muted-foreground">AI credits</span>
+                    <span>{usage.aiLimit === -1 ? "Unlimited" : `${usage.aiCreditsUsed} / ${usage.aiLimit}`}</span>
+                  </div>
+                  {usage.aiLimit > 0 && (
+                    <Progress value={Math.min(100, (usage.aiCreditsUsed / usage.aiLimit) * 100)} />
+                  )}
+                </div>
+                <Link href="/settings/billing" className="block text-xs font-medium text-primary hover:underline">
+                  View billing
+                </Link>
+              </CardContent>
+            </Card>
+          </div>
         </div>
 
         <div className="flex items-center justify-between">
