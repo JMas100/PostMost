@@ -243,6 +243,7 @@ model AutomationEvent {
   listingId String?
   platform  String?
   message   String
+  success   Boolean  @default(true)
   savedAmount Float?
   createdAt DateTime @default(now())
 

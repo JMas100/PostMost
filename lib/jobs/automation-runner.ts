@@ -69,12 +69,32 @@ export async function runStockSyncRule(): Promise<AutomationRunSummary> {
       const adapter = getAdapter(platformListing.platform);
       if (!adapter?.delist || !platformListing.externalId) {
         summary.failed += 1;
+        await prisma.automationEvent.create({
+          data: {
+            userId: listing.userId,
+            ruleType: STOCK_SYNC_RULE,
+            listingId: listing.id,
+            platform: platformListing.platform,
+            message: `"${listing.title}" sold out, but ${adapter?.name || platformListing.platform} doesn't support automatic delisting yet`,
+            success: false,
+          },
+        });
         continue;
       }
 
       const accountData = await getDecryptedAccount(listing.userId, platformListing.platform);
       if (!accountData) {
         summary.failed += 1;
+        await prisma.automationEvent.create({
+          data: {
+            userId: listing.userId,
+            ruleType: STOCK_SYNC_RULE,
+            listingId: listing.id,
+            platform: platformListing.platform,
+            message: `"${listing.title}" sold out, but no connected ${adapter.name} account was found to delist it`,
+            success: false,
+          },
+        });
         continue;
       }
 
@@ -103,9 +123,30 @@ export async function runStockSyncRule(): Promise<AutomationRunSummary> {
           });
         } else {
           summary.failed += 1;
+          await prisma.automationEvent.create({
+            data: {
+              userId: listing.userId,
+              ruleType: STOCK_SYNC_RULE,
+              listingId: listing.id,
+              platform: platformListing.platform,
+              message: `"${listing.title}" sold out, but delisting from ${adapter.name} failed: ${result.error || "unknown error"}`,
+              success: false,
+            },
+          });
         }
-      } catch {
+      } catch (err) {
         summary.failed += 1;
+        const message = err instanceof Error ? err.message : "Unknown error";
+        await prisma.automationEvent.create({
+          data: {
+            userId: listing.userId,
+            ruleType: STOCK_SYNC_RULE,
+            listingId: listing.id,
+            platform: platformListing.platform,
+            message: `"${listing.title}" sold out, but delisting from ${adapter.name} threw an error: ${message}`,
+            success: false,
+          },
+        });
       }
     }
   }
@@ -158,12 +199,32 @@ export async function runRelistStaleRule(): Promise<RelistRunSummary> {
     const adapter = getAdapter(platformListing.platform);
     if (!adapter?.delist || !platformListing.externalId) {
       summary.failed += 1;
+      await prisma.automationEvent.create({
+        data: {
+          userId: listing.userId,
+          ruleType: RELIST_STALE_RULE,
+          listingId: listing.id,
+          platform: platformListing.platform,
+          message: `"${listing.title}" wasn't relisted — ${adapter?.name || platformListing.platform} doesn't support automatic delisting yet`,
+          success: false,
+        },
+      });
       continue;
     }
 
     const accountData = await getDecryptedAccount(listing.userId, platformListing.platform);
     if (!accountData) {
       summary.failed += 1;
+      await prisma.automationEvent.create({
+        data: {
+          userId: listing.userId,
+          ruleType: RELIST_STALE_RULE,
+          listingId: listing.id,
+          platform: platformListing.platform,
+          message: `"${listing.title}" wasn't relisted — no connected ${adapter.name} account was found`,
+          success: false,
+        },
+      });
       continue;
     }
 
@@ -172,6 +233,16 @@ export async function runRelistStaleRule(): Promise<RelistRunSummary> {
       if (!delistResult.success) {
         // Not confirmed removed — leave everything untouched, this is a safe no-op.
         summary.failed += 1;
+        await prisma.automationEvent.create({
+          data: {
+            userId: listing.userId,
+            ruleType: RELIST_STALE_RULE,
+            listingId: listing.id,
+            platform: platformListing.platform,
+            message: `"${listing.title}" wasn't relisted on ${adapter.name} — removal couldn't be confirmed, so it was left as-is: ${delistResult.error || "unknown error"}`,
+            success: false,
+          },
+        });
         continue;
       }
 
@@ -233,11 +304,23 @@ export async function runRelistStaleRule(): Promise<RelistRunSummary> {
             listingId: listing.id,
             platform: platformListing.platform,
             message: `"${listing.title}" was taken down from ${adapter.name} to relist, but the repost failed — it needs attention`,
+            success: false,
           },
         });
       }
-    } catch {
+    } catch (err) {
       summary.failed += 1;
+      const message = err instanceof Error ? err.message : "Unknown error";
+      await prisma.automationEvent.create({
+        data: {
+          userId: listing.userId,
+          ruleType: RELIST_STALE_RULE,
+          listingId: listing.id,
+          platform: platformListing.platform,
+          message: `"${listing.title}" relist on ${adapter.name} threw an error: ${message}`,
+          success: false,
+        },
+      });
     }
   }
 

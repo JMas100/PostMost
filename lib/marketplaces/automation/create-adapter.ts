@@ -121,7 +121,7 @@ export function createManualAdapter(config: ManualAdapterConfig): MarketplaceAda
       if (!externalId) {
         return { success: false, error: `No listing URL recorded for this ${config.name} listing.` };
       }
-      return runPlaywrightDelist(
+      const outcome = await runPlaywrightDelist(
         config.id,
         {
           loginUrl: config.loginUrl,
@@ -137,6 +137,14 @@ export function createManualAdapter(config: ManualAdapterConfig): MarketplaceAda
         externalId,
         account
       );
+      if (outcome.success) return { success: true };
+      // Fold the step trail + screenshot into the error string — the MarketplaceAdapter
+      // interface only carries {success, error}, and this is unverified automation where the
+      // whole point of the trail is to be visible wherever the error ends up (PlatformListing
+      // .errorMessage, AutomationEvent.message), not just in a log a human has to go dig up.
+      const trail = outcome.steps.length ? ` | Steps: ${outcome.steps.join(" → ")}` : "";
+      const shot = outcome.screenshotUrl ? ` | Screenshot: ${outcome.screenshotUrl}` : "";
+      return { success: false, error: `${outcome.error || "Delist failed"}${trail}${shot}` };
     },
   };
 }

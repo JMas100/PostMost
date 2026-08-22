@@ -56,6 +56,16 @@ export async function syncInventorySale(platform: string, externalId: string): P
         success: false,
         error: "Delist not supported for this platform",
       });
+      await prisma.automationEvent.create({
+        data: {
+          userId: soldListing.listing.userId,
+          ruleType: DELIST_ON_SALE_RULE,
+          listingId: soldListing.listingId,
+          platform: platformListing.platform,
+          message: `"${soldListing.listing.title}" sold on ${platform}, but ${platformListing.platform} doesn't support automatic delisting yet`,
+          success: false,
+        },
+      });
       continue;
     }
 
@@ -69,6 +79,16 @@ export async function syncInventorySale(platform: string, externalId: string): P
         externalId: platformListing.externalId,
         success: false,
         error: "No connected account to delist",
+      });
+      await prisma.automationEvent.create({
+        data: {
+          userId: soldListing.listing.userId,
+          ruleType: DELIST_ON_SALE_RULE,
+          listingId: soldListing.listingId,
+          platform: platformListing.platform,
+          message: `"${soldListing.listing.title}" sold on ${platform}, but no connected ${adapter.name} account was found to delist it`,
+          success: false,
+        },
       });
       continue;
     }
@@ -90,18 +110,19 @@ export async function syncInventorySale(platform: string, externalId: string): P
           errorMessage: delistResult.error || null,
         },
       });
-      if (delistResult.success) {
-        await prisma.automationEvent.create({
-          data: {
-            userId: soldListing.listing.userId,
-            ruleType: DELIST_ON_SALE_RULE,
-            listingId: soldListing.listingId,
-            platform: platformListing.platform,
-            message: `"${soldListing.listing.title}" sold on ${platform} — delisted from ${adapter.name}`,
-            savedAmount: platformListing.price ?? soldListing.listing.price,
-          },
-        });
-      }
+      await prisma.automationEvent.create({
+        data: {
+          userId: soldListing.listing.userId,
+          ruleType: DELIST_ON_SALE_RULE,
+          listingId: soldListing.listingId,
+          platform: platformListing.platform,
+          message: delistResult.success
+            ? `"${soldListing.listing.title}" sold on ${platform} — delisted from ${adapter.name}`
+            : `"${soldListing.listing.title}" sold on ${platform}, but delisting from ${adapter.name} failed: ${delistResult.error || "unknown error"}`,
+          success: delistResult.success,
+          savedAmount: delistResult.success ? platformListing.price ?? soldListing.listing.price : undefined,
+        },
+      });
       results.push({
         platform: platformListing.platform,
         externalId: platformListing.externalId,
@@ -115,6 +136,16 @@ export async function syncInventorySale(platform: string, externalId: string): P
         data: { status: PlatformListingStatus.FAILED, errorMessage: message },
       });
       results.push({ platform: platformListing.platform, externalId: platformListing.externalId, success: false, error: message });
+      await prisma.automationEvent.create({
+        data: {
+          userId: soldListing.listing.userId,
+          ruleType: DELIST_ON_SALE_RULE,
+          listingId: soldListing.listingId,
+          platform: platformListing.platform,
+          message: `"${soldListing.listing.title}" sold on ${platform}, but delisting from ${adapter.name} threw an error: ${message}`,
+          success: false,
+        },
+      });
     }
   }
 
