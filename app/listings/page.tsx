@@ -6,18 +6,56 @@ import { Shell } from "@/components/sidebar";
 import { Card, CardContent } from "@/components/ui/card";
 import { buttonVariants } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
+import { Badge } from "@/components/ui/badge";
 import Link from "next/link";
 import { PlatformBadge } from "@/components/platform-badge";
+import { getPlatform } from "@/lib/marketplaces/platforms";
+import { ListingsFilters } from "./listings-filters";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 
-export default async function ListingsPage() {
+export default async function ListingsPage({
+  searchParams,
+}: {
+  searchParams: { q?: string; status?: string; platform?: string };
+}) {
   const session = await getServerSession(authOptions);
   if (!session?.user?.id) redirect("/login");
 
-  const listings = await prisma.listing.findMany({
-    where: { userId: session.user.id, isDraft: false },
-    include: { photos: true, platformListings: true },
-    orderBy: { createdAt: "desc" },
-  });
+  const userId = session.user.id;
+  const q = searchParams.q?.trim();
+  const status = searchParams.status;
+  const platform = searchParams.platform;
+
+  const [totalCount, listings, platformRows] = await Promise.all([
+    prisma.listing.count({ where: { userId, isDraft: false } }),
+    prisma.listing.findMany({
+      where: {
+        userId,
+        isDraft: false,
+        ...(q ? { title: { contains: q, mode: "insensitive" } } : {}),
+        ...(status ? { status } : {}),
+        ...(platform ? { platformListings: { some: { platform } } } : {}),
+      },
+      include: { photos: true, platformListings: true },
+      orderBy: { createdAt: "desc" },
+    }),
+    prisma.platformListing.findMany({
+      where: { listing: { userId, isDraft: false } },
+      select: { platform: true },
+      distinct: ["platform"],
+    }),
+  ]);
+
+  const platformOptions = platformRows
+    .map((row) => ({ id: row.platform, name: getPlatform(row.platform)?.name ?? row.platform }))
+    .sort((a, b) => a.name.localeCompare(b.name));
 
   return (
     <Shell>
@@ -29,7 +67,9 @@ export default async function ListingsPage() {
           </Link>
         </div>
 
-        {listings.length === 0 ? (
+        {totalCount > 0 && <ListingsFilters platformOptions={platformOptions} />}
+
+        {totalCount === 0 ? (
           <EmptyState
             variant="first-run"
             headline="No listings yet"
@@ -37,34 +77,61 @@ export default async function ListingsPage() {
             primaryAction={{ label: "Create your first listing", href: "/listings/new" }}
             secondaryAction={{ label: "Import a CSV", href: "/listings/import", badge: "GROW" }}
           />
+        ) : listings.length === 0 ? (
+          <EmptyState
+            variant="filtered"
+            headline={q ? `No listings match "${q}"` : "No listings match these filters"}
+            body={`You have ${totalCount} listing${totalCount === 1 ? "" : "s"}. Filters are narrowing them to none.`}
+            primaryAction={{ label: "Clear filters", href: "/listings" }}
+          />
         ) : (
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-            {listings.map((listing) => (
-              <Link key={listing.id} href={`/listings/${listing.id}`}>
-                <Card className="hover:bg-muted/50 transition-colors">
-                  <CardContent>
-                    <div className="flex gap-4">
-                      {listing.photos[0] ? (
-                        <img src={listing.photos[0].url} alt="" className="h-20 w-20 rounded-md object-cover" />
-                      ) : (
-                        <div className="h-20 w-20 rounded-md bg-muted" />
-                      )}
-                      <div className="flex-1 min-w-0">
-                        <p className="font-medium line-clamp-1">{listing.title}</p>
-                        <p className="text-sm text-muted-foreground">${listing.price.toFixed(2)}</p>
-                        <p className="text-xs text-muted-foreground capitalize">{listing.status.toLowerCase()}</p>
-                        <div className="mt-2 flex flex-wrap gap-1">
+          <Card>
+            <CardContent className="p-0">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead></TableHead>
+                    <TableHead>Title</TableHead>
+                    <TableHead>Price</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead>Platforms</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {listings.map((listing) => (
+                    <TableRow key={listing.id}>
+                      <TableCell>
+                        {listing.photos[0] ? (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img src={listing.photos[0].url} alt="" className="h-10 w-10 rounded-md object-cover" />
+                        ) : (
+                          <div className="h-10 w-10 rounded-md bg-muted" />
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        <Link href={`/listings/${listing.id}`} className="font-medium hover:underline">
+                          {listing.title}
+                        </Link>
+                      </TableCell>
+                      <TableCell>${listing.price.toFixed(2)}</TableCell>
+                      <TableCell>
+                        <Badge variant={listing.status === "SOLD" ? "success" : "outline"}>
+                          {listing.status === "SOLD" ? "Sold" : "Published"}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex flex-wrap gap-1">
                           {listing.platformListings.slice(0, 3).map((pl) => (
                             <PlatformBadge key={pl.id} platform={pl.platform} status={pl.status} />
                           ))}
                         </div>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              </Link>
-            ))}
-          </div>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </CardContent>
+          </Card>
         )}
       </div>
     </Shell>
