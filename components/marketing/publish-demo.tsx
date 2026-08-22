@@ -163,8 +163,14 @@ export function PublishDemo() {
                     <img src="/marketing/phantom-gx-square.jpg" alt="" className="h-full w-full object-cover" />
                   </div>
                   <div className="flex gap-2">
-                    <div className="h-[60px] w-[60px] rounded-[8px] bg-[#15181C]" />
-                    <div className="h-[60px] w-[60px] rounded-[8px] bg-[#15181C]" />
+                    <div className="h-[60px] w-[60px] overflow-hidden rounded-[8px]">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img src="/marketing/phantom-gx-square-2.jpg" alt="" className="h-full w-full object-cover" />
+                    </div>
+                    <div className="h-[60px] w-[60px] overflow-hidden rounded-[8px]">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img src="/marketing/phantom-gx-square-3.jpg" alt="" className="h-full w-full object-cover" />
+                    </div>
                     <div className="flex h-[60px] w-[60px] items-center justify-center rounded-[8px] border border-dashed border-[#24282D]">
                       <Plus className="h-4 w-4 text-[#68727D]" />
                     </div>
