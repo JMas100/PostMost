@@ -7,6 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { buttonVariants } from "@/components/ui/button";
 import { PlatformBadge } from "@/components/platform-badge";
+import { EmptyState } from "@/components/ui/empty-state";
 import { getInventory } from "@/lib/actions/inventory";
 import {
   Table,
@@ -21,7 +22,7 @@ export default async function InventoryPage() {
   const session = await getServerSession(authOptions);
   if (!session?.user?.id) redirect("/login");
 
-  const { listings, activeCount, activeLimit, totalValue } = await getInventory();
+  const { listings, activeCount, activeLimit, totalValue, missingCostCount } = await getInventory();
 
   return (
     <Shell>
@@ -59,15 +60,36 @@ export default async function InventoryPage() {
         </Card>
 
         {listings.length === 0 ? (
-          <Card>
-            <CardContent className="py-12 text-center text-muted-foreground">
-              <p className="mb-4">You don&apos;t have any inventory yet.</p>
-              <Link href="/listings/new" className={buttonVariants()}>
-                Create your first listing
-              </Link>
-            </CardContent>
-          </Card>
+          <EmptyState
+            variant="first-run"
+            headline="Nothing in inventory"
+            body="Inventory tracks what you paid so profit is calculated for you at sale. Items you list are added automatically — or bring a spreadsheet you already keep."
+            primaryAction={{ label: "Add your first item", href: "/listings/new" }}
+            secondaryAction={{ label: "Import a CSV", href: "/listings/import", badge: "GROW" }}
+          />
         ) : (
+          <>
+            {missingCostCount > 0 && (
+              <Card className="border-warning/40">
+                <CardContent className="flex flex-wrap items-center justify-between gap-4 py-4">
+                  <div className="flex items-center gap-4">
+                    <span className="text-2xl font-bold text-warning">
+                      —<span className="ml-2 text-sm font-semibold align-middle">{missingCostCount} missing</span>
+                    </span>
+                    <div>
+                      <p className="text-sm font-medium">Profit needs a cost per item</p>
+                      <p className="text-sm text-muted-foreground">
+                        {missingCostCount} of {listings.length} items have no cost recorded, so profit and margin
+                        stay blank rather than wrong.
+                      </p>
+                    </div>
+                  </div>
+                  <Link href="/listings" className={buttonVariants({ variant: "outline" })}>
+                    Add costs
+                  </Link>
+                </CardContent>
+              </Card>
+            )}
           <Card>
             <CardContent className="p-0">
               <Table>
@@ -124,6 +146,7 @@ export default async function InventoryPage() {
               </Table>
             </CardContent>
           </Card>
+          </>
         )}
       </div>
     </Shell>

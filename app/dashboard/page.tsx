@@ -4,10 +4,13 @@ import { prisma } from "@/lib/prisma";
 import { authOptions } from "@/lib/auth";
 import { trackDashboardViewed } from "@/lib/actions/analytics";
 import { getPlatform } from "@/lib/marketplaces/platforms";
+import { getActivationState } from "@/lib/actions/activation";
 import { Shell } from "@/components/sidebar";
 import { TrackOnMount } from "@/components/track-on-mount";
+import { ActivationChecklist } from "@/components/activation-checklist";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { buttonVariants } from "@/components/ui/button";
+import { EmptyState } from "@/components/ui/empty-state";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { StatValue } from "@/components/stat-value";
@@ -36,7 +39,7 @@ export default async function DashboardPage() {
   const session = await getServerSession(authOptions);
   if (!session?.user?.id) redirect("/login");
 
-  const [listingCount, postedCount, accounts, soldAgg] = await Promise.all([
+  const [listingCount, postedCount, accounts, soldAgg, activationState] = await Promise.all([
     prisma.listing.count({ where: { userId: session.user.id, isDraft: false } }),
     prisma.platformListing.count({
       where: { listing: { userId: session.user.id, isDraft: false }, status: "POSTED" },
@@ -49,6 +52,7 @@ export default async function DashboardPage() {
       where: { listing: { userId: session.user.id }, status: "SOLD" },
       _sum: { soldPrice: true, profit: true },
     }),
+    getActivationState(session.user.id),
   ]);
 
   const recentListings = await prisma.listing.findMany({
@@ -71,6 +75,8 @@ export default async function DashboardPage() {
           <h1 className="text-3xl font-bold tracking-tight">Overview</h1>
           <p className="text-muted-foreground">Welcome back, {session.user.name || session.user.email}.</p>
         </div>
+
+        <ActivationChecklist state={activationState} />
 
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
           <Card>
@@ -150,7 +156,7 @@ export default async function DashboardPage() {
               <AlertTitle>No marketplaces connected yet</AlertTitle>
               <AlertDescription>
                 Connect a marketplace to start cross-posting listings.{" "}
-                <Link href="/marketplaces">Connect a marketplace</Link>
+                <Link href="/settings">Connect a marketplace</Link>
               </AlertDescription>
             </Alert>
           ) : (
@@ -178,11 +184,12 @@ export default async function DashboardPage() {
         </div>
 
         {recentListings.length === 0 ? (
-          <Card>
-            <CardContent className="py-10 text-center text-muted-foreground">
-              No listings yet. Create your first listing to get started.
-            </CardContent>
-          </Card>
+          <EmptyState
+            variant="first-run"
+            headline="No listings yet"
+            body="Post an item once and it goes live everywhere you sell."
+            primaryAction={{ label: "Create your first listing", href: "/listings/new" }}
+          />
         ) : (
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
             {recentListings.map((listing) => (
