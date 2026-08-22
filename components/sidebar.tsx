@@ -76,10 +76,10 @@ function NavContent({ onClick }: { onClick?: () => void }) {
             href={item.href}
             onClick={onClick}
             className={cn(
-              "flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors",
+              "flex items-center gap-3 rounded-md border-l-2 py-2 pr-3 pl-[10px] text-sm font-medium transition-colors",
               isActive(pathname, item.href)
-                ? "bg-primary text-primary-foreground"
-                : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                ? "border-primary bg-sidebar-accent text-primary"
+                : "border-transparent text-muted-foreground hover:bg-muted hover:text-foreground"
             )}
           >
             <item.icon className="h-4 w-4" />
@@ -95,10 +95,10 @@ function NavContent({ onClick }: { onClick?: () => void }) {
             href={item.href}
             onClick={onClick}
             className={cn(
-              "flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors",
+              "flex items-center gap-3 rounded-md border-l-2 py-2 pr-3 pl-[10px] text-sm font-medium transition-colors",
               isActive(pathname, item.href)
-                ? "bg-primary text-primary-foreground"
-                : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                ? "border-primary bg-sidebar-accent text-primary"
+                : "border-transparent text-muted-foreground hover:bg-muted hover:text-foreground"
             )}
           >
             <item.icon className="h-4 w-4" />

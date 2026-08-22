@@ -11,6 +11,8 @@ import Link from "next/link";
 import { PlatformBadge } from "@/components/platform-badge";
 import { getPlatform } from "@/lib/marketplaces/platforms";
 import { ListingsFilters } from "./listings-filters";
+import { cn } from "@/lib/utils";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 import {
   Table,
   TableBody,
@@ -20,10 +22,12 @@ import {
   TableRow,
 } from "@/components/ui/table";
 
+const PAGE_SIZE = 25;
+
 export default async function ListingsPage({
   searchParams,
 }: {
-  searchParams: { q?: string; status?: string; platform?: string };
+  searchParams: { q?: string; status?: string; platform?: string; page?: string };
 }) {
   const session = await getServerSession(authOptions);
   if (!session?.user?.id) redirect("/login");
@@ -32,26 +36,45 @@ export default async function ListingsPage({
   const q = searchParams.q?.trim();
   const status = searchParams.status;
   const platform = searchParams.platform;
+  const page = Math.max(1, parseInt(searchParams.page ?? "1", 10) || 1);
 
-  const [totalCount, listings, platformRows] = await Promise.all([
+  const where = {
+    userId,
+    isDraft: false,
+    ...(q ? { title: { contains: q, mode: "insensitive" as const } } : {}),
+    ...(status ? { status } : {}),
+    ...(platform ? { platformListings: { some: { platform } } } : {}),
+  };
+
+  const [totalCount, filteredCount, platformRows] = await Promise.all([
     prisma.listing.count({ where: { userId, isDraft: false } }),
-    prisma.listing.findMany({
-      where: {
-        userId,
-        isDraft: false,
-        ...(q ? { title: { contains: q, mode: "insensitive" } } : {}),
-        ...(status ? { status } : {}),
-        ...(platform ? { platformListings: { some: { platform } } } : {}),
-      },
-      include: { photos: true, platformListings: true },
-      orderBy: { createdAt: "desc" },
-    }),
+    prisma.listing.count({ where }),
     prisma.platformListing.findMany({
       where: { listing: { userId, isDraft: false } },
       select: { platform: true },
       distinct: ["platform"],
     }),
   ]);
+
+  const totalPages = Math.max(1, Math.ceil(filteredCount / PAGE_SIZE));
+  const clampedPage = Math.min(page, totalPages);
+
+  const listings = await prisma.listing.findMany({
+    where,
+    include: { photos: true, platformListings: true },
+    orderBy: { createdAt: "desc" },
+    take: PAGE_SIZE,
+    skip: (clampedPage - 1) * PAGE_SIZE,
+  });
+  const buildPageHref = (p: number) => {
+    const params = new URLSearchParams();
+    if (q) params.set("q", q);
+    if (status) params.set("status", status);
+    if (platform) params.set("platform", platform);
+    if (p > 1) params.set("page", String(p));
+    const qs = params.toString();
+    return qs ? `/listings?${qs}` : "/listings";
+  };
 
   const platformOptions = platformRows
     .map((row) => ({ id: row.platform, name: getPlatform(row.platform)?.name ?? row.platform }))
@@ -132,6 +155,42 @@ export default async function ListingsPage({
               </Table>
             </CardContent>
           </Card>
+        )}
+
+        {listings.length > 0 && totalPages > 1 && (
+          <div className="flex items-center justify-between text-sm">
+            <p className="text-muted-foreground">
+              Showing {(clampedPage - 1) * PAGE_SIZE + 1}–{Math.min(clampedPage * PAGE_SIZE, filteredCount)} of{" "}
+              {filteredCount}
+            </p>
+            <div className="flex items-center gap-2">
+              <Link
+                href={buildPageHref(clampedPage - 1)}
+                aria-disabled={clampedPage <= 1}
+                className={cn(
+                  buttonVariants({ variant: "outline", size: "sm" }),
+                  clampedPage <= 1 && "pointer-events-none opacity-50"
+                )}
+              >
+                <ChevronLeft className="h-4 w-4" />
+                Previous
+              </Link>
+              <span className="text-muted-foreground">
+                Page {clampedPage} of {totalPages}
+              </span>
+              <Link
+                href={buildPageHref(clampedPage + 1)}
+                aria-disabled={clampedPage >= totalPages}
+                className={cn(
+                  buttonVariants({ variant: "outline", size: "sm" }),
+                  clampedPage >= totalPages && "pointer-events-none opacity-50"
+                )}
+              >
+                Next
+                <ChevronRight className="h-4 w-4" />
+              </Link>
+            </div>
+          </div>
         )}
       </div>
     </Shell>

@@ -89,12 +89,12 @@ export async function markListingSold(listingId: string, soldPlatform?: string, 
   return { success: true, results };
 }
 
-export async function getInventory() {
+export async function getInventory(filters: { q?: string; missingCostOnly?: boolean } = {}) {
   const session = await getServerSession(authOptions);
   const userId = session?.user?.id;
   if (!userId) throw new Error("Unauthorized");
 
-  const [listings, user] = await Promise.all([
+  const [allListings, user] = await Promise.all([
     prisma.listing.findMany({
       where: { userId, isDraft: false },
       include: { photos: true, platformListings: true },
@@ -104,17 +104,31 @@ export async function getInventory() {
   ]);
 
   const plan = getPlan(user?.plan);
-  const activeCount = listings.filter((l) => l.quantity > 0).length;
-  const totalValue = listings.reduce((sum, l) => sum + l.price * l.quantity, 0);
-  const missingCostCount = listings.filter((l) => l.cost === null).length;
+  const activeCount = allListings.filter((l) => l.quantity > 0).length;
+  const totalValue = allListings.reduce((sum, l) => sum + l.price * l.quantity, 0);
+  const missingCostCount = allListings.filter((l) => l.cost === null).length;
+
+  const costedListings = allListings.filter((l) => l.cost !== null);
+  const costBasis = costedListings.reduce((sum, l) => sum + (l.cost ?? 0) * l.quantity, 0);
+  const potentialProfit = costedListings.reduce((sum, l) => sum + (l.price - (l.cost ?? 0)) * l.quantity, 0);
+
+  const q = filters.q?.trim().toLowerCase();
+  const listings = allListings.filter((l) => {
+    if (filters.missingCostOnly && l.cost !== null) return false;
+    if (q && !l.title.toLowerCase().includes(q) && !(l.sku ?? "").toLowerCase().includes(q)) return false;
+    return true;
+  });
 
   return {
     listings,
+    totalCount: allListings.length,
     plan,
     activeCount,
     activeLimit: plan.activeInventoryLimit,
     totalValue,
     missingCostCount,
+    costBasis,
+    potentialProfit,
   };
 }
 

@@ -22,7 +22,7 @@ import { DEFAULT_PHOTO_PRESET, PhotoBackground } from "@/lib/images/presets";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { toast } from "sonner";
 import { uploadDataUrl, uploadImages } from "@/lib/upload-client";
-import { computeInitialStep, isPhotoUrl, ListingFormProps, OptimizingState, STEP_FIELDS, STEPS } from "./types";
+import { computeInitialStep, isPhotoUrl, ListingFormProps, OptimizingState, STEP_FIELDS, STEP_LABELS, STEPS } from "./types";
 import { useListingWizard } from "./use-listing-wizard";
 import { WizardStepper } from "./wizard-stepper";
 import { WizardNav } from "./wizard-nav";
@@ -567,6 +567,7 @@ export function ListingForm({ mode = "create", draftId, initialData, templates =
               submitLabel={mode === "draft" ? "Publish draft" : "Create listing"}
               isSubmitting={isSubmitting}
               navDisabled={navDisabled}
+              nextStepLabel={STEP_LABELS[STEPS[STEPS.indexOf(wizard.currentStep) + 1]]}
             />
           </form>
         </FormProvider>

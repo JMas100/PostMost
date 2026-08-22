@@ -107,6 +107,19 @@ export async function canRemoveBackground(
   return { allowed: true };
 }
 
+export async function canAddActiveInventory(userId: string): Promise<{ allowed: boolean; reason?: string }> {
+  const { plan } = await getUsage(userId);
+  if (plan.activeInventoryLimit === -1) return { allowed: true };
+  const activeCount = await prisma.listing.count({ where: { userId, isDraft: false, quantity: { gt: 0 } } });
+  if (activeCount >= plan.activeInventoryLimit) {
+    return {
+      allowed: false,
+      reason: `You've reached your ${plan.activeInventoryLimit}-item active inventory limit on the ${plan.name} plan.`,
+    };
+  }
+  return { allowed: true };
+}
+
 export async function canImportCSV(userId: string): Promise<{ allowed: boolean; reason?: string }> {
   const { plan } = await getUsage(userId);
   if (!meetsMinimumTier(plan.id, "grow")) {

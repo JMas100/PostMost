@@ -18,13 +18,14 @@ export async function trackDashboardViewed() {
   await track("dashboard_viewed", session.user.id);
 }
 
-export async function getAnalytics() {
+export async function getAnalytics(range: "7d" | "30d" = "30d") {
   const session = await getServerSession(authOptions);
   const userId = session?.user?.id;
   if (!userId) throw new Error("Unauthorized");
 
+  const days = range === "7d" ? 7 : 30;
   const since = new Date();
-  since.setDate(since.getDate() - 29);
+  since.setDate(since.getDate() - (days - 1));
   since.setHours(0, 0, 0, 0);
 
   const [
@@ -71,7 +72,7 @@ export async function getAnalytics() {
   ]);
 
   const dayCounts = new Map<string, number>();
-  for (let i = 0; i < 30; i++) {
+  for (let i = 0; i < days; i++) {
     const d = new Date();
     d.setDate(d.getDate() - i);
     dayCounts.set(d.toISOString().slice(0, 10), 0);

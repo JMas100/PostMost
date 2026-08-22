@@ -6,7 +6,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { listingSchema, ListingFormData } from "@/lib/schemas/listing";
-import { canCreateListing, canImportCSV, incrementListingUsage } from "@/lib/actions/usage";
+import { canAddActiveInventory, canImportCSV } from "@/lib/actions/usage";
 
 function getUserId(session: { user?: { id?: string } } | null) {
   if (!session?.user?.id) throw new Error("Unauthorized");
@@ -133,9 +133,9 @@ export async function importCSV(csvText: string, options: { publish?: boolean } 
         continue;
       }
 
-      const usage = await canCreateListing(userId);
-      if (!usage.allowed) {
-        result.errors.push({ row: rowNumber, message: usage.reason || "Listing limit reached" });
+      const inventory = await canAddActiveInventory(userId);
+      if (!inventory.allowed) {
+        result.errors.push({ row: rowNumber, message: inventory.reason || "Active inventory limit reached" });
         continue;
       }
 
@@ -151,7 +151,6 @@ export async function importCSV(csvText: string, options: { publish?: boolean } 
           },
         },
       });
-      await incrementListingUsage(userId);
       result.created += 1;
     } else {
       const title = data.title || "Untitled draft";
