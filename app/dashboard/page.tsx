@@ -15,7 +15,7 @@ import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { StatValue } from "@/components/stat-value";
 import Link from "next/link";
-import { Package, Activity, DollarSign, TrendingUp, Store } from "lucide-react";
+import { Package, Activity, DollarSign, TrendingUp, Store, AlertTriangle } from "lucide-react";
 
 type AccountStatus = "connected" | "action_required" | "failed";
 
@@ -39,10 +39,13 @@ export default async function DashboardPage() {
   const session = await getServerSession(authOptions);
   if (!session?.user?.id) redirect("/login");
 
-  const [listingCount, postedCount, accounts, soldAgg, activationState] = await Promise.all([
+  const [listingCount, postedCount, failedCount, accounts, soldAgg, activationState] = await Promise.all([
     prisma.listing.count({ where: { userId: session.user.id, isDraft: false } }),
     prisma.platformListing.count({
       where: { listing: { userId: session.user.id, isDraft: false }, status: "POSTED" },
+    }),
+    prisma.platformListing.count({
+      where: { listing: { userId: session.user.id, isDraft: false }, status: "FAILED" },
     }),
     prisma.marketplaceAccount.findMany({
       where: { userId: session.user.id },
@@ -66,6 +69,7 @@ export default async function DashboardPage() {
   const totalProfit = soldAgg._sum.profit ?? 0;
   const profitMargin = totalRevenue > 0 ? (totalProfit / totalRevenue) * 100 : 0;
   const accountCount = accounts.length;
+  const accountsNeedingAttention = accounts.filter((a) => accountStatus(a) !== "connected");
 
   return (
     <Shell>
@@ -77,6 +81,38 @@ export default async function DashboardPage() {
         </div>
 
         <ActivationChecklist state={activationState} />
+
+        {(failedCount > 0 || accountsNeedingAttention.length > 0) && (
+          <Alert variant="destructive">
+            <AlertTriangle />
+            <AlertTitle>
+              {failedCount > 0 && accountsNeedingAttention.length > 0
+                ? "Two things need you today"
+                : "One thing needs you today"}
+            </AlertTitle>
+            <AlertDescription>
+              <ul className="mt-1 space-y-1">
+                {failedCount > 0 && (
+                  <li>
+                    {failedCount} cross-post{failedCount === 1 ? "" : "s"} failed.{" "}
+                    <Link href="/listings" className="font-medium underline underline-offset-2">
+                      Review {failedCount === 1 ? "it" : "them"}
+                    </Link>
+                  </li>
+                )}
+                {accountsNeedingAttention.length > 0 && (
+                  <li>
+                    {accountsNeedingAttention.length} marketplace connection
+                    {accountsNeedingAttention.length === 1 ? "" : "s"} need{accountsNeedingAttention.length === 1 ? "s" : ""} attention.{" "}
+                    <Link href="/settings" className="font-medium underline underline-offset-2">
+                      Fix in Settings
+                    </Link>
+                  </li>
+                )}
+              </ul>
+            </AlertDescription>
+          </Alert>
+        )}
 
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
           <Card>
