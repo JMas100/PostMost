@@ -1,12 +1,14 @@
 import { redirect } from "next/navigation";
 import { getServerSession } from "next-auth";
 import { format } from "date-fns";
+import Link from "next/link";
 import { authOptions } from "@/lib/auth";
 import { Shell } from "@/components/sidebar";
 import { getAnalytics } from "@/lib/actions/analytics";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
+import { cn } from "@/lib/utils";
 
 function StatusBadge({ status }: { status: string }) {
   const variant =
@@ -18,11 +20,17 @@ function StatusBadge({ status }: { status: string }) {
   return <Badge variant={variant}>{status}</Badge>;
 }
 
-export default async function AnalyticsPage() {
+export default async function AnalyticsPage({
+  searchParams,
+}: {
+  searchParams: { range?: string };
+}) {
   const session = await getServerSession(authOptions);
   if (!session?.user?.id) redirect("/login");
 
-  const data = await getAnalytics();
+  const range = searchParams.range === "7d" ? "7d" : "30d";
+  const days = range === "7d" ? 7 : 30;
+  const data = await getAnalytics(range);
   const maxListingsPerDay = Math.max(...data.listingsByDay.map((d) => d.count), 1);
   const maxCategoryCount = Math.max(...data.categoryBreakdown.map((c) => c.count), 1);
 
@@ -88,8 +96,22 @@ export default async function AnalyticsPage() {
 
         <div className="grid gap-6 lg:grid-cols-3">
           <Card className="lg:col-span-2">
-            <CardHeader>
-              <CardTitle>Listings over the last 30 days</CardTitle>
+            <CardHeader className="flex-row items-center justify-between space-y-0">
+              <CardTitle>Listings over the last {days} days</CardTitle>
+              <div className="flex items-center gap-1 rounded-md border p-0.5 text-xs">
+                {(["7d", "30d"] as const).map((r) => (
+                  <Link
+                    key={r}
+                    href={`/analytics?range=${r}`}
+                    className={cn(
+                      "rounded-[5px] px-2 py-1 font-medium transition-colors",
+                      range === r ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"
+                    )}
+                  >
+                    {r === "7d" ? "7 days" : "30 days"}
+                  </Link>
+                ))}
+              </div>
             </CardHeader>
             <CardContent>
               {data.listingsByDay.length > 0 ? (
@@ -108,7 +130,7 @@ export default async function AnalyticsPage() {
                   ))}
                 </div>
               ) : (
-                <p className="text-muted-foreground">No listing activity in the last 30 days.</p>
+                <p className="text-muted-foreground">No listing activity in the last {days} days.</p>
               )}
             </CardContent>
           </Card>

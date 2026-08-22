@@ -14,6 +14,7 @@ export function WizardNav({
   submitLabel,
   isSubmitting,
   navDisabled,
+  nextStepLabel,
 }: {
   isFirst: boolean;
   isLast: boolean;
@@ -25,6 +26,7 @@ export function WizardNav({
   submitLabel: string;
   isSubmitting: boolean;
   navDisabled: boolean;
+  nextStepLabel?: string;
 }) {
   return (
     <div className="flex flex-col-reverse gap-3 border-t pt-4 sm:flex-row sm:items-center sm:justify-between">
@@ -45,7 +47,7 @@ export function WizardNav({
           </Button>
         ) : (
           <Button type="button" onClick={onNext} disabled={navDisabled}>
-            Next
+            {nextStepLabel ? `Next: ${nextStepLabel}` : "Next"}
           </Button>
         )}
       </div>

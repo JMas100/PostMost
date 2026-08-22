@@ -31,7 +31,7 @@ export function WizardStepper({
               onClick={() => isReachable && onJump(step)}
               disabled={!isReachable}
               className={cn(
-                "flex items-center gap-2 rounded-full px-3 py-1.5 text-sm font-medium transition-colors",
+                "flex items-center gap-2 rounded-md px-3 py-1.5 text-sm font-medium transition-colors",
                 isActive
                   ? "bg-primary text-primary-foreground"
                   : isDone
