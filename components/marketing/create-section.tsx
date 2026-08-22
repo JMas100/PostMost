@@ -52,7 +52,11 @@ export function CreateSection() {
           </div>
           <div className="bg-white p-6">
             <div className="grid grid-cols-4 gap-2">
-              {[0, 1, 2].map((i) => (
+              <div className="aspect-square overflow-hidden rounded-[8px]">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src="/marketing/phantom-gx-square.jpg" alt="" className="h-full w-full object-cover" />
+              </div>
+              {[1, 2].map((i) => (
                 <div
                   key={i}
                   className="aspect-square rounded-[8px]"
@@ -67,7 +71,7 @@ export function CreateSection() {
               <div>
                 <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-[0.08em] text-[#68727D]">Title</p>
                 <div className="h-10 rounded-[8px] border border-[#E5E7EB] bg-[#F7F8FA] px-3 py-2 text-[13.5px] text-[#090B0D]">
-                  Nike Air Max 90
+                  Nike Phantom GX Elite FG
                 </div>
               </div>
               <div>
@@ -88,7 +92,7 @@ export function CreateSection() {
               </div>
               <div className="hidden items-center justify-between rounded-[8px] bg-[#F7F8FA] px-3 py-2.5 text-[13px] text-[#68727D] lg:flex">
                 <span>
-                  Suggested category: <span className="font-semibold text-[#090B0D]">Men&apos;s → Shoes → Sneakers</span>
+                  Suggested category: <span className="font-semibold text-[#090B0D]">Men&apos;s → Shoes → Cleats</span>
                 </span>
                 <button
                   type="button"

@@ -15,7 +15,7 @@ type Phase = "idle" | "publishing" | "done";
 
 const FIELDS = [
   { label: "DESCRIPTION", value: "Excellent condition. Worn a handful of times, no visible flaws. Original box included." },
-  { label: "CATEGORY", value: "Men's → Shoes → Sneakers" },
+  { label: "CATEGORY", value: "Men's → Shoes → Cleats" },
   { label: "CONDITION", value: "Excellent" },
   { label: "SHIPPING", value: "✓ Calculated automatically" },
 ];
@@ -99,15 +99,15 @@ export function PublishDemo() {
           </div>
 
           <div className="flex items-center gap-3 border-b border-[#24282D] p-4">
-            <div
-              className="h-14 w-14 shrink-0 rounded-[8px]"
-              style={{ backgroundImage: "repeating-linear-gradient(135deg, #15181C 0 8px, #1b1f24 8px 16px)" }}
-            />
+            <div className="h-14 w-14 shrink-0 overflow-hidden rounded-[8px]">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src="/marketing/phantom-gx-square.jpg" alt="" className="h-full w-full object-cover" />
+            </div>
             <div className="min-w-0 flex-1">
-              <p className="truncate text-[14.5px] font-semibold text-white">Nike Air Max 90</p>
+              <p className="truncate text-[14.5px] font-semibold text-white">Nike Phantom GX Elite FG</p>
               <p className="mt-0.5 truncate text-[12.5px] text-[#68727D]">Men&apos;s · Size 10 · Excellent</p>
             </div>
-            <p className="shrink-0 font-display text-[16px] font-bold text-[#B6F34A]">$129</p>
+            <p className="shrink-0 font-display text-[16px] font-bold text-[#B6F34A]">$165</p>
           </div>
 
           <div className="p-4">
@@ -158,10 +158,10 @@ export function PublishDemo() {
             <div className="border-b border-[#24282D] p-8 lg:border-b-0 lg:border-r">
               <div className="flex flex-col gap-6 sm:flex-row">
                 <div className="flex shrink-0 flex-col gap-2">
-                  <div
-                    className="h-[180px] w-[180px] rounded-[10px] xl:h-[220px] xl:w-[220px]"
-                    style={{ backgroundImage: "repeating-linear-gradient(135deg, #15181C 0 10px, #1b1f24 10px 20px)" }}
-                  />
+                  <div className="h-[180px] w-[180px] overflow-hidden rounded-[10px] xl:h-[220px] xl:w-[220px]">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src="/marketing/phantom-gx-square.jpg" alt="" className="h-full w-full object-cover" />
+                  </div>
                   <div className="flex gap-2">
                     <div className="h-[60px] w-[60px] rounded-[8px] bg-[#15181C]" />
                     <div className="h-[60px] w-[60px] rounded-[8px] bg-[#15181C]" />
@@ -171,8 +171,8 @@ export function PublishDemo() {
                   </div>
                 </div>
                 <div className="min-w-0 flex-1">
-                  <p className="font-display text-[26px] font-bold text-white">Nike Air Max 90</p>
-                  <p className="mt-1 font-display text-[22px] font-bold text-[#B6F34A]">$129.00</p>
+                  <p className="font-display text-[26px] font-bold text-white">Nike Phantom GX Elite FG</p>
+                  <p className="mt-1 font-display text-[22px] font-bold text-[#B6F34A]">$165.00</p>
                   <div className="mt-5 flex flex-col gap-3">
                     {FIELDS.map((field) => (
                       <div key={field.label}>

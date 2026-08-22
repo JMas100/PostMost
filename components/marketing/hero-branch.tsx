@@ -95,14 +95,14 @@ export function HeroBranch() {
               reduceMotion ? undefined : { duration: LOOP, repeat: Infinity, ease: "easeInOut", times: [0, 0.02, 0.1, 0.97, 1] }
             }
           >
-            <div
-              className="h-[150px] rounded-t-[12px]"
-              style={{ backgroundImage: "repeating-linear-gradient(135deg, #F1F3F6 0 10px, #EAEDF1 10px 20px)" }}
-            />
+            <div className="h-[150px] overflow-hidden rounded-t-[12px]">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src="/marketing/phantom-gx-wide.jpg" alt="" className="h-full w-full object-cover" />
+            </div>
             <div className="p-4">
-              <p className="font-heading text-[19px] font-bold text-[#090B0D]">Nike Air Max 90</p>
+              <p className="font-heading text-[19px] font-bold text-[#090B0D]">Nike Phantom GX Elite FG</p>
               <p className="mt-1 text-[13px] text-[#68727D]">Men&apos;s · Size 10</p>
-              <p className="mt-2 font-heading text-[24px] font-bold text-[#090B0D]">$129.00</p>
+              <p className="mt-2 font-heading text-[24px] font-bold text-[#090B0D]">$165.00</p>
               <ListingCardStatus
                 reduceMotion={reduceMotion}
                 preTimes={[0.1, 0.15, 0.58, 0.64]}
@@ -235,17 +235,14 @@ export function HeroBranch() {
                 : { duration: LOOP, repeat: Infinity, ease: "easeInOut", times: [0, 0.02, 0.1, 0.97, 1] }
             }
           >
-            <div
-              className="h-[110px] rounded-t-[12px]"
-              style={{
-                backgroundImage:
-                  "repeating-linear-gradient(135deg, #F1F3F6 0 10px, #EAEDF1 10px 20px)",
-              }}
-            />
+            <div className="h-[110px] overflow-hidden rounded-t-[12px]">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src="/marketing/phantom-gx-wide.jpg" alt="" className="h-full w-full object-cover" />
+            </div>
             <div className="p-3">
-              <p className="font-heading text-[15px] font-bold text-[#090B0D]">Nike Air Max 90</p>
+              <p className="font-heading text-[15px] font-bold text-[#090B0D]">Nike Phantom GX Elite FG</p>
               <p className="mt-1 text-[12px] text-[#68727D]">Men&apos;s · Size 10</p>
-              <p className="mt-1.5 font-heading text-[20px] font-bold text-[#090B0D]">$129.00</p>
+              <p className="mt-1.5 font-heading text-[20px] font-bold text-[#090B0D]">$165.00</p>
               <div className="relative mt-2.5 h-8">
                 <motion.div
                   key={`tablet-pre-${reduceMotion}`}
@@ -375,17 +372,14 @@ export function HeroBranch() {
                 : { duration: LOOP, repeat: Infinity, ease: "easeInOut", times: [0, 0.02, 0.1, 0.97, 1] }
             }
           >
-            <div
-              className="h-[132px] rounded-t-[12px]"
-              style={{
-                backgroundImage:
-                  "repeating-linear-gradient(135deg, #F1F3F6 0 10px, #EAEDF1 10px 20px)",
-              }}
-            />
+            <div className="h-[132px] overflow-hidden rounded-t-[12px]">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src="/marketing/phantom-gx-wide.jpg" alt="" className="h-full w-full object-cover" />
+            </div>
             <div className="p-4">
-              <p className="font-heading text-[16px] font-bold text-[#090B0D]">Nike Air Max 90</p>
+              <p className="font-heading text-[16px] font-bold text-[#090B0D]">Nike Phantom GX Elite FG</p>
               <p className="mt-1 text-[13px] text-[#68727D]">Men&apos;s · Size 10</p>
-              <p className="mt-2 font-heading text-[22px] font-bold text-[#090B0D]">$129.00</p>
+              <p className="mt-2 font-heading text-[22px] font-bold text-[#090B0D]">$165.00</p>
               <ListingCardStatus
                 reduceMotion={reduceMotion}
                 preTimes={[0.1, 0.15, 0.54, 0.61]}
