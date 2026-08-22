@@ -106,6 +106,7 @@ export async function getInventory() {
   const plan = getPlan(user?.plan);
   const activeCount = listings.filter((l) => l.quantity > 0).length;
   const totalValue = listings.reduce((sum, l) => sum + l.price * l.quantity, 0);
+  const missingCostCount = listings.filter((l) => l.cost === null).length;
 
   return {
     listings,
@@ -113,6 +114,7 @@ export async function getInventory() {
     activeCount,
     activeLimit: plan.activeInventoryLimit,
     totalValue,
+    missingCostCount,
   };
 }
 
