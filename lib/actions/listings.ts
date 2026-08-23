@@ -250,3 +250,14 @@ export async function deleteListing(id: string) {
   revalidatePath("/dashboard");
   return { success: true };
 }
+
+export async function bulkDeleteListings(ids: string[]) {
+  const session = await getServerSession(authOptions);
+  const userId = getUserId(session);
+  if (ids.length === 0) return { success: true, count: 0 };
+  const result = await prisma.listing.deleteMany({ where: { id: { in: ids }, userId } });
+  revalidatePath("/listings");
+  revalidatePath("/listings/drafts");
+  revalidatePath("/dashboard");
+  return { success: true, count: result.count };
+}

@@ -40,7 +40,7 @@ export default async function ListingDetailPage(props: { params: Promise<{ id: s
     return (
       <Shell>
         <div className="mx-auto max-w-2xl space-y-4">
-          <Link href="/listings/drafts" className="inline-flex items-center text-sm text-muted-foreground hover:text-foreground">
+          <Link href="/listings?tab=drafts" className="inline-flex items-center text-sm text-muted-foreground hover:text-foreground">
             <ArrowLeft className="mr-1 h-4 w-4" /> Back to drafts
           </Link>
           <h1 className="text-3xl font-bold">Edit draft</h1>
