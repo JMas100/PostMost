@@ -83,6 +83,7 @@ export function CsvImporter() {
 
   const hasErrors = result && result.errors.length > 0;
   const hasSuccess = result && (result.created > 0 || result.drafted > 0);
+  const isEmpty = result && !hasSuccess && !hasErrors;
   const canSubmit = mode === "file" ? Boolean(csvText) : Boolean(url.trim());
 
   return (
@@ -187,6 +188,13 @@ export function CsvImporter() {
                   <li key={i}>Row {err.row}: {err.message}</li>
                 ))}
               </ul>
+            </div>
+          )}
+
+          {isEmpty && (
+            <div className="flex items-center gap-2 rounded-md border p-3 text-sm text-muted-foreground">
+              <AlertCircle className="h-4 w-4" />
+              No rows found — check that the file has a header row plus at least one data row.
             </div>
           )}
 
