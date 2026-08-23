@@ -116,29 +116,41 @@ function NavContent({ onClick }: { onClick?: () => void }) {
   );
 }
 
+function MobileTopBar() {
+  return (
+    <Sheet>
+      <div className="flex h-14 flex-none items-center gap-3 border-b bg-background px-4 lg:hidden">
+        <SheetTrigger className={cn(buttonVariants({ variant: "ghost", size: "icon" }))}>
+          <Menu className="h-5 w-5" />
+        </SheetTrigger>
+        <Link href="/dashboard" className="flex items-center gap-2">
+          <LogoMark className="h-6 w-6" />
+          <Wordmark className="text-lg" />
+        </Link>
+      </div>
+      <SheetContent side="left" className="w-64 border-r bg-background p-0">
+        <NavContent />
+      </SheetContent>
+    </Sheet>
+  );
+}
+
 export function Sidebar() {
   return (
     <>
-      <aside className="hidden w-64 border-r bg-background lg:block">
+      <aside className="hidden w-64 flex-none border-r bg-background lg:block">
         <NavContent />
       </aside>
-      <Sheet>
-        <SheetTrigger className={cn(buttonVariants({ variant: "ghost", size: "icon" }), "absolute left-4 top-4 lg:hidden")}>
-          <Menu className="h-5 w-5" />
-        </SheetTrigger>
-        <SheetContent side="left" className="w-64 border-r bg-background p-0">
-          <NavContent />
-        </SheetContent>
-      </Sheet>
+      <MobileTopBar />
     </>
   );
 }
 
 export function Shell({ children }: { children: React.ReactNode }) {
   return (
-    <div className="app-shell flex min-h-screen w-full bg-background font-sans text-foreground">
+    <div className="app-shell flex min-h-screen w-full flex-col bg-background font-sans text-foreground lg:flex-row">
       <Sidebar />
-      <main className="flex-1 p-6 lg:p-10">{children}</main>
+      <main className="min-w-0 flex-1 p-4 sm:p-6 lg:p-10">{children}</main>
     </div>
   );
 }
