@@ -2,19 +2,25 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { importCSV } from "@/lib/actions/import";
+import { importCSV, importFromUrl, type ImportSource } from "@/lib/actions/import";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Upload, CheckCircle, AlertCircle } from "lucide-react";
+import { Upload, Link2, CheckCircle, AlertCircle } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 const SAMPLE_CSV = `title,description,price,quantity,condition,category,brand,size,color,photos
 Vintage Denim Jacket,Blue denim jacket in great condition,24.99,1,Used,Jackets,Levi's,M,Blue,https://example.com/jacket1.jpg
 Nike Phantom GX Elite FG,Firm ground soccer cleats,150.00,1,New,Cleats,Nike,10,White/Pink,https://example.com/cleats1.jpg`;
 
+type Mode = "file" | "url";
+
 export function CsvImporter() {
+  const [mode, setMode] = useState<Mode>("file");
   const [fileName, setFileName] = useState<string>("");
   const [csvText, setCsvText] = useState<string>("");
+  const [url, setUrl] = useState<string>("");
+  const [source, setSource] = useState<ImportSource>("generic");
   const [publish, setPublish] = useState<boolean>(false);
   const [result, setResult] = useState<Awaited<ReturnType<typeof importCSV>> | null>(null);
   const [error, setError] = useState<string>("");
@@ -39,13 +45,22 @@ export function CsvImporter() {
     event.preventDefault();
     setError("");
     setResult(null);
-    if (!csvText.trim()) {
-      setError("Please select a CSV file first.");
+
+    if (mode === "file" && !csvText.trim()) {
+      setError("Please select a file first.");
       return;
     }
+    if (mode === "url" && !url.trim()) {
+      setError("Please enter a URL first.");
+      return;
+    }
+
     startTransition(async () => {
       try {
-        const res = await importCSV(csvText, { publish });
+        const res =
+          mode === "file"
+            ? await importCSV(csvText, { publish, source })
+            : await importFromUrl(url.trim(), { publish, source });
         setResult(res);
         if (res.created > 0 || res.drafted > 0) {
           router.refresh();
@@ -58,41 +73,95 @@ export function CsvImporter() {
 
   function downloadSample() {
     const blob = new Blob([SAMPLE_CSV], { type: "text/csv" });
-    const url = URL.createObjectURL(blob);
+    const objectUrl = URL.createObjectURL(blob);
     const a = document.createElement("a");
-    a.href = url;
+    a.href = objectUrl;
     a.download = "postmost-sample.csv";
     a.click();
-    URL.revokeObjectURL(url);
+    URL.revokeObjectURL(objectUrl);
   }
 
   const hasErrors = result && result.errors.length > 0;
   const hasSuccess = result && (result.created > 0 || result.drafted > 0);
+  const canSubmit = mode === "file" ? Boolean(csvText) : Boolean(url.trim());
 
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Upload CSV</CardTitle>
+        <CardTitle>Import listings</CardTitle>
       </CardHeader>
       <CardContent>
         <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="space-y-2">
-            <label className="text-sm font-medium">CSV file</label>
-            <Input type="file" accept=".csv,text/csv" onChange={handleFileChange} disabled={isPending} />
-            {fileName && <p className="text-sm text-muted-foreground">{fileName}</p>}
+          <div className="flex gap-1 rounded-md border p-1">
+            <button
+              type="button"
+              onClick={() => setMode("file")}
+              className={cn(
+                "flex flex-1 items-center justify-center gap-1.5 rounded-[5px] px-3 py-1.5 text-sm font-medium transition-colors",
+                mode === "file" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"
+              )}
+            >
+              <Upload className="h-3.5 w-3.5" /> Upload file
+            </button>
+            <button
+              type="button"
+              onClick={() => setMode("url")}
+              className={cn(
+                "flex flex-1 items-center justify-center gap-1.5 rounded-[5px] px-3 py-1.5 text-sm font-medium transition-colors",
+                mode === "url" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"
+              )}
+            >
+              <Link2 className="h-3.5 w-3.5" /> Import from URL
+            </button>
           </div>
 
-          <div className="space-y-2">
-            <label className="text-sm font-medium">Import mode</label>
-            <select
-              value={publish ? "publish" : "draft"}
-              onChange={(e) => setPublish(e.target.value === "publish")}
-              disabled={isPending}
-              className="w-full rounded-md border bg-background px-3 py-2 text-sm"
-            >
-              <option value="draft">Import as drafts</option>
-              <option value="publish">Publish immediately (requires all required fields)</option>
-            </select>
+          {mode === "file" ? (
+            <div className="space-y-2">
+              <label className="text-sm font-medium">CSV file</label>
+              <Input type="file" accept=".csv,text/csv" onChange={handleFileChange} disabled={isPending} />
+              {fileName && <p className="text-sm text-muted-foreground">{fileName}</p>}
+            </div>
+          ) : (
+            <div className="space-y-2">
+              <label className="text-sm font-medium">CSV URL</label>
+              <Input
+                type="url"
+                placeholder="https://docs.google.com/.../pub?output=csv"
+                value={url}
+                onChange={(e) => setUrl(e.target.value)}
+                disabled={isPending}
+              />
+              <p className="text-xs text-muted-foreground">
+                A published Google Sheet, or any public https:// link that returns a CSV file.
+              </p>
+            </div>
+          )}
+
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Column format</label>
+              <select
+                value={source}
+                onChange={(e) => setSource(e.target.value as ImportSource)}
+                disabled={isPending}
+                className="w-full rounded-md border bg-background px-3 py-2 text-sm"
+              >
+                <option value="generic">Auto-detect / generic</option>
+                <option value="ebay">eBay Seller Hub export</option>
+              </select>
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Import mode</label>
+              <select
+                value={publish ? "publish" : "draft"}
+                onChange={(e) => setPublish(e.target.value === "publish")}
+                disabled={isPending}
+                className="w-full rounded-md border bg-background px-3 py-2 text-sm"
+              >
+                <option value="draft">Import as drafts</option>
+                <option value="publish">Publish immediately (requires all required fields)</option>
+              </select>
+            </div>
           </div>
 
           {error && (
@@ -122,7 +191,7 @@ export function CsvImporter() {
           )}
 
           <div className="flex items-center gap-3">
-            <Button type="submit" disabled={isPending || !csvText}>
+            <Button type="submit" disabled={isPending || !canSubmit}>
               <Upload className="mr-2 h-4 w-4" />
               {isPending ? "Importing..." : "Import"}
             </Button>
@@ -139,6 +208,8 @@ export function CsvImporter() {
           </p>
           <p className="mt-2">
             Use <code>photo1</code>, <code>photo2</code> columns, or a single <code>photos</code> column with URLs separated by <code>|</code>.
+            Column names are matched loosely, so most exports work without renaming anything — pick
+            the eBay format above if you&apos;re uploading a Seller Hub listings report.
           </p>
         </div>
       </CardContent>
