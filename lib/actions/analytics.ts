@@ -130,11 +130,28 @@ export async function getAnalytics(range: "7d" | "30d" = "30d") {
     .map((group) => ({ category: group.category, count: group._count._all }))
     .sort((a, b) => b.count - a.count);
 
+  const sellThroughRate = publishedListings > 0 ? (soldListings / publishedListings) * 100 : 0;
+
+  const totalFailed = platformBreakdownArray.reduce((sum, p) => sum + p.failed, 0);
+  const failedListings = totalFailed > 0
+    ? await prisma.listing.findMany({
+        where: { userId, platformListings: { some: { status: "FAILED" } } },
+        select: {
+          id: true,
+          title: true,
+          platformListings: { where: { status: "FAILED" }, select: { platform: true, errorMessage: true } },
+        },
+        take: 5,
+        orderBy: { updatedAt: "desc" },
+      })
+    : [];
+
   return {
     totalListings,
     publishedListings,
     draftListings,
     soldListings,
+    sellThroughRate,
     totalPlatformListings: platformListings.length,
     platformBreakdown: platformBreakdownArray,
     recentJobs,
@@ -149,6 +166,10 @@ export async function getAnalytics(range: "7d" | "30d" = "30d") {
       profitMargin,
     },
     topPlatforms: platformBreakdownArray.slice().sort((a, b) => b.profit - a.profit).slice(0, 5),
+    failures: {
+      total: totalFailed,
+      listings: failedListings,
+    },
   };
 }
 

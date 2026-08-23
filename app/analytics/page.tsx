@@ -8,6 +8,8 @@ import { getAnalytics } from "@/lib/actions/analytics";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
+import { buttonVariants } from "@/components/ui/button";
+import { AlertCircle, Download } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 function StatusBadge({ status }: { status: string }) {
@@ -38,10 +40,39 @@ export default async function AnalyticsPage(
   return (
     <Shell>
       <div className="space-y-6">
-        <div>
-          <h1 className="text-3xl font-bold">Analytics</h1>
-          <p className="text-muted-foreground">Track your listings and cross-post performance.</p>
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-3xl font-bold">Analytics</h1>
+            <p className="text-muted-foreground">Track your listings and cross-post performance.</p>
+          </div>
+          <a href="/api/analytics/export" className={buttonVariants({ variant: "outline" })}>
+            <Download className="h-4 w-4" />
+            Export CSV
+          </a>
         </div>
+
+        {data.failures.total > 0 && (
+          <Card className="border-destructive/40 bg-destructive/5">
+            <CardContent className="flex items-center justify-between gap-4 py-4">
+              <div className="flex items-center gap-3">
+                <AlertCircle className="h-5 w-5 shrink-0 text-destructive" />
+                <div>
+                  <p className="font-medium">
+                    {data.failures.total} platform post{data.failures.total === 1 ? "" : "s"} failed and need
+                    {data.failures.total === 1 ? "s" : ""} attention
+                  </p>
+                  <p className="text-sm text-muted-foreground">
+                    {data.failures.listings.map((l) => l.title).join(", ")}
+                    {data.failures.total > data.failures.listings.length ? ", and more" : ""}
+                  </p>
+                </div>
+              </div>
+              <Link href="/listings?tab=attention" className={buttonVariants({ variant: "outline", size: "sm" })}>
+                Review
+              </Link>
+            </CardContent>
+          </Card>
+        )}
 
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           <Card>
@@ -74,6 +105,17 @@ export default async function AnalyticsPage(
             </CardHeader>
             <CardContent>
               <div className="text-3xl font-bold">{data.totalPlatformListings}</div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium text-muted-foreground">Sell-through rate</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-3xl font-bold">{data.sellThroughRate.toFixed(1)}%</div>
+              <p className="text-xs text-muted-foreground">
+                {data.soldListings} sold of {data.publishedListings} published
+              </p>
             </CardContent>
           </Card>
           <Card>
