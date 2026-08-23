@@ -5,11 +5,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import bcrypt from "bcryptjs";
-
-function getUserId(session: { user?: { id?: string } } | null) {
-  if (!session?.user?.id) throw new Error("Unauthorized");
-  return session.user.id;
-}
+import { getUserId } from "@/lib/auth-helpers";
 
 export async function getTeam() {
   const session = await getServerSession(authOptions);

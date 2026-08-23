@@ -8,11 +8,7 @@ import { getAdapter } from "@/lib/marketplaces";
 import { getAccountData } from "@/lib/marketplaces/account-data";
 import { getPlan } from "@/lib/plans";
 import { DELIST_ON_SALE_RULE } from "@/lib/automation/rule-types";
-
-function getUserId(session: { user?: { id?: string } } | null) {
-  if (!session?.user?.id) throw new Error("Unauthorized");
-  return session.user.id;
-}
+import { getUserId } from "@/lib/auth-helpers";
 
 export async function markListingSold(listingId: string, soldPlatform?: string, sale?: { soldPrice?: number; soldFees?: number; soldShippingCost?: number }) {
   const session = await getServerSession(authOptions);

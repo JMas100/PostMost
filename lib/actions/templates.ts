@@ -5,13 +5,9 @@ import { prisma } from "@/lib/prisma";
 import { listingSchema, ListingFormData } from "@/lib/schemas/listing";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
+import { getUserId } from "@/lib/auth-helpers";
 
 const templateSchema = listingSchema.partial();
-
-function getUserId(session: { user?: { id?: string } } | null) {
-  if (!session?.user?.id) throw new Error("Unauthorized");
-  return session.user.id;
-}
 
 export async function getTemplates() {
   const session = await getServerSession(authOptions);

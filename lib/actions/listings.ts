@@ -7,11 +7,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { canCreateListing, incrementListingUsage } from "@/lib/actions/usage";
 import { track } from "@/lib/analytics/track";
-
-function getUserId(session: { user?: { id?: string } } | null) {
-  if (!session?.user?.id) throw new Error("Unauthorized");
-  return session.user.id;
-}
+import { getUserId } from "@/lib/auth-helpers";
 
 async function trackListingCompleted(userId: string, listingId: string) {
   await track("listing_completed", userId, { listingId });
