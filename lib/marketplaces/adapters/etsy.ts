@@ -7,14 +7,15 @@ const ETSY_API_ROOT = "https://openapi.etsy.com/v3/application";
 
 const SCOPES = ["listings_w", "listings_r", "shops_r", "address_r"].join(" ");
 
-function getClientCredentials(): { key: string; secret: string; redirectUri: string } {
+// Etsy's V3 API OAuth uses PKCE for public clients — no client secret involved anywhere in
+// the flow, only the API key (client_id).
+function getClientCredentials(): { key: string; redirectUri: string } {
   const key = process.env.ETSY_API_KEY || "";
-  const secret = process.env.ETSY_API_SECRET || "";
   const redirectUri = `${process.env.NEXTAUTH_URL}/api/marketplace/callback/etsy`;
   if (!key) {
     throw new Error("Etsy OAuth is not configured. Set ETSY_API_KEY.");
   }
-  return { key, secret, redirectUri };
+  return { key, redirectUri };
 }
 
 function etsyHeaders(token: string, key: string) {

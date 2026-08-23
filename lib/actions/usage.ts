@@ -54,7 +54,6 @@ export async function getUsage(userId: string) {
 }
 
 export async function canCreateListing(userId: string): Promise<{ allowed: boolean; reason?: string }> {
-  await resetIfNeeded(userId);
   const { plan, listingsThisMonth } = await getUsage(userId);
   if (plan.listingsPerMonth !== -1 && listingsThisMonth >= plan.listingsPerMonth) {
     return { allowed: false, reason: `You have reached your ${plan.listingsPerMonth} listing limit for the ${plan.name} plan.` };
@@ -71,7 +70,6 @@ export async function incrementListingUsage(userId: string) {
 }
 
 export async function canUseAI(userId: string): Promise<{ allowed: boolean; reason?: string }> {
-  await resetIfNeeded(userId);
   const { plan, aiCreditsUsed } = await getUsage(userId);
   if (plan.aiCreditsPerMonth !== -1 && aiCreditsUsed >= plan.aiCreditsPerMonth) {
     return { allowed: false, reason: `You have used all ${plan.aiCreditsPerMonth} AI credits on the ${plan.name} plan.` };
