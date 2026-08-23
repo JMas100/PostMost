@@ -127,31 +127,67 @@ export interface DelistConfig {
   headless?: boolean;
 }
 
+export interface DelistOutcome {
+  success: boolean;
+  error?: string;
+  /** Ordered trail of what actually happened, so a failure is diagnosable without rerunning it
+   *  in headed mode. This is the point of this instrumentation: these selectors are unverified
+   *  against live accounts, so when one breaks, the trail should say exactly where. */
+  steps: string[];
+  /** Public URL of a full-page screenshot taken at the point of failure, if storage is
+   *  configured. Not captured on success — only failures need a human to look at them. */
+  screenshotUrl?: string;
+}
+
+async function captureFailureScreenshot(
+  page: import("playwright").Page,
+  platformId: string
+): Promise<string | undefined> {
+  try {
+    const { isStorageConfigured, getStorage } = await import("@/lib/storage");
+    if (!isStorageConfigured()) return undefined;
+    const bytes = await page.screenshot({ fullPage: true, type: "png" });
+    const key = `automation-debug/${platformId}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.png`;
+    const { url } = await getStorage().upload(key, bytes, "image/png");
+    return url;
+  } catch {
+    // Screenshot capture is best-effort — never let it mask the real failure reason.
+    return undefined;
+  }
+}
+
 /**
  * Generic browser-automation delist: log in, navigate directly to the listing's own page
  * (captured as externalUrl when it was posted), click through to remove it, and verify the
  * removal actually took before reporting success. Never reports success it can't confirm —
  * a failed verification is a FAILED delist, not a DELISTED one, so a stale listing never gets
  * silently marked gone when it's still live.
+ *
+ * These selectors are written from general knowledge of each site's UI, not verified against a
+ * live account — every failure records a step trail and a screenshot so the real point of
+ * breakage is visible immediately when this does eventually run for real, instead of a bare
+ * "failed" with no way to tell which assumption was wrong.
  */
 export async function runPlaywrightDelist(
   platformId: string,
   config: DelistConfig,
   listingUrl: string,
   account: PlatformAccount
-): Promise<{ success: boolean; error?: string }> {
+): Promise<DelistOutcome> {
+  const steps: string[] = [];
+
   let playwright;
   try {
     playwright = await import("playwright");
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
-    return { success: false, error: `Playwright is not available in this environment. ${message}` };
+    return { success: false, error: `Playwright is not available in this environment. ${message}`, steps };
   }
 
   const username = String(account.externalId || account.settings?.username || "");
   const password = String(account.accessToken || "");
   if (!username || !password) {
-    return { success: false, error: `Missing username or password for ${platformId}.` };
+    return { success: false, error: `Missing username or password for ${platformId}.`, steps };
   }
 
   const browser = await playwright.chromium.launch({
@@ -159,15 +195,25 @@ export async function runPlaywrightDelist(
     args: ["--no-sandbox", "--disable-setuid-sandbox"],
   });
 
+  let page: import("playwright").Page | undefined;
+
+  async function fail(error: string): Promise<DelistOutcome> {
+    steps.push(`FAILED: ${error}`);
+    const screenshotUrl = page ? await captureFailureScreenshot(page, platformId) : undefined;
+    return { success: false, error, steps, screenshotUrl };
+  }
+
   try {
     const context = await browser.newContext({
       userAgent:
         "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
       viewport: { width: 1280, height: 800 },
     });
-    const page = await context.newPage();
+    page = await context.newPage();
 
     await page.goto(config.loginUrl, { waitUntil: "networkidle" });
+    steps.push(`Loaded login page: ${config.loginUrl}`);
+
     if (config.usernameSelector) await page.fill(config.usernameSelector, username);
     if (config.passwordSelector) await page.fill(config.passwordSelector, password);
     if (config.submitSelector) {
@@ -176,57 +222,73 @@ export async function runPlaywrightDelist(
         page.click(config.submitSelector),
       ]);
     }
+    steps.push("Submitted login form");
+
     if (config.postLoginSteps) {
       for (const step of config.postLoginSteps) {
         await step.action(page, { title: "", description: "", price: 0, quantity: 0, condition: "", category: "", photos: [] }, account);
+        steps.push(`Ran post-login step: ${step.name}`);
       }
     }
 
     await page.goto(listingUrl, { waitUntil: "networkidle" });
+    steps.push(`Navigated to listing: ${listingUrl}`);
 
     if (config.openMenuSelectors) {
+      let opened = false;
       for (const sel of config.openMenuSelectors) {
         const loc = page.locator(sel).first();
         if ((await loc.count()) > 0) {
           await loc.click();
           await page.waitForTimeout(400);
+          steps.push(`Opened options menu via: ${sel}`);
+          opened = true;
           break;
         }
       }
+      if (!opened) steps.push("No options-menu selector matched (continuing — delete may not be behind one)");
     }
 
-    let clicked = false;
+    let deleteSelectorUsed: string | undefined;
     for (const sel of config.deleteSelectors) {
       const loc = page.locator(sel).first();
       if ((await loc.count()) > 0) {
         await loc.click();
-        clicked = true;
+        deleteSelectorUsed = sel;
         break;
       }
     }
-    if (!clicked) {
-      return { success: false, error: "Couldn't find a delete/remove control on the listing page." };
+    if (!deleteSelectorUsed) {
+      return fail(
+        `Couldn't find a delete/remove control on the listing page. Tried: ${config.deleteSelectors.join(", ")}`
+      );
     }
+    steps.push(`Clicked delete control: ${deleteSelectorUsed}`);
 
     if (config.confirmSelectors) {
+      let confirmed = false;
       for (const sel of config.confirmSelectors) {
         const loc = page.locator(sel).first();
         if ((await loc.count()) > 0) {
           await loc.click();
+          steps.push(`Clicked confirm control: ${sel}`);
+          confirmed = true;
           break;
         }
       }
+      if (!confirmed) steps.push("No confirm-dialog selector matched (continuing — site may not require one)");
     }
 
     await page.waitForTimeout(1500);
     const removed = await config.verifyRemoved(page, listingUrl);
+    steps.push(`Verification check: ${removed ? "listing appears removed" : "listing still appears live"}`);
     if (!removed) {
-      return { success: false, error: "Delete was clicked but the listing still appears live — not marking it removed." };
+      return fail("Delete was clicked but the listing still appears live — not marking it removed.");
     }
-    return { success: true };
+    return { success: true, steps };
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
-    return { success: false, error: `${platformId} delist automation failed: ${message}` };
+    return fail(`${platformId} delist automation failed: ${message}`);
   } finally {
     await browser.close();
   }

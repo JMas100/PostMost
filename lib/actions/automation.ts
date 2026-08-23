@@ -55,7 +55,7 @@ export async function getAutomationOverview() {
       take: 20,
     }),
     prisma.automationEvent.aggregate({
-      where: { userId, ruleType: DELIST_ON_SALE_RULE },
+      where: { userId, ruleType: DELIST_ON_SALE_RULE, success: true },
       _count: { _all: true },
       _sum: { savedAmount: true },
     }),

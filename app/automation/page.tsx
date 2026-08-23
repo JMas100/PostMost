@@ -9,6 +9,19 @@ import { StockSyncToggle } from "@/components/automation/stock-sync-toggle";
 import { RelistToggle } from "@/components/automation/relist-toggle";
 import { getAutomationOverview } from "@/lib/actions/automation";
 import { formatDistanceToNow } from "date-fns";
+import { AlertCircle } from "lucide-react";
+import Link from "next/link";
+import { cn } from "@/lib/utils";
+
+function parseEventMessage(message: string) {
+  const [rest, screenshotPart] = message.split(" | Screenshot: ");
+  const [text, stepsPart] = rest.split(" | Steps: ");
+  return {
+    text,
+    steps: stepsPart,
+    screenshotUrl: screenshotPart,
+  };
+}
 
 function TierBadge({ label }: { label: string }) {
   return (
@@ -161,14 +174,32 @@ export default async function AutomationPage() {
           {hasActivity ? (
             <Card>
               <CardContent className="divide-y p-0">
-                {overview.recentEvents.map((event) => (
-                  <div key={event.id} className="flex items-center justify-between gap-4 px-4 py-3 text-sm">
-                    <span>{event.message}</span>
-                    <span className="shrink-0 text-xs text-muted-foreground">
-                      {formatDistanceToNow(event.createdAt, { addSuffix: true })}
-                    </span>
-                  </div>
-                ))}
+                {overview.recentEvents.map((event) => {
+                  const { text, steps, screenshotUrl } = parseEventMessage(event.message);
+                  return (
+                    <div key={event.id} className="flex items-start justify-between gap-4 px-4 py-3 text-sm">
+                      <div className="flex items-start gap-2">
+                        {!event.success && <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-destructive" />}
+                        <div>
+                          <span className={cn(!event.success && "text-destructive")}>{text}</span>
+                          {(steps || screenshotUrl) && (
+                            <div className="mt-1 flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
+                              {steps && <span className="max-w-md truncate" title={steps}>{steps}</span>}
+                              {screenshotUrl && (
+                                <Link href={screenshotUrl} target="_blank" className="font-medium text-primary hover:underline">
+                                  View screenshot
+                                </Link>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                      <span className="shrink-0 text-xs text-muted-foreground">
+                        {formatDistanceToNow(event.createdAt, { addSuffix: true })}
+                      </span>
+                    </div>
+                  );
+                })}
               </CardContent>
             </Card>
           ) : (

@@ -74,6 +74,16 @@ export async function markListingSold(listingId: string, soldPlatform?: string, 
                 where: { id: platformListing.id },
                 data: { errorMessage: result.error || "Delist failed" },
               });
+              await prisma.automationEvent.create({
+                data: {
+                  userId,
+                  ruleType: DELIST_ON_SALE_RULE,
+                  listingId,
+                  platform: platformListing.platform,
+                  message: `"${listing.title}" sold, but delisting from ${adapter.name} failed: ${result.error || "unknown error"}`,
+                  success: false,
+                },
+              });
             } else {
               await prisma.automationEvent.create({
                 data: {
@@ -89,6 +99,16 @@ export async function markListingSold(listingId: string, soldPlatform?: string, 
           } catch (err) {
             const message = err instanceof Error ? err.message : "Delist error";
             results.push({ platform: platformListing.platform, success: false, error: message });
+            await prisma.automationEvent.create({
+              data: {
+                userId,
+                ruleType: DELIST_ON_SALE_RULE,
+                listingId,
+                platform: platformListing.platform,
+                message: `"${listing.title}" sold, but delisting from ${adapter.name} threw an error: ${message}`,
+                success: false,
+              },
+            });
           }
         }
       }
