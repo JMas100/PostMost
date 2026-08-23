@@ -1,16 +1,9 @@
 import { prisma } from "@/lib/prisma";
 import { getAdapter } from "@/lib/marketplaces";
 import { getAccountData } from "@/lib/marketplaces/account-data";
+import { PlatformListingStatus } from "@/lib/marketplaces/listing-status";
 import { track } from "@/lib/analytics/track";
 import { Photo } from "@prisma/client";
-
-const PlatformListingStatus = {
-  PENDING: "PENDING",
-  POSTED: "POSTED",
-  FAILED: "FAILED",
-  DELISTED: "DELISTED",
-  SOLD: "SOLD",
-} as const;
 
 /** A RUNNING job whose lock is older than this is considered abandoned and is reclaimed. */
 const STUCK_JOB_TIMEOUT_MS = 5 * 60 * 1000;

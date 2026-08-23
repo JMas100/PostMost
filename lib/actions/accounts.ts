@@ -9,11 +9,7 @@ import { getAdapter } from "@/lib/marketplaces";
 import { decrypt, encrypt } from "@/lib/crypto";
 import { getPlan } from "@/lib/plans";
 import crypto from "crypto";
-
-function getUserId(session: { user?: { id?: string } } | null) {
-  if (!session?.user?.id) throw new Error("Unauthorized");
-  return session.user.id;
-}
+import { getUserId } from "@/lib/auth-helpers";
 
 /** Checks the per-plan connected-marketplace limit before letting a new platform be connected
  *  (existing platforms being reconnected/updated never count against it). */

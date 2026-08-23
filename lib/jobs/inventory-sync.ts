@@ -1,15 +1,8 @@
 import { prisma } from "@/lib/prisma";
 import { getAdapter } from "@/lib/marketplaces";
 import { getAccountData } from "@/lib/marketplaces/account-data";
+import { PlatformListingStatus } from "@/lib/marketplaces/listing-status";
 import { DELIST_ON_SALE_RULE } from "@/lib/automation/rule-types";
-
-const PlatformListingStatus = {
-  PENDING: "PENDING",
-  POSTED: "POSTED",
-  FAILED: "FAILED",
-  DELISTED: "DELISTED",
-  SOLD: "SOLD",
-} as const;
 
 interface InventorySyncResult {
   platform: string;

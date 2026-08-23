@@ -3,22 +3,11 @@
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { getAdapter } from "@/lib/marketplaces";
+import { PlatformListingStatus } from "@/lib/marketplaces/listing-status";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { track } from "@/lib/analytics/track";
-
-const PlatformListingStatus = {
-  PENDING: "PENDING",
-  POSTED: "POSTED",
-  FAILED: "FAILED",
-  DELISTED: "DELISTED",
-  SOLD: "SOLD",
-} as const;
-
-function getUserId(session: { user?: { id?: string } } | null) {
-  if (!session?.user?.id) throw new Error("Unauthorized");
-  return session.user.id;
-}
+import { getUserId } from "@/lib/auth-helpers";
 
 export async function crossPost(listingId: string, platformIds: string[]) {
   const session = await getServerSession(authOptions);
