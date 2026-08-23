@@ -1,6 +1,9 @@
 "use client";
 
-import { PLATFORMS } from "@/lib/marketplaces/platforms";
+import { useEffect } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { toast } from "sonner";
+import { PLATFORMS, getPlatform } from "@/lib/marketplaces/platforms";
 import { MarketplaceAccountCard, type AccountView } from "@/components/marketplace-account-card";
 
 interface SettingsClientProps {
@@ -11,6 +14,22 @@ const CONNECTABLE_PLATFORMS = PLATFORMS.filter((p) => p.authType !== "none");
 
 export function SettingsClient({ accounts }: SettingsClientProps) {
   const accountByPlatform = new Map(accounts.map((a) => [a.platform, a]));
+  const router = useRouter();
+  const searchParams = useSearchParams();
+
+  useEffect(() => {
+    const connected = searchParams?.get("connected");
+    const error = searchParams?.get("error");
+    if (!connected && !error) return;
+
+    if (connected) {
+      const platformName = getPlatform(connected)?.name ?? connected;
+      toast.success(`${platformName} account connected`);
+    } else if (error) {
+      toast.error(error);
+    }
+    router.replace("/settings");
+  }, [searchParams, router]);
 
   return (
     <div className="space-y-6">
