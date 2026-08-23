@@ -2,6 +2,7 @@
 
 import { useFormContext } from "react-hook-form";
 import { RefObject } from "react";
+import Link from "next/link";
 import { ListingFormData } from "@/lib/schemas/listing";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -102,7 +103,12 @@ export function StepPhotos({
     <div className="space-y-6">
       {templates.length > 0 && (
         <div className="space-y-2">
-          <Label htmlFor="template">Start from template</Label>
+          <div className="flex items-center justify-between">
+            <Label htmlFor="template">Start from template</Label>
+            <Link href="/templates" className="text-xs text-muted-foreground underline underline-offset-2 hover:text-foreground">
+              Manage templates
+            </Link>
+          </div>
           <Select
             value={selectedTemplate || NO_TEMPLATE}
             onValueChange={(v) => onSelectTemplate(!v || v === NO_TEMPLATE ? "" : v)}
