@@ -38,7 +38,7 @@ export function PlatformRow({
         if (!isUnconnected && (e.key === "Enter" || e.key === " ")) onToggle(platform.id);
       }}
       className={cn(
-        "flex items-center justify-between rounded-lg border p-3 text-left transition-colors",
+        "flex flex-wrap items-center justify-between gap-2 rounded-lg border p-3 text-left transition-colors",
         isUnconnected
           ? "cursor-not-allowed opacity-60"
           : checked
@@ -46,11 +46,11 @@ export function PlatformRow({
           : "cursor-pointer border-input hover:bg-muted"
       )}
     >
-      <div className="flex items-center gap-3">
+      <div className="flex min-w-0 items-center gap-3">
         <PlatformLogo platform={platform.id} size={40} className="shrink-0" />
-        <p className="text-sm font-medium">{platform.name}</p>
+        <p className="truncate text-sm font-medium">{platform.name}</p>
       </div>
-      <div className="flex items-center gap-2">
+      <div className="flex flex-none items-center gap-2">
         <Badge variant={MECHANISM_VARIANT[platform.mechanism]}>{MECHANISM_LABEL[platform.mechanism]}</Badge>
         {isUnconnected ? (
           <Link

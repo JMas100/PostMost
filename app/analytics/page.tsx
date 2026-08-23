@@ -137,11 +137,11 @@ export default async function AnalyticsPage(
           </Card>
         </div>
 
-        <div className="grid gap-6 lg:grid-cols-3">
-          <Card className="lg:col-span-2">
-            <CardHeader className="flex-row items-center justify-between space-y-0">
-              <CardTitle>Listings over the last {days} days</CardTitle>
-              <div className="flex items-center gap-1 rounded-md border p-0.5 text-xs">
+        <div className="grid min-w-0 gap-6 lg:grid-cols-3">
+          <Card className="min-w-0 lg:col-span-2">
+            <CardHeader className="flex-row flex-wrap items-center justify-between gap-2 space-y-0">
+              <CardTitle className="min-w-0">Listings over the last {days} days</CardTitle>
+              <div className="flex flex-none items-center gap-1 rounded-md border p-0.5 text-xs">
                 {(["7d", "30d"] as const).map((r) => (
                   <Link
                     key={r}
@@ -160,7 +160,7 @@ export default async function AnalyticsPage(
               {data.listingsByDay.length > 0 ? (
                 <div className="flex h-40 items-end gap-1">
                   {data.listingsByDay.map((day) => (
-                    <div key={day.date} className="flex flex-1 flex-col items-center gap-1">
+                    <div key={day.date} className="flex min-w-0 flex-1 flex-col items-center gap-1">
                       <div
                         className="w-full rounded-t bg-primary"
                         style={{ height: `${(day.count / maxListingsPerDay) * 100}%`, minHeight: day.count > 0 ? "4px" : "0" }}
@@ -178,7 +178,7 @@ export default async function AnalyticsPage(
             </CardContent>
           </Card>
 
-          <Card>
+          <Card className="min-w-0">
             <CardHeader>
               <CardTitle>Plan usage</CardTitle>
             </CardHeader>
@@ -209,8 +209,8 @@ export default async function AnalyticsPage(
           </Card>
         </div>
 
-        <div className="grid gap-6 lg:grid-cols-2">
-          <Card>
+        <div className="grid min-w-0 gap-6 lg:grid-cols-2">
+          <Card className="min-w-0">
             <CardHeader>
               <CardTitle>Categories</CardTitle>
             </CardHeader>
@@ -236,7 +236,7 @@ export default async function AnalyticsPage(
             </CardContent>
           </Card>
 
-          <Card>
+          <Card className="min-w-0">
             <CardHeader>
               <CardTitle>Platform breakdown</CardTitle>
             </CardHeader>
