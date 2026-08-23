@@ -7,11 +7,33 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { getAdapter } from "@/lib/marketplaces";
 import { decrypt, encrypt } from "@/lib/crypto";
+import { getPlan } from "@/lib/plans";
 import crypto from "crypto";
 
 function getUserId(session: { user?: { id?: string } } | null) {
   if (!session?.user?.id) throw new Error("Unauthorized");
   return session.user.id;
+}
+
+/** Checks the per-plan connected-marketplace limit before letting a new platform be connected
+ *  (existing platforms being reconnected/updated never count against it). */
+async function canConnectMarketplace(userId: string, platform: string): Promise<{ allowed: boolean; reason?: string }> {
+  const [user, activePlatforms] = await Promise.all([
+    prisma.user.findUnique({ where: { id: userId }, select: { plan: true } }),
+    prisma.marketplaceAccount.findMany({
+      where: { userId, isActive: true },
+      select: { platform: true },
+      distinct: ["platform"],
+    }),
+  ]);
+  const plan = getPlan(user?.plan);
+  if (plan.marketplaces === -1) return { allowed: true };
+  const alreadyConnected = activePlatforms.some((a) => a.platform === platform);
+  if (alreadyConnected || activePlatforms.length < plan.marketplaces) return { allowed: true };
+  return {
+    allowed: false,
+    reason: `The ${plan.name} plan includes ${plan.marketplaces} connected marketplaces. Upgrade to connect more.`,
+  };
 }
 
 export interface AccountConnectionInput {
@@ -43,6 +65,13 @@ export async function connectMarketplaceAccount(input: AccountConnectionInput) {
   const existing = await prisma.marketplaceAccount.findFirst({
     where: { userId, platform: input.platform, isActive: true },
   });
+
+  if (!existing) {
+    const gate = await canConnectMarketplace(userId, input.platform);
+    if (!gate.allowed) {
+      throw new Error(gate.reason);
+    }
+  }
 
   const data = {
     displayName: input.displayName,
@@ -104,11 +133,21 @@ export async function getAccountForPlatform(platform: string) {
 
 export async function getOAuthUrl(platform: string) {
   const session = await getServerSession(authOptions);
-  getUserId(session);
+  const userId = getUserId(session);
 
   const adapter = getAdapter(platform);
   if (!adapter || adapter.authType !== "oauth" || !adapter.getAuthUrl) {
     throw new Error("OAuth is not supported for this marketplace");
+  }
+
+  const existing = await prisma.marketplaceAccount.findFirst({
+    where: { userId, platform, isActive: true },
+  });
+  if (!existing) {
+    const gate = await canConnectMarketplace(userId, platform);
+    if (!gate.allowed) {
+      throw new Error(gate.reason);
+    }
   }
 
   let codeVerifier: string | undefined;

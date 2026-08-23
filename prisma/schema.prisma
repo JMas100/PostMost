@@ -63,6 +63,8 @@ model Listing {
   isDraft         Boolean          @default(false)
   createdAt       DateTime         @default(now())
   updatedAt       DateTime         @updatedAt
+
+  @@index([userId, isDraft])
 }
 
 model Template {
@@ -125,6 +127,8 @@ model PlatformListing {
   updatedAt       DateTime @updatedAt
 
   @@unique([listingId, platform])
+  @@index([platform, externalId])
+  @@index([status])
 }
 
 model UserUsage {
