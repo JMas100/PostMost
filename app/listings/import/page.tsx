@@ -25,7 +25,7 @@ export default async function ImportPage() {
       <div className="mx-auto max-w-2xl space-y-6">
         <div>
           <h1 className="text-3xl font-bold">Bulk import</h1>
-          <p className="text-muted-foreground">Upload a CSV to create listings in bulk.</p>
+          <p className="text-muted-foreground">Upload a CSV, or import one from a URL, to create listings in bulk.</p>
         </div>
         {allowed ? (
           <CsvImporter />

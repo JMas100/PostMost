@@ -7,6 +7,7 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { listingSchema, ListingFormData } from "@/lib/schemas/listing";
 import { canAddActiveInventory, canImportCSV } from "@/lib/actions/usage";
+import { safeFetchText, SafeFetchError } from "@/lib/safe-fetch";
 
 function getUserId(session: { user?: { id?: string } } | null) {
   if (!session?.user?.id) throw new Error("Unauthorized");
@@ -14,10 +15,16 @@ function getUserId(session: { user?: { id?: string } } | null) {
 }
 
 function normalizeKey(key: string): string {
-  return key.toLowerCase().trim().replace(/\s+/g, " ");
+  // Strips a trailing parenthetical (e.g. "Custom label (SKU)" -> "custom label") so exports
+  // that annotate a column's purpose in parens still line up with our alias lists.
+  return key.toLowerCase().trim().replace(/\s*\([^)]*\)\s*$/, "").replace(/\s+/g, " ");
 }
 
-const FIELD_ALIASES: Record<keyof ListingFormData | "photos" | "description", string[]> = {
+export type ImportSource = "generic" | "ebay";
+
+type FieldAliasMap = Record<keyof ListingFormData | "photos" | "description", string[]>;
+
+const GENERIC_ALIASES: FieldAliasMap = {
   title: ["title", "name", "product title", "item title"],
   description: ["description", "desc", "body", "product description"],
   price: ["price", "selling price", "list price"],
@@ -35,6 +42,24 @@ const FIELD_ALIASES: Record<keyof ListingFormData | "photos" | "description", st
   photos: ["photos", "images", "photo urls", "image urls", "pictures"],
 };
 
+// eBay's Seller Hub "Active listings" report download uses these column names. Other
+// marketplaces (Poshmark, Depop, etc.) don't have an official, stable CSV export format we can
+// verify against, so we don't ship presets that would just be guesses at their layout — the
+// generic aliases above already do reasonable fuzzy matching for those.
+const EBAY_ALIASES: FieldAliasMap = {
+  ...GENERIC_ALIASES,
+  price: [...GENERIC_ALIASES.price, "start price", "current price", "buy it now price"],
+  quantity: [...GENERIC_ALIASES.quantity, "available quantity"],
+  sku: [...GENERIC_ALIASES.sku, "custom label"],
+  category: [...GENERIC_ALIASES.category, "category name"],
+  photos: [...GENERIC_ALIASES.photos, "photo url"],
+};
+
+const ALIASES_BY_SOURCE: Record<ImportSource, FieldAliasMap> = {
+  generic: GENERIC_ALIASES,
+  ebay: EBAY_ALIASES,
+};
+
 function getValue(row: Record<string, string>, names: string[]): string | undefined {
   const normalizedNames = names.map(normalizeKey);
   for (const [key, value] of Object.entries(row)) {
@@ -45,7 +70,7 @@ function getValue(row: Record<string, string>, names: string[]): string | undefi
   return undefined;
 }
 
-function parsePhotos(row: Record<string, string>): string[] {
+function parsePhotos(row: Record<string, string>, aliases: FieldAliasMap): string[] {
   const photos: string[] = [];
   const photoKeys = Object.keys(row)
     .filter((k) => /^\s*photo\s*\d+\s*$/i.test(k))
@@ -59,7 +84,7 @@ function parsePhotos(row: Record<string, string>): string[] {
     if (value) photos.push(value);
   }
   if (photos.length === 0) {
-    const combined = getValue(row, FIELD_ALIASES.photos);
+    const combined = getValue(row, aliases.photos);
     if (combined) {
       photos.push(...combined.split(/[|;]+/).map((u) => u.trim()).filter(Boolean));
     }
@@ -67,27 +92,27 @@ function parsePhotos(row: Record<string, string>): string[] {
   return photos;
 }
 
-function rowToListingFormData(row: Record<string, string>): Partial<ListingFormData> {
-  const price = getValue(row, FIELD_ALIASES.price);
-  const cost = getValue(row, FIELD_ALIASES.cost);
-  const quantity = getValue(row, FIELD_ALIASES.quantity);
+function rowToListingFormData(row: Record<string, string>, aliases: FieldAliasMap): Partial<ListingFormData> {
+  const price = getValue(row, aliases.price);
+  const cost = getValue(row, aliases.cost);
+  const quantity = getValue(row, aliases.quantity);
 
   return {
-    title: getValue(row, FIELD_ALIASES.title),
-    description: getValue(row, FIELD_ALIASES.description),
+    title: getValue(row, aliases.title),
+    description: getValue(row, aliases.description),
     price: price ? Number(price.replace(/[^0-9.]/g, "")) : undefined,
     cost: cost ? Number(cost.replace(/[^0-9.]/g, "")) : undefined,
     quantity: quantity ? Number(quantity) : undefined,
-    condition: getValue(row, FIELD_ALIASES.condition),
-    category: getValue(row, FIELD_ALIASES.category),
-    brand: getValue(row, FIELD_ALIASES.brand),
-    size: getValue(row, FIELD_ALIASES.size),
-    color: getValue(row, FIELD_ALIASES.color),
-    material: getValue(row, FIELD_ALIASES.material),
-    sku: getValue(row, FIELD_ALIASES.sku),
-    tags: getValue(row, FIELD_ALIASES.tags),
-    shippingProfileId: getValue(row, FIELD_ALIASES.shippingProfileId),
-    photos: parsePhotos(row),
+    condition: getValue(row, aliases.condition),
+    category: getValue(row, aliases.category),
+    brand: getValue(row, aliases.brand),
+    size: getValue(row, aliases.size),
+    color: getValue(row, aliases.color),
+    material: getValue(row, aliases.material),
+    sku: getValue(row, aliases.sku),
+    tags: getValue(row, aliases.tags),
+    shippingProfileId: getValue(row, aliases.shippingProfileId),
+    photos: parsePhotos(row, aliases),
   };
 }
 
@@ -97,14 +122,12 @@ export interface ImportResult {
   errors: { row: number; message: string }[];
 }
 
-export async function importCSV(csvText: string, options: { publish?: boolean } = {}): Promise<ImportResult> {
-  const session = await getServerSession(authOptions);
-  const userId = getUserId(session);
-
-  const gate = await canImportCSV(userId);
-  if (!gate.allowed) {
-    return { created: 0, drafted: 0, errors: [{ row: 0, message: gate.reason || "CSV import isn't available on your plan." }] };
-  }
+async function runImport(
+  csvText: string,
+  userId: string,
+  options: { publish?: boolean; source?: ImportSource }
+): Promise<ImportResult> {
+  const aliases = ALIASES_BY_SOURCE[options.source ?? "generic"];
 
   const parsed = parse<Record<string, string>>(csvText, {
     header: true,
@@ -121,7 +144,7 @@ export async function importCSV(csvText: string, options: { publish?: boolean } 
   for (let i = 0; i < parsed.data.length; i++) {
     const row = parsed.data[i];
     const rowNumber = i + 2; // header is row 1
-    const data = rowToListingFormData(row);
+    const data = rowToListingFormData(row, aliases);
 
     const { photos, tags, ...rest } = data;
     const photoUrls = photos && photos.length > 0 ? photos : [];
@@ -186,4 +209,42 @@ export async function importCSV(csvText: string, options: { publish?: boolean } 
   revalidatePath("/dashboard");
   revalidatePath("/analytics");
   return result;
+}
+
+export async function importCSV(
+  csvText: string,
+  options: { publish?: boolean; source?: ImportSource } = {}
+): Promise<ImportResult> {
+  const session = await getServerSession(authOptions);
+  const userId = getUserId(session);
+
+  const gate = await canImportCSV(userId);
+  if (!gate.allowed) {
+    return { created: 0, drafted: 0, errors: [{ row: 0, message: gate.reason || "CSV import isn't available on your plan." }] };
+  }
+
+  return runImport(csvText, userId, options);
+}
+
+export async function importFromUrl(
+  url: string,
+  options: { publish?: boolean; source?: ImportSource } = {}
+): Promise<ImportResult> {
+  const session = await getServerSession(authOptions);
+  const userId = getUserId(session);
+
+  const gate = await canImportCSV(userId);
+  if (!gate.allowed) {
+    return { created: 0, drafted: 0, errors: [{ row: 0, message: gate.reason || "CSV import isn't available on your plan." }] };
+  }
+
+  let csvText: string;
+  try {
+    csvText = await safeFetchText(url);
+  } catch (err) {
+    const message = err instanceof SafeFetchError ? err.message : "Couldn't fetch that URL.";
+    return { created: 0, drafted: 0, errors: [{ row: 0, message }] };
+  }
+
+  return runImport(csvText, userId, options);
 }
