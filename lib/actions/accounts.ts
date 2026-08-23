@@ -46,9 +46,12 @@ export async function connectMarketplaceAccount(input: AccountConnectionInput) {
 
   const data = {
     displayName: input.displayName,
-    accessToken: input.accessToken ? encrypt(input.accessToken) : null,
-    refreshToken: input.refreshToken ? encrypt(input.refreshToken) : null,
-    tokenExpiresAt: input.tokenExpiresAt ?? null,
+    // A blank password/token field on an update means "leave it as-is," not "clear it" — the
+    // old behavior nulled these out on any update where the field wasn't re-entered, silently
+    // disconnecting the account's ability to post/delist.
+    accessToken: input.accessToken ? encrypt(input.accessToken) : existing?.accessToken ?? null,
+    refreshToken: input.refreshToken ? encrypt(input.refreshToken) : existing?.refreshToken ?? null,
+    tokenExpiresAt: input.tokenExpiresAt ?? existing?.tokenExpiresAt ?? null,
     externalId: input.externalId ?? existing?.externalId ?? null,
     isActive: true,
     settings: input.settings ? JSON.stringify(input.settings) : existing?.settings ?? null,

@@ -110,7 +110,7 @@ function ConnectDialog({ platform, account }: AccountCardProps) {
           <DialogDescription>
             {platform.authType === "oauth"
               ? "Authorize PostMost to list items on your behalf."
-              : "Add your account details so PostMost can post for you when automation is enabled."}
+              : `${platform.name} doesn't offer a public API, so PostMost signs into your account directly — the same as you would in a browser — to post and remove listings on your behalf.`}
           </DialogDescription>
         </DialogHeader>
         {platform.authType === "oauth" ? (
@@ -177,13 +177,14 @@ function ManualForm({ platform, account, onDone }: FormProps) {
     event.preventDefault();
     const formData = new FormData(event.currentTarget);
     const displayName = formData.get("displayName") as string;
-    const accessToken = (formData.get("accessToken") as string) || undefined;
-    const refreshToken = (formData.get("refreshToken") as string) || undefined;
-    const externalId = (formData.get("externalId") as string) || displayName;
-    const tokenExpiresAtValue = formData.get("tokenExpiresAt") as string;
+    const password = formData.get("password") as string;
 
     if (!displayName.trim()) {
-      toast.error("Display name is required");
+      toast.error("Username is required");
+      return;
+    }
+    if (!account?.hasCredentials && !password.trim()) {
+      toast.error("Password is required");
       return;
     }
 
@@ -192,10 +193,10 @@ function ManualForm({ platform, account, onDone }: FormProps) {
         await connectMarketplaceAccount({
           platform: platform.id,
           displayName,
-          accessToken,
-          refreshToken,
-          externalId,
-          tokenExpiresAt: tokenExpiresAtValue ? new Date(tokenExpiresAtValue) : undefined,
+          // The adapter logs in with these directly — externalId is the username,
+          // accessToken is the password. There's no OAuth token here to speak of.
+          accessToken: password || undefined,
+          externalId: displayName,
         });
         toast.success(`${platform.name} account connected`);
         onDone();
@@ -225,50 +226,28 @@ function ManualForm({ platform, account, onDone }: FormProps) {
   return (
     <form onSubmit={handleSubmit} className="space-y-4 pt-2">
       <div className="space-y-2">
-        <Label htmlFor={`${platform.id}-displayName`}>Username / store name</Label>
+        <Label htmlFor={`${platform.id}-displayName`}>Username or email</Label>
         <Input
           id={`${platform.id}-displayName`}
           name="displayName"
           defaultValue={account?.displayName ?? ""}
-          placeholder={`Your ${platform.name} username`}
+          placeholder={`Your ${platform.name} login`}
           required
         />
       </div>
       <div className="space-y-2">
-        <Label htmlFor={`${platform.id}-externalId`}>External user ID (optional)</Label>
+        <Label htmlFor={`${platform.id}-password`}>Password</Label>
         <Input
-          id={`${platform.id}-externalId`}
-          name="externalId"
-          defaultValue={account?.externalId ?? ""}
-          placeholder={account?.displayName ?? "Same as username"}
-        />
-      </div>
-      <div className="space-y-2">
-        <Label htmlFor={`${platform.id}-accessToken`}>Access token (optional)</Label>
-        <Input
-          id={`${platform.id}-accessToken`}
-          name="accessToken"
+          id={`${platform.id}-password`}
+          name="password"
           type="password"
-          placeholder="Paste API or access token"
+          placeholder={account?.hasCredentials ? "Leave blank to keep your current password" : "Your account password"}
         />
       </div>
-      <div className="space-y-2">
-        <Label htmlFor={`${platform.id}-refreshToken`}>Refresh token (optional)</Label>
-        <Input
-          id={`${platform.id}-refreshToken`}
-          name="refreshToken"
-          type="password"
-          placeholder="Paste refresh token"
-        />
-      </div>
-      <div className="space-y-2">
-        <Label htmlFor={`${platform.id}-tokenExpiresAt`}>Token expires at (optional)</Label>
-        <Input
-          id={`${platform.id}-tokenExpiresAt`}
-          name="tokenExpiresAt"
-          type="datetime-local"
-        />
-      </div>
+      <p className="text-xs text-muted-foreground">
+        Stored encrypted, used only to sign in and manage listings on {platform.name} on your
+        behalf. Never shown again after you save it.
+      </p>
       <div className="flex gap-2 pt-2">
         <Button type="submit" disabled={isPending} className="flex-1">
           {isPending ? "Saving..." : account ? "Update" : "Connect"}
