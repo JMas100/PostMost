@@ -20,11 +20,9 @@ export function ListingsFilters({ platformOptions }: { platformOptions: Platform
   const [, startTransition] = useTransition();
   const [q, setQ] = useState(searchParams?.get("q") ?? "");
 
-  const status = searchParams?.get("status") ?? "all";
   const platform = searchParams?.get("platform") ?? "all";
-  const hasFilters = q || status !== "all" || platform !== "all";
+  const hasFilters = q || platform !== "all";
 
-  const statusLabels: Record<string, string> = { all: "All statuses", PUBLISHED: "Published", SOLD: "Sold" };
   const platformLabels: Record<string, string> = { all: "All platforms" };
   for (const p of platformOptions) platformLabels[p.id] = p.name;
 
@@ -51,16 +49,6 @@ export function ListingsFilters({ platformOptions }: { platformOptions: Platform
         onBlur={() => updateParams({ q })}
         className="w-full sm:w-64"
       />
-      <Select value={status} onValueChange={(v) => updateParams({ status: v ?? "all" })}>
-        <SelectTrigger className="w-full sm:w-40">
-          <SelectValue>{(v: string) => statusLabels[v] ?? v}</SelectValue>
-        </SelectTrigger>
-        <SelectContent>
-          <SelectItem value="all">All statuses</SelectItem>
-          <SelectItem value="PUBLISHED">Published</SelectItem>
-          <SelectItem value="SOLD">Sold</SelectItem>
-        </SelectContent>
-      </Select>
       <Select value={platform} onValueChange={(v) => updateParams({ platform: v ?? "all" })}>
         <SelectTrigger className="w-full sm:w-44">
           <SelectValue>{(v: string) => platformLabels[v] ?? v}</SelectValue>
@@ -76,7 +64,10 @@ export function ListingsFilters({ platformOptions }: { platformOptions: Platform
       </Select>
       {hasFilters && (
         <Link
-          href={pathname}
+          href={(() => {
+            const tab = searchParams?.get("tab");
+            return tab ? `${pathname}?tab=${tab}` : pathname;
+          })()}
           onClick={() => setQ("")}
           className={cn(buttonVariants({ variant: "ghost", size: "sm" }))}
         >

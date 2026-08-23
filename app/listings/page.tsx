@@ -1,32 +1,40 @@
 import { getServerSession } from "next-auth";
 import { redirect } from "next/navigation";
+import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { authOptions } from "@/lib/auth";
 import { Shell } from "@/components/sidebar";
-import { Card, CardContent } from "@/components/ui/card";
 import { buttonVariants } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
-import { Badge } from "@/components/ui/badge";
 import Link from "next/link";
-import { PlatformBadge } from "@/components/platform-badge";
 import { getPlatform } from "@/lib/marketplaces/platforms";
 import { ListingsFilters } from "./listings-filters";
+import { ListingsTabs, type ListingsTab } from "./listings-tabs";
+import { ListingsTable } from "./listings-table";
 import { cn } from "@/lib/utils";
 import { ChevronLeft, ChevronRight } from "lucide-react";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
 
 const PAGE_SIZE = 25;
 
+function tabWhere(tab: ListingsTab, userId: string): Prisma.ListingWhereInput {
+  switch (tab) {
+    case "live":
+      return { userId, isDraft: false, status: "PUBLISHED" };
+    case "drafts":
+      return { userId, isDraft: true };
+    case "sold":
+      return { userId, isDraft: false, status: "SOLD" };
+    case "attention":
+      return { userId, isDraft: false, platformListings: { some: { status: "FAILED" } } };
+    case "all":
+    default:
+      return { userId };
+  }
+}
+
 export default async function ListingsPage(
   props: {
-    searchParams: Promise<{ q?: string; status?: string; platform?: string; page?: string }>;
+    searchParams: Promise<{ q?: string; platform?: string; page?: string; tab?: string }>;
   }
 ) {
   const searchParams = await props.searchParams;
@@ -35,26 +43,32 @@ export default async function ListingsPage(
 
   const userId = session.user.id;
   const q = searchParams.q?.trim();
-  const status = searchParams.status;
   const platform = searchParams.platform;
+  const tab = (["all", "live", "drafts", "sold", "attention"].includes(searchParams.tab ?? "")
+    ? searchParams.tab
+    : "all") as ListingsTab;
   const page = Math.max(1, parseInt(searchParams.page ?? "1", 10) || 1);
 
-  const where = {
-    userId,
-    isDraft: false,
+  const where: Prisma.ListingWhereInput = {
+    ...tabWhere(tab, userId),
     ...(q ? { title: { contains: q, mode: "insensitive" as const } } : {}),
-    ...(status ? { status } : {}),
     ...(platform ? { platformListings: { some: { platform } } } : {}),
   };
 
-  const [totalCount, filteredCount, platformRows] = await Promise.all([
-    prisma.listing.count({ where: { userId, isDraft: false } }),
+  const [totalCount, filteredCount, platformRows, tabCounts] = await Promise.all([
+    prisma.listing.count({ where: { userId } }),
     prisma.listing.count({ where }),
     prisma.platformListing.findMany({
-      where: { listing: { userId, isDraft: false } },
+      where: { listing: { userId } },
       select: { platform: true },
       distinct: ["platform"],
     }),
+    Promise.all(
+      (["all", "live", "drafts", "sold", "attention"] as ListingsTab[]).map(async (t) => [
+        t,
+        await prisma.listing.count({ where: tabWhere(t, userId) }),
+      ] as const)
+    ),
   ]);
 
   const totalPages = Math.max(1, Math.ceil(filteredCount / PAGE_SIZE));
@@ -70,8 +84,8 @@ export default async function ListingsPage(
   const buildPageHref = (p: number) => {
     const params = new URLSearchParams();
     if (q) params.set("q", q);
-    if (status) params.set("status", status);
     if (platform) params.set("platform", platform);
+    if (tab !== "all") params.set("tab", tab);
     if (p > 1) params.set("page", String(p));
     const qs = params.toString();
     return qs ? `/listings?${qs}` : "/listings";
@@ -80,6 +94,8 @@ export default async function ListingsPage(
   const platformOptions = platformRows
     .map((row) => ({ id: row.platform, name: getPlatform(row.platform)?.name ?? row.platform }))
     .sort((a, b) => a.name.localeCompare(b.name));
+
+  const counts = Object.fromEntries(tabCounts) as Record<ListingsTab, number>;
 
   return (
     <Shell>
@@ -90,6 +106,8 @@ export default async function ListingsPage(
             Create listing
           </Link>
         </div>
+
+        {totalCount > 0 && <ListingsTabs counts={counts} />}
 
         {totalCount > 0 && <ListingsFilters platformOptions={platformOptions} />}
 
@@ -109,53 +127,7 @@ export default async function ListingsPage(
             primaryAction={{ label: "Clear filters", href: "/listings" }}
           />
         ) : (
-          <Card>
-            <CardContent className="p-0">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead></TableHead>
-                    <TableHead>Title</TableHead>
-                    <TableHead>Price</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead>Platforms</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {listings.map((listing) => (
-                    <TableRow key={listing.id}>
-                      <TableCell>
-                        {listing.photos[0] ? (
-                          // eslint-disable-next-line @next/next/no-img-element
-                          <img src={listing.photos[0].url} alt="" className="h-10 w-10 rounded-md object-cover" />
-                        ) : (
-                          <div className="h-10 w-10 rounded-md bg-muted" />
-                        )}
-                      </TableCell>
-                      <TableCell>
-                        <Link href={`/listings/${listing.id}`} className="font-medium hover:underline">
-                          {listing.title}
-                        </Link>
-                      </TableCell>
-                      <TableCell>${listing.price.toFixed(2)}</TableCell>
-                      <TableCell>
-                        <Badge variant={listing.status === "SOLD" ? "success" : "outline"}>
-                          {listing.status === "SOLD" ? "Sold" : "Published"}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex flex-wrap gap-1">
-                          {listing.platformListings.slice(0, 3).map((pl) => (
-                            <PlatformBadge key={pl.id} platform={pl.platform} status={pl.status} />
-                          ))}
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </CardContent>
-          </Card>
+          <ListingsTable listings={listings} />
         )}
 
         {listings.length > 0 && totalPages > 1 && (
