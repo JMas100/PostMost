@@ -4,8 +4,8 @@ import { revalidatePath } from "next/cache";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { decrypt } from "@/lib/crypto";
 import { getAdapter } from "@/lib/marketplaces";
+import { getAccountData } from "@/lib/marketplaces/account-data";
 import { getPlan } from "@/lib/plans";
 import { DELIST_ON_SALE_RULE } from "@/lib/automation/rule-types";
 
@@ -59,16 +59,12 @@ export async function markListingSold(listingId: string, soldPlatform?: string, 
     if (platformListing.status !== "POSTED") continue;
 
     const adapter = getAdapter(platformListing.platform);
-    const account = platformListing.externalId
-      ? await prisma.marketplaceAccount.findFirst({
-          where: { userId, platform: platformListing.platform, isActive: true },
-        })
-      : null;
+    const accountData = platformListing.externalId ? await getAccountData(userId, platformListing.platform) : null;
 
-    if (!platformListing.externalId || !account?.accessToken || !adapter?.delist) {
+    if (!platformListing.externalId || !accountData?.accessToken || !adapter?.delist) {
       const reason = !platformListing.externalId
         ? "no listing URL was recorded for it"
-        : !account?.accessToken
+        : !accountData?.accessToken
         ? "no connected account"
         : "this platform doesn't support automatic delisting yet";
       await prisma.platformListing.update({
@@ -88,13 +84,6 @@ export async function markListingSold(listingId: string, soldPlatform?: string, 
       continue;
     }
 
-    const accountData = {
-      accessToken: decrypt(account.accessToken),
-      refreshToken: account.refreshToken ? decrypt(account.refreshToken) : null,
-      externalId: account.externalId,
-      tokenExpiresAt: account.tokenExpiresAt,
-      settings: account.settings ? JSON.parse(account.settings) : {},
-    };
     try {
       const result = await adapter.delist(platformListing.externalId, accountData);
       results.push({ platform: platformListing.platform, ...result });
