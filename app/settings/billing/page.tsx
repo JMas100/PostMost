@@ -7,7 +7,6 @@ import { BillingPortalButton } from "@/components/billing-portal-button";
 import { buttonVariants } from "@/components/ui/button";
 import { ChangePlan } from "./change-plan";
 import { redirect } from "next/navigation";
-import { Shell } from "@/components/sidebar";
 import { AlertTriangle } from "lucide-react";
 
 function getLimitLabel(value: number, limit: number) {
@@ -48,8 +47,7 @@ export default async function BillingPage(props: { searchParams: Promise<{ succe
   const showUpgradePrompt = closestToLimit && closestToLimit.pct >= 80 && nextPlan;
 
   return (
-    <Shell>
-      <main className="mx-auto max-w-4xl space-y-6">
+    <main className="mx-auto max-w-4xl space-y-6">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Billing & usage</h1>
           <p className="text-muted-foreground">Manage your plan and track usage.</p>
@@ -180,6 +178,5 @@ export default async function BillingPage(props: { searchParams: Promise<{ succe
           </CardContent>
         </Card>
       </main>
-    </Shell>
   );
 }

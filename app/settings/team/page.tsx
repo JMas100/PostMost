@@ -1,20 +1,20 @@
-import { redirect } from "next/navigation";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
-import { Shell } from "@/components/sidebar";
-import { getTeam } from "@/lib/actions/team";
-import { TeamClient } from "./team-client";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
-export default async function TeamSettingsPage() {
-  const session = await getServerSession(authOptions);
-  if (!session?.user?.id) redirect("/login");
-  const team = await getTeam();
+export default function TeamSettingsPage() {
   return (
-    <Shell>
-      <div className="mx-auto max-w-2xl space-y-6">
-        <h1 className="text-3xl font-bold">Team</h1>
-        <TeamClient team={team} />
-      </div>
-    </Shell>
+    <div className="mx-auto max-w-2xl space-y-6">
+      <h1 className="text-3xl font-bold">Team</h1>
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Coming soon</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <p className="text-sm text-muted-foreground">
+            Shared team access is on the roadmap. For now, each PostMost account is single-user —
+            invited teammates can&apos;t yet sign in or see your listings.
+          </p>
+        </CardContent>
+      </Card>
+    </div>
   );
 }
