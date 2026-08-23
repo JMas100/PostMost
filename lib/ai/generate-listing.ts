@@ -45,18 +45,7 @@ export async function generateListingFromImage(imageBase64: string): Promise<Gen
   const apiKey = process.env.OPENAI_API_KEY;
 
   if (!apiKey) {
-    return {
-      title: "Gently Used Sneakers",
-      description: "A clean pair of pre-owned sneakers with minimal wear. Great everyday style at an affordable price.",
-      price: 29.99,
-      quantity: 1,
-      condition: "Good",
-      category: "Shoes",
-      brand: null,
-      size: null,
-      color: null,
-      material: null,
-    };
+    throw new Error("AI photo analysis isn't configured (missing OPENAI_API_KEY).");
   }
 
   const response = await fetch("https://api.openai.com/v1/chat/completions", {
