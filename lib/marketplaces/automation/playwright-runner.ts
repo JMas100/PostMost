@@ -259,6 +259,15 @@ export async function runPlaywrightDelist(
     }
     steps.push("Submitted login form");
 
+    if (config.passwordSelector) {
+      const stillOnLogin =
+        page.url() === config.loginUrl ||
+        (await page.locator(config.passwordSelector).count().catch(() => 0)) > 0;
+      if (stillOnLogin) {
+        return await fail(`Couldn't log into ${platformId} — check the stored username and password.`);
+      }
+    }
+
     if (config.postLoginSteps) {
       for (const step of config.postLoginSteps) {
         await step.action(page, { title: "", description: "", price: 0, quantity: 0, condition: "", category: "", photos: [] }, account);
