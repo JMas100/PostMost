@@ -50,13 +50,24 @@ export async function runPlaywrightAutomation(
     args: ["--no-sandbox", "--disable-setuid-sandbox"],
   });
 
+  let page: import("playwright").Page | undefined;
+
+  async function fail(error: string): Promise<PostResult> {
+    const screenshotUrl = page ? await captureFailureScreenshot(page, platformId) : undefined;
+    return {
+      success: false,
+      error: screenshotUrl ? `${error} | Screenshot: ${screenshotUrl}` : error,
+      raw,
+    };
+  }
+
   try {
     const context = await browser.newContext({
       userAgent:
         "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
       viewport: { width: 1280, height: 800 },
     });
-    const page = await context.newPage();
+    page = await context.newPage();
 
     await page.goto(config.loginUrl, { waitUntil: "networkidle" });
 
@@ -71,6 +82,19 @@ export async function runPlaywrightAutomation(
         page.waitForNavigation({ waitUntil: "networkidle" }).catch(() => {}),
         page.click(config.submitSelector),
       ]);
+    }
+
+    // Never assume a login form submit actually logged in — wrong credentials, an unexpected
+    // 2FA/verification prompt, or a layout change all leave the browser looking similar to a
+    // fresh page load. If the password field is still there (or we never left the login URL),
+    // the login didn't take, and continuing on would just fill out a form nobody can see.
+    if (config.passwordSelector) {
+      const stillOnLogin =
+        page.url() === config.loginUrl ||
+        (await page.locator(config.passwordSelector).count().catch(() => 0)) > 0;
+      if (stillOnLogin) {
+        return await fail(`Couldn't log into ${platformId} — check the stored username and password.`);
+      }
     }
 
     if (config.postLoginSteps) {
@@ -90,19 +114,30 @@ export async function runPlaywrightAutomation(
     }
 
     const url = page.url();
-    const success = config.successUrlFragment ? url.includes(config.successUrlFragment) : true;
+    // Never report success without a positive signal: either a configured successUrlFragment
+    // match, or — as a generic fallback — the page actually navigated away from the listing
+    // creation URL, since submitting a listing form almost always redirects somewhere else
+    // (the new listing's own page, a confirmation screen, the seller's dashboard). Staying on
+    // the same create-listing URL means nothing was actually submitted.
+    const success = config.successUrlFragment
+      ? url.includes(config.successUrlFragment)
+      : !config.listingUrl || url !== config.listingUrl;
 
     raw.finalUrl = url;
     raw.title = await page.title().catch(() => "");
 
+    if (!success) {
+      return await fail(`${platformId} listing submission couldn't be confirmed — the page never left the listing form.`);
+    }
+
     return {
-      success,
+      success: true,
       externalUrl: url,
       raw,
     };
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
-    return { success: false, error: `${platformId} automation failed: ${message}`, raw };
+    return await fail(`${platformId} automation failed: ${message}`);
   } finally {
     await browser.close();
   }
