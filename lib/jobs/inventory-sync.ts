@@ -1,6 +1,6 @@
 import { prisma } from "@/lib/prisma";
-import { decrypt } from "@/lib/crypto";
 import { getAdapter } from "@/lib/marketplaces";
+import { getAccountData } from "@/lib/marketplaces/account-data";
 import { DELIST_ON_SALE_RULE } from "@/lib/automation/rule-types";
 
 const PlatformListingStatus = {
@@ -76,11 +76,9 @@ export async function syncInventorySale(platform: string, externalId: string): P
       continue;
     }
 
-    const account = await prisma.marketplaceAccount.findFirst({
-      where: { userId: soldListing.listing.userId, platform: platformListing.platform, isActive: true },
-    });
+    const accountData = await getAccountData(soldListing.listing.userId, platformListing.platform);
 
-    if (!account?.accessToken) {
+    if (!accountData?.accessToken) {
       results.push({
         platform: platformListing.platform,
         externalId: platformListing.externalId,
@@ -108,14 +106,6 @@ export async function syncInventorySale(platform: string, externalId: string): P
     }
 
     try {
-      const accountData = {
-        accessToken: decrypt(account.accessToken),
-        refreshToken: account.refreshToken ? decrypt(account.refreshToken) : null,
-        externalId: account.externalId,
-        tokenExpiresAt: account.tokenExpiresAt,
-        settings: account.settings ? JSON.parse(account.settings) : {},
-      };
-
       const delistResult = await adapter.delist(platformListing.externalId || "", accountData);
       await prisma.platformListing.update({
         where: { id: platformListing.id },

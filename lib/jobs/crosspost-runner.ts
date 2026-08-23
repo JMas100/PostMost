@@ -1,6 +1,6 @@
 import { prisma } from "@/lib/prisma";
-import { decrypt } from "@/lib/crypto";
 import { getAdapter } from "@/lib/marketplaces";
+import { getAccountData } from "@/lib/marketplaces/account-data";
 import { track } from "@/lib/analytics/track";
 import { Photo } from "@prisma/client";
 
@@ -97,10 +97,6 @@ export async function processPendingCrossPostJobs(listingId?: string): Promise<C
       continue;
     }
 
-    const account = await prisma.marketplaceAccount.findFirst({
-      where: { userId: job.userId, platform: job.platform, isActive: true },
-    });
-
     const listingData = {
       title: job.listing.title,
       description: job.listing.description,
@@ -117,15 +113,7 @@ export async function processPendingCrossPostJobs(listingId?: string): Promise<C
       photos: job.listing.photos.map((p: Photo) => p.url),
     };
 
-    const accountData = account
-      ? {
-          accessToken: account.accessToken ? decrypt(account.accessToken) : null,
-          refreshToken: account.refreshToken ? decrypt(account.refreshToken) : null,
-          externalId: account.externalId,
-          tokenExpiresAt: account.tokenExpiresAt,
-          settings: account.settings ? JSON.parse(account.settings) : {},
-        }
-      : { accessToken: null };
+    const accountData = (await getAccountData(job.userId, job.platform)) ?? { accessToken: null };
 
     try {
       const result = await withTimeout(

@@ -50,4 +50,6 @@ export interface MarketplaceAdapter {
   delist?(externalId: string, account: PlatformAccount): Promise<{ success: boolean; error?: string }>;
   getAuthUrl?(opts?: { codeVerifier?: string }): string;
   exchangeCode?(code: string, ctx?: { codeVerifier?: string }): Promise<OAuthTokenResult>;
+  /** Exchanges a stored refresh token for a new access token once the current one expires. */
+  refreshAccessToken?(refreshToken: string): Promise<OAuthTokenResult>;
 }

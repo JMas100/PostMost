@@ -246,4 +246,34 @@ export const etsyAdapter: MarketplaceAdapter = {
       displayName: `Etsy seller ${userId}`,
     };
   },
+  async refreshAccessToken(refreshToken: string): Promise<OAuthTokenResult> {
+    const { key } = getClientCredentials();
+
+    const tokenRes = await fetch(ETSY_TOKEN_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: new URLSearchParams({
+        grant_type: "refresh_token",
+        client_id: key,
+        refresh_token: refreshToken,
+      }),
+    });
+
+    if (!tokenRes.ok) {
+      const text = await tokenRes.text();
+      throw new Error(`Etsy token refresh failed: ${tokenRes.status} ${text}`);
+    }
+
+    const tokenData = (await tokenRes.json()) as {
+      access_token: string;
+      refresh_token?: string;
+      expires_in: number;
+    };
+
+    return {
+      accessToken: tokenData.access_token,
+      refreshToken: tokenData.refresh_token || refreshToken,
+      tokenExpiresAt: new Date(Date.now() + tokenData.expires_in * 1000),
+    };
+  },
 };

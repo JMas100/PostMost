@@ -1,6 +1,6 @@
 import { prisma } from "@/lib/prisma";
-import { decrypt } from "@/lib/crypto";
 import { getAdapter } from "@/lib/marketplaces";
+import { getAccountData } from "@/lib/marketplaces/account-data";
 import { STOCK_SYNC_RULE, RELIST_STALE_RULE, RELIST_STALE_DAYS } from "@/lib/automation/rule-types";
 import type { Photo } from "@prisma/client";
 
@@ -19,20 +19,6 @@ export interface RelistRunSummary {
   /** Delist succeeded but the repost failed after — the listing is now down everywhere and
    *  needs a human, not just a retry. Surfaced distinctly so it can't get lost in "failed". */
   strandedAfterDelist: number;
-}
-
-async function getDecryptedAccount(userId: string, platform: string) {
-  const account = await prisma.marketplaceAccount.findFirst({
-    where: { userId, platform, isActive: true },
-  });
-  if (!account?.accessToken) return null;
-  return {
-    accessToken: decrypt(account.accessToken),
-    refreshToken: account.refreshToken ? decrypt(account.refreshToken) : null,
-    externalId: account.externalId,
-    tokenExpiresAt: account.tokenExpiresAt,
-    settings: account.settings ? JSON.parse(account.settings) : {},
-  };
 }
 
 /**
@@ -82,7 +68,7 @@ export async function runStockSyncRule(): Promise<AutomationRunSummary> {
         continue;
       }
 
-      const accountData = await getDecryptedAccount(listing.userId, platformListing.platform);
+      const accountData = await getAccountData(listing.userId, platformListing.platform);
       if (!accountData) {
         summary.failed += 1;
         await prisma.automationEvent.create({
@@ -212,7 +198,7 @@ export async function runRelistStaleRule(): Promise<RelistRunSummary> {
       continue;
     }
 
-    const accountData = await getDecryptedAccount(listing.userId, platformListing.platform);
+    const accountData = await getAccountData(listing.userId, platformListing.platform);
     if (!accountData) {
       summary.failed += 1;
       await prisma.automationEvent.create({

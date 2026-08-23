@@ -355,4 +355,40 @@ export const eBayAdapter: MarketplaceAdapter = {
       displayName,
     };
   },
+  async refreshAccessToken(refreshToken: string): Promise<OAuthTokenResult> {
+    const { appId, certId } = getClientCredentials();
+    const auth = Buffer.from(`${appId}:${certId}`).toString("base64");
+
+    const tokenRes = await fetch(EBAY_TOKEN_URL, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/x-www-form-urlencoded",
+        Authorization: `Basic ${auth}`,
+      },
+      body: new URLSearchParams({
+        grant_type: "refresh_token",
+        refresh_token: refreshToken,
+        scope: SCOPES.join(" "),
+      }),
+    });
+
+    if (!tokenRes.ok) {
+      const text = await tokenRes.text();
+      throw new Error(`eBay token refresh failed: ${tokenRes.status} ${text}`);
+    }
+
+    const tokenData = (await tokenRes.json()) as {
+      access_token: string;
+      refresh_token?: string;
+      expires_in: number;
+    };
+
+    return {
+      accessToken: tokenData.access_token,
+      // eBay doesn't rotate the refresh token on every refresh — carry the original forward
+      // when the response doesn't include a new one.
+      refreshToken: tokenData.refresh_token || refreshToken,
+      tokenExpiresAt: new Date(Date.now() + tokenData.expires_in * 1000),
+    };
+  },
 };
