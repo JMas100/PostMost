@@ -14,6 +14,7 @@ import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import { PublishPanel } from "@/components/publish-panel";
 import { RetryablePlatformBadge } from "@/components/publish-panel/retry-platform-listing";
+import { FailedCrossPostCard } from "@/components/publish-panel/failed-cross-post-card";
 import { SoldButton } from "./sold-button";
 
 export default async function ListingDetailPage(props: { params: Promise<{ id: string }> }) {
@@ -148,15 +149,30 @@ export default async function ListingDetailPage(props: { params: Promise<{ id: s
               <CardHeader>
                 <CardTitle>Platform status</CardTitle>
               </CardHeader>
-              <CardContent>
+              <CardContent className="space-y-3">
                 {listing.platformListings.length === 0 ? (
                   <p className="text-sm text-muted-foreground">Not posted anywhere yet.</p>
                 ) : (
-                  <div className="flex flex-wrap gap-2">
-                    {listing.platformListings.map((pl) => (
-                      <RetryablePlatformBadge key={pl.id} listingId={listing.id} platform={pl.platform} status={pl.status} externalUrl={pl.externalUrl} />
-                    ))}
-                  </div>
+                  <>
+                    {listing.platformListings
+                      .filter((pl) => pl.status === "FAILED")
+                      .map((pl) => (
+                        <FailedCrossPostCard
+                          key={pl.id}
+                          listingId={listing.id}
+                          platform={pl.platform}
+                          errorMessage={pl.errorMessage}
+                          updatedAt={pl.updatedAt}
+                        />
+                      ))}
+                    <div className="flex flex-wrap gap-2">
+                      {listing.platformListings
+                        .filter((pl) => pl.status !== "FAILED")
+                        .map((pl) => (
+                          <RetryablePlatformBadge key={pl.id} listingId={listing.id} platform={pl.platform} status={pl.status} externalUrl={pl.externalUrl} />
+                        ))}
+                    </div>
+                  </>
                 )}
               </CardContent>
             </Card>
