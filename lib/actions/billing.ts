@@ -58,32 +58,37 @@ export async function createCheckoutSession(formData: FormData) {
   const user = await prisma.user.findUnique({ where: { id: userId } });
   if (!user) return { error: "User not found" };
 
-  let customerId = user.stripeCustomerId;
-  if (!customerId) {
-    const customer = await getStripe().customers.create({
-      email: user.email,
-      name: user.name || undefined,
-      metadata: { userId },
+  try {
+    let customerId = user.stripeCustomerId;
+    if (!customerId) {
+      const customer = await getStripe().customers.create({
+        email: user.email,
+        name: user.name || undefined,
+        metadata: { userId },
+      });
+      customerId = customer.id;
+      await prisma.user.update({
+        where: { id: userId },
+        data: { stripeCustomerId: customerId },
+      });
+    }
+
+    const origin = process.env.NEXTAUTH_URL || "https://postmost.co";
+    const checkoutSession = await getStripe().checkout.sessions.create({
+      mode: "subscription",
+      customer: customerId,
+      line_items: [{ price: priceId, quantity: 1 }],
+      success_url: `${origin}/settings/billing?success=true`,
+      cancel_url: `${origin}/settings/billing?canceled=true`,
+      metadata: { userId, planId },
+      subscription_data: { metadata: { userId, planId } },
     });
-    customerId = customer.id;
-    await prisma.user.update({
-      where: { id: userId },
-      data: { stripeCustomerId: customerId },
-    });
+
+    return { url: checkoutSession.url };
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "Checkout failed";
+    return { error: message };
   }
-
-  const origin = process.env.NEXTAUTH_URL || "https://postmost.co";
-  const checkoutSession = await getStripe().checkout.sessions.create({
-    mode: "subscription",
-    customer: customerId,
-    line_items: [{ price: priceId, quantity: 1 }],
-    success_url: `${origin}/settings/billing?success=true`,
-    cancel_url: `${origin}/settings/billing?canceled=true`,
-    metadata: { userId, planId },
-    subscription_data: { metadata: { userId, planId } },
-  });
-
-  return { url: checkoutSession.url };
 }
 
 export async function createBillingPortalSession() {
@@ -94,13 +99,18 @@ export async function createBillingPortalSession() {
   const user = await prisma.user.findUnique({ where: { id: userId } });
   if (!user?.stripeCustomerId) return { error: "No billing account" };
 
-  const origin = process.env.NEXTAUTH_URL || "https://postmost.co";
-  const portalSession = await getStripe().billingPortal.sessions.create({
-    customer: user.stripeCustomerId,
-    return_url: `${origin}/settings/billing`,
-  });
+  try {
+    const origin = process.env.NEXTAUTH_URL || "https://postmost.co";
+    const portalSession = await getStripe().billingPortal.sessions.create({
+      customer: user.stripeCustomerId,
+      return_url: `${origin}/settings/billing`,
+    });
 
-  return { url: portalSession.url };
+    return { url: portalSession.url };
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "Couldn't open the billing portal";
+    return { error: message };
+  }
 }
 
 export async function updatePlan(formData: FormData) {
