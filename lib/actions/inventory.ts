@@ -38,80 +38,114 @@ export async function markListingSold(listingId: string, soldPlatform?: string, 
     const isSoldPlatform = platformListing.platform === platformToProfit && !profitPlatformSet;
     if (isSoldPlatform) profitPlatformSet = true;
 
-    const soldPrice = sale?.soldPrice ?? platformListing.price ?? listing.price;
-    const soldFees = sale?.soldFees ?? platformListing.fees ?? 0;
-    const soldShippingCost = sale?.soldShippingCost ?? listing.shippingProfile?.cost ?? 0;
-    const profit = isSoldPlatform ? soldPrice - cost - soldFees - soldShippingCost : null;
+    if (isSoldPlatform) {
+      const soldPrice = sale?.soldPrice ?? platformListing.price ?? listing.price;
+      const soldFees = sale?.soldFees ?? platformListing.fees ?? 0;
+      const soldShippingCost = sale?.soldShippingCost ?? listing.shippingProfile?.cost ?? 0;
+      const profit = soldPrice - cost - soldFees - soldShippingCost;
 
-    await prisma.platformListing.update({
-      where: { id: platformListing.id },
-      data: {
-        status: "SOLD",
-        soldAt: new Date(),
-        ...(isSoldPlatform ? { soldPrice, soldFees, soldShippingCost, profit } : {}),
-      },
-    });
-
-    if (platformListing.status === "POSTED" && platformListing.externalId) {
-      const account = await prisma.marketplaceAccount.findFirst({
-        where: { userId, platform: platformListing.platform, isActive: true },
+      await prisma.platformListing.update({
+        where: { id: platformListing.id },
+        data: { status: "SOLD", soldAt: new Date(), soldPrice, soldFees, soldShippingCost, profit },
       });
-      if (account?.accessToken) {
-        const adapter = getAdapter(platformListing.platform);
-        if (adapter?.delist) {
-          const accountData = {
-            accessToken: decrypt(account.accessToken),
-            refreshToken: account.refreshToken ? decrypt(account.refreshToken) : null,
-            externalId: account.externalId,
-            tokenExpiresAt: account.tokenExpiresAt,
-            settings: account.settings ? JSON.parse(account.settings) : {},
-          };
-          try {
-            const result = await adapter.delist(platformListing.externalId, accountData);
-            results.push({ platform: platformListing.platform, ...result });
-            if (!result.success) {
-              await prisma.platformListing.update({
-                where: { id: platformListing.id },
-                data: { errorMessage: result.error || "Delist failed" },
-              });
-              await prisma.automationEvent.create({
-                data: {
-                  userId,
-                  ruleType: DELIST_ON_SALE_RULE,
-                  listingId,
-                  platform: platformListing.platform,
-                  message: `"${listing.title}" sold, but delisting from ${adapter.name} failed: ${result.error || "unknown error"}`,
-                  success: false,
-                },
-              });
-            } else {
-              await prisma.automationEvent.create({
-                data: {
-                  userId,
-                  ruleType: DELIST_ON_SALE_RULE,
-                  listingId,
-                  platform: platformListing.platform,
-                  message: `"${listing.title}" sold — delisted from ${adapter.name}`,
-                  savedAmount: platformListing.price ?? listing.price,
-                },
-              });
-            }
-          } catch (err) {
-            const message = err instanceof Error ? err.message : "Delist error";
-            results.push({ platform: platformListing.platform, success: false, error: message });
-            await prisma.automationEvent.create({
-              data: {
-                userId,
-                ruleType: DELIST_ON_SALE_RULE,
-                listingId,
-                platform: platformListing.platform,
-                message: `"${listing.title}" sold, but delisting from ${adapter.name} threw an error: ${message}`,
-                success: false,
-              },
-            });
-          }
-        }
+      continue;
+    }
+
+    // Every other platform this listing is still live on needs to be auto-delisted now that
+    // it's sold elsewhere. Status only moves to DELISTED once removal is actually confirmed —
+    // marking it SOLD (or DELISTED) on a failed/unattempted delist would hide a listing that's
+    // still live and sellable, risking a double-sale. FAILED keeps it visible in "Needs
+    // attention" and eligible for retry, exactly like a failed cross-post.
+    if (platformListing.status !== "POSTED") continue;
+
+    const adapter = getAdapter(platformListing.platform);
+    const account = platformListing.externalId
+      ? await prisma.marketplaceAccount.findFirst({
+          where: { userId, platform: platformListing.platform, isActive: true },
+        })
+      : null;
+
+    if (!platformListing.externalId || !account?.accessToken || !adapter?.delist) {
+      const reason = !platformListing.externalId
+        ? "no listing URL was recorded for it"
+        : !account?.accessToken
+        ? "no connected account"
+        : "this platform doesn't support automatic delisting yet";
+      await prisma.platformListing.update({
+        where: { id: platformListing.id },
+        data: { status: "FAILED", errorMessage: `Sold elsewhere, but couldn't auto-delist: ${reason}.` },
+      });
+      await prisma.automationEvent.create({
+        data: {
+          userId,
+          ruleType: DELIST_ON_SALE_RULE,
+          listingId,
+          platform: platformListing.platform,
+          message: `"${listing.title}" sold, but couldn't auto-delist from ${platformListing.platform}: ${reason}`,
+          success: false,
+        },
+      });
+      continue;
+    }
+
+    const accountData = {
+      accessToken: decrypt(account.accessToken),
+      refreshToken: account.refreshToken ? decrypt(account.refreshToken) : null,
+      externalId: account.externalId,
+      tokenExpiresAt: account.tokenExpiresAt,
+      settings: account.settings ? JSON.parse(account.settings) : {},
+    };
+    try {
+      const result = await adapter.delist(platformListing.externalId, accountData);
+      results.push({ platform: platformListing.platform, ...result });
+      if (!result.success) {
+        await prisma.platformListing.update({
+          where: { id: platformListing.id },
+          data: { status: "FAILED", errorMessage: result.error || "Delist failed" },
+        });
+        await prisma.automationEvent.create({
+          data: {
+            userId,
+            ruleType: DELIST_ON_SALE_RULE,
+            listingId,
+            platform: platformListing.platform,
+            message: `"${listing.title}" sold, but delisting from ${adapter.name} failed: ${result.error || "unknown error"}`,
+            success: false,
+          },
+        });
+      } else {
+        await prisma.platformListing.update({
+          where: { id: platformListing.id },
+          data: { status: "DELISTED", soldAt: new Date(), errorMessage: null },
+        });
+        await prisma.automationEvent.create({
+          data: {
+            userId,
+            ruleType: DELIST_ON_SALE_RULE,
+            listingId,
+            platform: platformListing.platform,
+            message: `"${listing.title}" sold — delisted from ${adapter.name}`,
+            savedAmount: platformListing.price ?? listing.price,
+          },
+        });
       }
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Delist error";
+      results.push({ platform: platformListing.platform, success: false, error: message });
+      await prisma.platformListing.update({
+        where: { id: platformListing.id },
+        data: { status: "FAILED", errorMessage: message },
+      });
+      await prisma.automationEvent.create({
+        data: {
+          userId,
+          ruleType: DELIST_ON_SALE_RULE,
+          listingId,
+          platform: platformListing.platform,
+          message: `"${listing.title}" sold, but delisting from ${adapter.name} threw an error: ${message}`,
+          success: false,
+        },
+      });
     }
   }
 

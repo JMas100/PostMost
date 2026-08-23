@@ -56,6 +56,13 @@ export async function syncInventorySale(platform: string, externalId: string): P
         success: false,
         error: "Delist not supported for this platform",
       });
+      await prisma.platformListing.update({
+        where: { id: platformListing.id },
+        data: {
+          status: PlatformListingStatus.FAILED,
+          errorMessage: `Sold elsewhere, but ${platformListing.platform} doesn't support automatic delisting yet.`,
+        },
+      });
       await prisma.automationEvent.create({
         data: {
           userId: soldListing.listing.userId,
@@ -79,6 +86,13 @@ export async function syncInventorySale(platform: string, externalId: string): P
         externalId: platformListing.externalId,
         success: false,
         error: "No connected account to delist",
+      });
+      await prisma.platformListing.update({
+        where: { id: platformListing.id },
+        data: {
+          status: PlatformListingStatus.FAILED,
+          errorMessage: `Sold elsewhere, but no connected ${adapter.name} account was found to delist it.`,
+        },
       });
       await prisma.automationEvent.create({
         data: {
