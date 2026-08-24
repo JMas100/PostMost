@@ -151,7 +151,10 @@ Re-running only picks up rows that are still base64.
 
 Cross-posting is queued, never executed inside the request. `crossPost()` writes `CrossPostJob`
 rows and fires a non-blocking POST to `/api/jobs/run`; the durable backstop is the Vercel cron in
-`vercel.json`, which drains the queue every minute.
+`vercel.json`, which drains the queue once a day. The inline trigger handles the common case
+immediately, so the daily cron only matters for jobs that trigger failed to fire for (a
+transient network error, a cold start that outlived the request) — see the note below on
+upgrading to a tighter schedule.
 
 - Jobs are claimed atomically (`PENDING` -> `RUNNING` with `lockedAt`), so the cron and the inline
   trigger can safely overlap.
@@ -166,9 +169,11 @@ Run the worker manually:
 curl -X POST http://localhost:3000/api/jobs/run -H "x-master-key: $MASTER_KEY"
 ```
 
-Note: Vercel Hobby plans only run crons once per day; `* * * * *` requires a Pro plan. On Hobby the
-cron still guarantees eventual processing, just with up to a day of delay, so keep the inline
-trigger enabled (or call the endpoint from an external scheduler).
+Note: Vercel Hobby plans only run crons once per day -- a sub-daily schedule (e.g. `* * * * *`)
+doesn't just get silently throttled, it makes every deployment fail outright until the schedule
+is fixed, so don't set one without confirming the project is on Pro first. If you upgrade to Pro,
+tighten `vercel.json`'s schedule (e.g. every 5 minutes) for faster retries; on Hobby, keep the
+inline trigger enabled (or call the endpoint from an external scheduler) as the fast path.
 
 ## Marketplace integrations
 
