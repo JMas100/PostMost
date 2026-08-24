@@ -1,16 +1,13 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { getPlan, meetsMinimumTier } from "@/lib/plans";
 import { STOCK_SYNC_RULE, DELIST_ON_SALE_RULE, RELIST_STALE_RULE, RELIST_STALE_DAYS } from "@/lib/automation/rule-types";
-import { getUserId } from "@/lib/auth-helpers";
+import { requireUserId } from "@/lib/auth-helpers";
 
 export async function getAutomationOverview() {
-  const session = await getServerSession(authOptions);
-  const userId = getUserId(session);
+  const userId = await requireUserId();
 
   const staleBefore = new Date(Date.now() - RELIST_STALE_DAYS * 24 * 60 * 60 * 1000);
 
@@ -77,8 +74,7 @@ export async function getAutomationOverview() {
 }
 
 export async function setStockSyncEnabled(enabled: boolean) {
-  const session = await getServerSession(authOptions);
-  const userId = getUserId(session);
+  const userId = await requireUserId();
 
   const user = await prisma.user.findUnique({ where: { id: userId }, select: { plan: true } });
   const plan = getPlan(user?.plan);
@@ -97,8 +93,7 @@ export async function setStockSyncEnabled(enabled: boolean) {
 }
 
 export async function setRelistEnabled(enabled: boolean) {
-  const session = await getServerSession(authOptions);
-  const userId = getUserId(session);
+  const userId = await requireUserId();
 
   const user = await prisma.user.findUnique({ where: { id: userId }, select: { plan: true } });
   const plan = getPlan(user?.plan);

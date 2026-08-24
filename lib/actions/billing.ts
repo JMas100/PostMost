@@ -7,6 +7,10 @@ import { authOptions } from "@/lib/auth";
 import { PlanId, PLANS } from "@/lib/plans";
 import { getStripePriceId, getStripe } from "@/lib/stripe";
 
+// Deliberately local and null-returning, unlike the shared throwing getUserId in
+// lib/auth-helpers.ts -- billing reads (getBilling, etc.) need to render a signed-out state
+// gracefully rather than reject, which the shared helper's throw-on-missing-session contract
+// doesn't fit.
 function getUserId(session: { user?: { id?: string } } | null) {
   if (!session?.user?.id) return null;
   return session.user.id;

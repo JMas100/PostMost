@@ -1,15 +1,13 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import bcrypt from "bcryptjs";
-import { getUserId } from "@/lib/auth-helpers";
+import { requireUserId } from "@/lib/auth-helpers";
+import { normalizeEmail } from "@/lib/email";
 
 export async function getTeam() {
-  const session = await getServerSession(authOptions);
-  const userId = getUserId(session);
+  const userId = await requireUserId();
   const team = await prisma.team.findFirst({
     where: { ownerId: userId },
     include: { members: true },
@@ -18,18 +16,18 @@ export async function getTeam() {
 }
 
 export async function inviteTeamMember(email: string, role: "ADMIN" | "MEMBER" = "MEMBER") {
-  const session = await getServerSession(authOptions);
-  const userId = getUserId(session);
+  const userId = await requireUserId();
 
   const existing = await prisma.team.findFirst({ where: { ownerId: userId } });
   const team = existing || (await prisma.team.create({ data: { ownerId: userId, name: "My team" } }));
 
-  const existingUser = await prisma.user.findUnique({ where: { email: email.toLowerCase() } });
+  const normalizedEmail = normalizeEmail(email);
+  const existingUser = await prisma.user.findUnique({ where: { email: normalizedEmail } });
   const member = await prisma.teamMember.upsert({
-    where: { teamId_email: { teamId: team.id, email: email.toLowerCase() } },
+    where: { teamId_email: { teamId: team.id, email: normalizedEmail } },
     create: {
       teamId: team.id,
-      email: email.toLowerCase(),
+      email: normalizedEmail,
       role,
       userId: existingUser?.id,
       status: existingUser ? "ACTIVE" : "PENDING",
@@ -42,8 +40,7 @@ export async function inviteTeamMember(email: string, role: "ADMIN" | "MEMBER" =
 }
 
 export async function removeTeamMember(memberId: string) {
-  const session = await getServerSession(authOptions);
-  const userId = getUserId(session);
+  const userId = await requireUserId();
   const team = await prisma.team.findFirst({ where: { ownerId: userId } });
   if (!team) return { error: "No team found" };
   await prisma.teamMember.deleteMany({ where: { id: memberId, teamId: team.id } });

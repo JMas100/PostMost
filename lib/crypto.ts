@@ -3,12 +3,24 @@ import crypto from "crypto";
 const ALGORITHM = "aes-256-gcm";
 const KEY_LENGTH = 32;
 
+// scryptSync is intentionally slow, and MASTER_KEY never changes within a running process, so
+// the derived key is memoized rather than re-derived on every encrypt/decrypt call. The salt is
+// a fixed literal rather than a per-value random salt -- that's fine for deriving a single
+// symmetric key from one high-entropy secret (unlike password hashing, there's no list of
+// low-entropy secrets to protect from precomputation here), but note there's no rotation path:
+// changing MASTER_KEY silently breaks decryption of every value already encrypted with the old one.
+let cachedKey: Buffer | null = null;
+let cachedMaster: string | null = null;
+
 function getKey(): Buffer {
   const master = process.env.MASTER_KEY;
   if (!master) {
     throw new Error("MASTER_KEY is not set");
   }
-  return crypto.scryptSync(master, "postmost-salt", KEY_LENGTH);
+  if (cachedKey && cachedMaster === master) return cachedKey;
+  cachedKey = crypto.scryptSync(master, "postmost-salt", KEY_LENGTH);
+  cachedMaster = master;
+  return cachedKey;
 }
 
 export function encrypt(plaintext: string): string {

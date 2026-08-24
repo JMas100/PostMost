@@ -2,13 +2,11 @@
 
 import { revalidatePath } from "next/cache";
 import { parse } from "papaparse";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { listingSchema, ListingFormData } from "@/lib/schemas/listing";
 import { canAddActiveInventory, canImportCSV } from "@/lib/actions/usage";
 import { safeFetchText, SafeFetchError } from "@/lib/safe-fetch";
-import { getUserId } from "@/lib/auth-helpers";
+import { requireUserId } from "@/lib/auth-helpers";
 
 function normalizeKey(key: string): string {
   // Strips a trailing parenthetical (e.g. "Custom label (SKU)" -> "custom label") so exports
@@ -211,8 +209,7 @@ export async function importCSV(
   csvText: string,
   options: { publish?: boolean; source?: ImportSource } = {}
 ): Promise<ImportResult> {
-  const session = await getServerSession(authOptions);
-  const userId = getUserId(session);
+  const userId = await requireUserId();
 
   const gate = await canImportCSV(userId);
   if (!gate.allowed) {
@@ -226,8 +223,7 @@ export async function importFromUrl(
   url: string,
   options: { publish?: boolean; source?: ImportSource } = {}
 ): Promise<ImportResult> {
-  const session = await getServerSession(authOptions);
-  const userId = getUserId(session);
+  const userId = await requireUserId();
 
   const gate = await canImportCSV(userId);
   if (!gate.allowed) {

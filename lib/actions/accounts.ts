@@ -2,14 +2,12 @@
 
 import { revalidatePath } from "next/cache";
 import { cookies } from "next/headers";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { getAdapter } from "@/lib/marketplaces";
 import { decrypt, encrypt } from "@/lib/crypto";
 import { getPlan } from "@/lib/plans";
 import crypto from "crypto";
-import { getUserId } from "@/lib/auth-helpers";
+import { requireUserId } from "@/lib/auth-helpers";
 
 /** Checks the per-plan connected-marketplace limit before letting a new platform be connected
  *  (existing platforms being reconnected/updated never count against it). */
@@ -43,8 +41,7 @@ export interface AccountConnectionInput {
 }
 
 export async function getMarketplaceAccounts() {
-  const session = await getServerSession(authOptions);
-  const userId = getUserId(session);
+  const userId = await requireUserId();
   const accounts = await prisma.marketplaceAccount.findMany({
     where: { userId, isActive: true },
   });
@@ -55,8 +52,7 @@ export async function getMarketplaceAccounts() {
 }
 
 export async function connectMarketplaceAccount(input: AccountConnectionInput) {
-  const session = await getServerSession(authOptions);
-  const userId = getUserId(session);
+  const userId = await requireUserId();
 
   const existing = await prisma.marketplaceAccount.findFirst({
     where: { userId, platform: input.platform, isActive: true },
@@ -100,8 +96,7 @@ export async function connectMarketplaceAccount(input: AccountConnectionInput) {
 }
 
 export async function disconnectMarketplaceAccount(accountId: string) {
-  const session = await getServerSession(authOptions);
-  const userId = getUserId(session);
+  const userId = await requireUserId();
 
   await prisma.marketplaceAccount.updateMany({
     where: { id: accountId, userId },
@@ -113,8 +108,7 @@ export async function disconnectMarketplaceAccount(accountId: string) {
 }
 
 export async function getAccountForPlatform(platform: string) {
-  const session = await getServerSession(authOptions);
-  const userId = getUserId(session);
+  const userId = await requireUserId();
   const account = await prisma.marketplaceAccount.findFirst({
     where: { userId, platform, isActive: true },
   });
@@ -128,8 +122,7 @@ export async function getAccountForPlatform(platform: string) {
 }
 
 export async function getOAuthUrl(platform: string) {
-  const session = await getServerSession(authOptions);
-  const userId = getUserId(session);
+  const userId = await requireUserId();
 
   const adapter = getAdapter(platform);
   if (!adapter || adapter.authType !== "oauth" || !adapter.getAuthUrl) {

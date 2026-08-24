@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import crypto from "crypto";
 import { processPendingCrossPostJobs } from "@/lib/jobs/crosspost-runner";
 import { runStockSyncRule, runRelistStaleRule } from "@/lib/jobs/automation-runner";
 
@@ -6,15 +7,25 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
 
-function isAuthorized(request: NextRequest) {
+/** Constant-time string comparison -- a plain === leaks how many leading bytes matched via
+ *  response timing, which matters for secrets checked on every request like these. */
+function timingSafeEqualString(a: string, b: string): boolean {
+  const bufA = Buffer.from(a);
+  const bufB = Buffer.from(b);
+  if (bufA.length !== bufB.length) return false;
+  return crypto.timingSafeEqual(bufA, bufB);
+}
+
+function isAuthorizedForTrigger(request: NextRequest) {
   const masterKey = request.headers.get("x-master-key");
-  if (masterKey && process.env.MASTER_KEY && masterKey === process.env.MASTER_KEY) return true;
+  return !!(masterKey && process.env.MASTER_KEY && timingSafeEqualString(masterKey, process.env.MASTER_KEY));
+}
 
-  // Vercel cron can only send an Authorization header.
+function isAuthorizedForCron(request: NextRequest) {
+  // Vercel cron always sends a GET request with only an Authorization header -- this is the
+  // one caller of GET, so GET accepts nothing else (no listingId targeting, no master key).
   const bearer = request.headers.get("authorization");
-  if (bearer && process.env.CRON_SECRET && bearer === `Bearer ${process.env.CRON_SECRET}`) return true;
-
-  return false;
+  return !!(bearer && process.env.CRON_SECRET && timingSafeEqualString(bearer, `Bearer ${process.env.CRON_SECRET}`));
 }
 
 function unauthorized() {
@@ -22,7 +33,7 @@ function unauthorized() {
 }
 
 export async function POST(request: NextRequest) {
-  if (!isAuthorized(request)) return unauthorized();
+  if (!isAuthorizedForTrigger(request)) return unauthorized();
 
   let listingId: string | undefined;
   try {
@@ -40,12 +51,9 @@ export async function POST(request: NextRequest) {
 }
 
 export async function GET(request: NextRequest) {
-  if (!isAuthorized(request)) return unauthorized();
+  if (!isAuthorizedForCron(request)) return unauthorized();
 
-  const listingId = request.nextUrl.searchParams.get("listingId") || undefined;
-  const summary = await processPendingCrossPostJobs(listingId);
-  const automation = listingId
-    ? undefined
-    : { stockSync: await runStockSyncRule(), relist: await runRelistStaleRule() };
+  const summary = await processPendingCrossPostJobs();
+  const automation = { stockSync: await runStockSyncRule(), relist: await runRelistStaleRule() };
   return NextResponse.json({ success: true, ...summary, automation });
 }

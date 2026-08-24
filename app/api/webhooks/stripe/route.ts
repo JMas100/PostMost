@@ -5,10 +5,15 @@ import type Stripe from "stripe";
 
 const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
 
-async function upsertSubscription(subscription: Stripe.Subscription) {
+async function upsertSubscription(subscription: Stripe.Subscription, eventCreatedAt: Date) {
   const customerId = subscription.customer as string;
   const user = await prisma.user.findFirst({ where: { stripeCustomerId: customerId } });
   if (!user) return;
+
+  // Stripe delivers webhook events out of order and retries them, so an older event can arrive
+  // after a newer one already applied -- ignore it rather than clobbering current state with
+  // stale data (e.g. re-downgrading a user whose subsequent upgrade already landed).
+  if (user.stripeEventCreatedAt && eventCreatedAt <= user.stripeEventCreatedAt) return;
 
   const status = subscription.status;
   const item = subscription.items.data[0];
@@ -25,6 +30,7 @@ async function upsertSubscription(subscription: Stripe.Subscription) {
       stripeSubscriptionId: subscription.id,
       stripePriceId: priceId,
       subscriptionStatus: status,
+      stripeEventCreatedAt: eventCreatedAt,
     },
   });
 }
@@ -45,12 +51,14 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: message }, { status: 400 });
   }
 
+  const eventCreatedAt = new Date(event.created * 1000);
+
   try {
     if (event.type === "checkout.session.completed") {
       const session = event.data.object as Stripe.Checkout.Session;
       if (session.subscription && session.customer) {
         const subscription = await getStripe().subscriptions.retrieve(session.subscription as string);
-        await upsertSubscription(subscription);
+        await upsertSubscription(subscription, eventCreatedAt);
       }
     } else if (
       event.type === "customer.subscription.created" ||
@@ -58,7 +66,7 @@ export async function POST(req: NextRequest) {
       event.type === "customer.subscription.deleted"
     ) {
       const subscription = event.data.object as Stripe.Subscription;
-      await upsertSubscription(subscription);
+      await upsertSubscription(subscription, eventCreatedAt);
     }
   } catch (err) {
     console.error("Stripe webhook handler error:", err);

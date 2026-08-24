@@ -4,10 +4,10 @@ A reseller operating system that lets you create one listing and cross-post it t
 
 ## Stack
 
-- Next.js 14 (App Router)
+- Next.js 16 (App Router)
 - TypeScript
 - Tailwind CSS + shadcn/ui
-- Prisma + SQLite (dev)
+- Prisma + Postgres (Neon in production, with a local-Postgres fallback outside production -- see Environment below)
 - NextAuth (credentials)
 
 ## Features
@@ -16,6 +16,9 @@ A reseller operating system that lets you create one listing and cross-post it t
 - Cross-post queue and status tracking
 - Marketplace adapter architecture (eBay, Etsy, Poshmark, Mercari, Depop, Facebook Marketplace, Craigslist, OfferUp, Vinted, Grailed)
 - Dashboard with listing stats
+- Inventory tracking with cost basis and profit
+- Sales analytics with CSV export
+- Bulk delist/relist
 - Authentication
 
 ## Setup
@@ -182,8 +185,6 @@ inline trigger enabled (or call the endpoint from an external scheduler) as the 
 
 ## Roadmap
 
-- Real OAuth flows for eBay/Etsy
+- eBay/Etsy OAuth is implemented; go-live is waiting on developer account approval from each marketplace
 - Playwright worker service for automation platforms
-- AI listing generation
-- Sales analytics and P&L
 - Mobile app

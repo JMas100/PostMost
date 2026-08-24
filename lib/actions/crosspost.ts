@@ -4,14 +4,11 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { getAdapter } from "@/lib/marketplaces";
 import { PlatformListingStatus } from "@/lib/marketplaces/listing-status";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
 import { track } from "@/lib/analytics/track";
-import { getUserId } from "@/lib/auth-helpers";
+import { requireUserId } from "@/lib/auth-helpers";
 
 export async function crossPost(listingId: string, platformIds: string[]) {
-  const session = await getServerSession(authOptions);
-  const userId = getUserId(session);
+  const userId = await requireUserId();
 
   const listing = await prisma.listing.findFirst({
     where: { id: listingId, userId },
@@ -26,45 +23,47 @@ export async function crossPost(listingId: string, platformIds: string[]) {
   });
   const accountByPlatform = new Map(accounts.map((a) => [a.platform, a]));
 
-  const results = [];
-  for (const platformId of platformIds) {
-    const adapter = getAdapter(platformId);
-    if (!adapter) {
-      results.push({ platformId, success: false, error: "Unsupported platform" });
-      continue;
-    }
+  // Promise.all preserves input order in the results array regardless of completion order,
+  // and each platform's writes are independent, so there's no need to await them one at a time.
+  const results = await Promise.all(
+    platformIds.map(async (platformId) => {
+      const adapter = getAdapter(platformId);
+      if (!adapter) {
+        return { platformId, success: false, error: "Unsupported platform" };
+      }
 
-    const account = accountByPlatform.get(platformId);
+      const account = accountByPlatform.get(platformId);
 
-    await prisma.platformListing.upsert({
-      where: { listingId_platform: { listingId, platform: platformId } },
-      create: {
-        listingId,
-        platform: platformId,
-        status: PlatformListingStatus.PENDING,
-      },
-      update: {
-        status: PlatformListingStatus.PENDING,
-        errorMessage: null,
-      },
-    });
+      await prisma.platformListing.upsert({
+        where: { listingId_platform: { listingId, platform: platformId } },
+        create: {
+          listingId,
+          platform: platformId,
+          status: PlatformListingStatus.PENDING,
+        },
+        update: {
+          status: PlatformListingStatus.PENDING,
+          errorMessage: null,
+        },
+      });
 
-    await prisma.crossPostJob.create({
-      data: {
-        userId,
-        listingId,
-        platform: platformId,
-        status: "PENDING",
-        payload: JSON.stringify({ listingId, platformId, accountId: account?.id }),
-      },
-    });
+      await prisma.crossPostJob.create({
+        data: {
+          userId,
+          listingId,
+          platform: platformId,
+          status: "PENDING",
+          payload: JSON.stringify({ listingId, platformId, accountId: account?.id }),
+        },
+      });
 
-    results.push({
-      platformId,
-      success: true,
-      message: `Queued on ${adapter.name}${account ? "" : " (no account connected)"}`,
-    });
-  }
+      return {
+        platformId,
+        success: true,
+        message: `Queued on ${adapter.name}${account ? "" : " (no account connected)"}`,
+      };
+    })
+  );
 
   // Kick the worker in a separate invocation so this request returns immediately.
   // The Vercel cron on /api/jobs/run is the durable backstop if this trigger fails.
@@ -94,8 +93,7 @@ function triggerJobWorker(listingId?: string) {
  *  Ownership is verified via the listing query itself -- a listing id that isn't the caller's
  *  simply won't match and contributes zero jobs. */
 async function queueBulkJob(listingIds: string[], type: "DELIST" | "RELIST") {
-  const session = await getServerSession(authOptions);
-  const userId = getUserId(session);
+  const userId = await requireUserId();
 
   if (listingIds.length === 0) return { success: true, queued: 0 };
 
@@ -104,21 +102,16 @@ async function queueBulkJob(listingIds: string[], type: "DELIST" | "RELIST") {
     include: { platformListings: { where: { status: PlatformListingStatus.POSTED } } },
   });
 
-  let queued = 0;
-  for (const listing of listings) {
-    for (const platformListing of listing.platformListings) {
-      await prisma.crossPostJob.create({
-        data: {
-          userId,
-          listingId: listing.id,
-          platform: platformListing.platform,
-          type,
-          status: "PENDING",
-        },
-      });
-      queued += 1;
-    }
-  }
+  const jobs = listings.flatMap((listing) =>
+    listing.platformListings.map((platformListing) => ({
+      userId,
+      listingId: listing.id,
+      platform: platformListing.platform,
+      type,
+      status: "PENDING",
+    }))
+  );
+  const queued = jobs.length > 0 ? (await prisma.crossPostJob.createMany({ data: jobs })).count : 0;
 
   if (queued > 0) triggerJobWorker();
 
@@ -136,8 +129,7 @@ export async function bulkRelist(listingIds: string[]) {
 }
 
 export async function getCrossPostJobs(listingId?: string) {
-  const session = await getServerSession(authOptions);
-  const userId = getUserId(session);
+  const userId = await requireUserId();
   return prisma.crossPostJob.findMany({
     where: { userId, ...(listingId ? { listingId } : {}) },
     orderBy: { createdAt: "desc" },

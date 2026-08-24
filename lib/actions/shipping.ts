@@ -1,14 +1,11 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { getUserId } from "@/lib/auth-helpers";
+import { requireUserId } from "@/lib/auth-helpers";
 
 export async function getShippingProfiles() {
-  const session = await getServerSession(authOptions);
-  const userId = getUserId(session);
+  const userId = await requireUserId();
   return prisma.shippingProfile.findMany({
     where: { userId },
     orderBy: { createdAt: "desc" },
@@ -16,14 +13,12 @@ export async function getShippingProfiles() {
 }
 
 export async function getDefaultShippingProfile(userId?: string) {
-  const session = await getServerSession(authOptions);
-  const id = userId || getUserId(session);
+  const id = userId || (await requireUserId());
   return prisma.shippingProfile.findFirst({ where: { userId: id, isDefault: true } });
 }
 
 export async function createShippingProfile(data: { name: string; carrier: string; service: string; cost: number; isDefault?: boolean }) {
-  const session = await getServerSession(authOptions);
-  const userId = getUserId(session);
+  const userId = await requireUserId();
 
   const isDefault = !!data.isDefault;
   if (isDefault) {
@@ -38,8 +33,7 @@ export async function createShippingProfile(data: { name: string; carrier: strin
 }
 
 export async function updateShippingProfile(id: string, data: { name: string; carrier: string; service: string; cost: number; isDefault?: boolean }) {
-  const session = await getServerSession(authOptions);
-  const userId = getUserId(session);
+  const userId = await requireUserId();
 
   const existing = await prisma.shippingProfile.findFirst({ where: { id, userId } });
   if (!existing) return { error: "Profile not found" };
@@ -58,8 +52,7 @@ export async function updateShippingProfile(id: string, data: { name: string; ca
 }
 
 export async function deleteShippingProfile(id: string) {
-  const session = await getServerSession(authOptions);
-  const userId = getUserId(session);
+  const userId = await requireUserId();
   await prisma.shippingProfile.deleteMany({ where: { id, userId } });
   revalidatePath("/settings/shipping");
   return { success: true };

@@ -1,18 +1,18 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
+import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { getAdapter } from "@/lib/marketplaces";
 import { getAccountData } from "@/lib/marketplaces/account-data";
 import { getPlan } from "@/lib/plans";
 import { DELIST_ON_SALE_RULE } from "@/lib/automation/rule-types";
-import { getUserId } from "@/lib/auth-helpers";
+import { requireUserId } from "@/lib/auth-helpers";
+
+const PAGE_SIZE = 25;
 
 export async function markListingSold(listingId: string, soldPlatform?: string, sale?: { soldPrice?: number; soldFees?: number; soldShippingCost?: number }) {
-  const session = await getServerSession(authOptions);
-  const userId = getUserId(session);
+  const userId = await requireUserId();
 
   const listing = await prisma.listing.findFirst({
     where: { id: listingId, userId },
@@ -20,32 +20,37 @@ export async function markListingSold(listingId: string, soldPlatform?: string, 
   });
   if (!listing) return { error: "Listing not found" };
 
-  await prisma.listing.update({
-    where: { id: listingId },
-    data: { status: "SOLD" },
-  });
-
   const cost = listing.cost ?? 0;
   const platformToProfit = soldPlatform || listing.platformListings.find((p) => p.status === "POSTED")?.platform;
-  let profitPlatformSet = false;
+  const profitPlatformListing = platformToProfit
+    ? listing.platformListings.find((p) => p.platform === platformToProfit)
+    : undefined;
+
+  // The listing's terminal SOLD status and the sold-platform's profit figures are both purely
+  // local writes with no external call between them -- group them in one transaction so a crash
+  // can never leave the listing SOLD with stale/missing profit data (or vice versa). The
+  // remaining per-platform delist calls below are external and slow, so they stay outside any
+  // transaction and are written one at a time as each one resolves.
+  const localWrites: Prisma.PrismaPromise<unknown>[] = [
+    prisma.listing.update({ where: { id: listingId }, data: { status: "SOLD" } }),
+  ];
+  if (profitPlatformListing) {
+    const soldPrice = sale?.soldPrice ?? profitPlatformListing.price ?? listing.price;
+    const soldFees = sale?.soldFees ?? profitPlatformListing.fees ?? 0;
+    const soldShippingCost = sale?.soldShippingCost ?? listing.shippingProfile?.cost ?? 0;
+    const profit = soldPrice - cost - soldFees - soldShippingCost;
+    localWrites.push(
+      prisma.platformListing.update({
+        where: { id: profitPlatformListing.id },
+        data: { status: "SOLD", soldAt: new Date(), soldPrice, soldFees, soldShippingCost, profit },
+      })
+    );
+  }
+  await prisma.$transaction(localWrites);
 
   const results = [];
   for (const platformListing of listing.platformListings) {
-    const isSoldPlatform = platformListing.platform === platformToProfit && !profitPlatformSet;
-    if (isSoldPlatform) profitPlatformSet = true;
-
-    if (isSoldPlatform) {
-      const soldPrice = sale?.soldPrice ?? platformListing.price ?? listing.price;
-      const soldFees = sale?.soldFees ?? platformListing.fees ?? 0;
-      const soldShippingCost = sale?.soldShippingCost ?? listing.shippingProfile?.cost ?? 0;
-      const profit = soldPrice - cost - soldFees - soldShippingCost;
-
-      await prisma.platformListing.update({
-        where: { id: platformListing.id },
-        data: { status: "SOLD", soldAt: new Date(), soldPrice, soldFees, soldShippingCost, profit },
-      });
-      continue;
-    }
+    if (platformListing.id === profitPlatformListing?.id) continue;
 
     // Every other platform this listing is still live on needs to be auto-delisted now that
     // it's sold elsewhere. Status only moves to DELISTED once removal is actually confirmed —
@@ -140,39 +145,62 @@ export async function markListingSold(listingId: string, soldPlatform?: string, 
   return { success: true, results };
 }
 
-export async function getInventory(filters: { q?: string; missingCostOnly?: boolean } = {}) {
-  const session = await getServerSession(authOptions);
-  const userId = session?.user?.id;
-  if (!userId) throw new Error("Unauthorized");
+export async function getInventory(filters: { q?: string; missingCostOnly?: boolean; page?: number } = {}) {
+  const userId = await requireUserId();
+  const page = Math.max(1, filters.page ?? 1);
 
-  const [allListings, user] = await Promise.all([
+  const where: Prisma.ListingWhereInput = {
+    userId,
+    isDraft: false,
+    ...(filters.missingCostOnly ? { cost: null } : {}),
+    ...(filters.q?.trim()
+      ? {
+          OR: [
+            { title: { contains: filters.q.trim(), mode: "insensitive" as const } },
+            { sku: { contains: filters.q.trim(), mode: "insensitive" as const } },
+          ],
+        }
+      : {}),
+  };
+
+  // Aggregates run over lean scalar-only rows (no photos/platformListings) so they don't pay
+  // for relations they don't use -- the filtered, paginated query below loads full relations
+  // only for the one page actually being displayed.
+  const [totalCount, filteredCount, statRows, user] = await Promise.all([
+    prisma.listing.count({ where: { userId, isDraft: false } }),
+    prisma.listing.count({ where }),
     prisma.listing.findMany({
       where: { userId, isDraft: false },
-      include: { photos: true, platformListings: true },
-      orderBy: { createdAt: "desc" },
+      select: { quantity: true, price: true, cost: true },
     }),
     prisma.user.findUnique({ where: { id: userId }, select: { plan: true } }),
   ]);
 
   const plan = getPlan(user?.plan);
-  const activeCount = allListings.filter((l) => l.quantity > 0).length;
-  const totalValue = allListings.reduce((sum, l) => sum + l.price * l.quantity, 0);
-  const missingCostCount = allListings.filter((l) => l.cost === null).length;
+  const activeCount = statRows.filter((l) => l.quantity > 0).length;
+  const totalValue = statRows.reduce((sum, l) => sum + l.price * l.quantity, 0);
+  const missingCostCount = statRows.filter((l) => l.cost === null).length;
+  const costedRows = statRows.filter((l) => l.cost !== null);
+  const costBasis = costedRows.reduce((sum, l) => sum + (l.cost ?? 0) * l.quantity, 0);
+  const potentialProfit = costedRows.reduce((sum, l) => sum + (l.price - (l.cost ?? 0)) * l.quantity, 0);
 
-  const costedListings = allListings.filter((l) => l.cost !== null);
-  const costBasis = costedListings.reduce((sum, l) => sum + (l.cost ?? 0) * l.quantity, 0);
-  const potentialProfit = costedListings.reduce((sum, l) => sum + (l.price - (l.cost ?? 0)) * l.quantity, 0);
+  const totalPages = Math.max(1, Math.ceil(filteredCount / PAGE_SIZE));
+  const clampedPage = Math.min(page, totalPages);
 
-  const q = filters.q?.trim().toLowerCase();
-  const listings = allListings.filter((l) => {
-    if (filters.missingCostOnly && l.cost !== null) return false;
-    if (q && !l.title.toLowerCase().includes(q) && !(l.sku ?? "").toLowerCase().includes(q)) return false;
-    return true;
+  const listings = await prisma.listing.findMany({
+    where,
+    include: { photos: true, platformListings: true },
+    orderBy: { createdAt: "desc" },
+    take: PAGE_SIZE,
+    skip: (clampedPage - 1) * PAGE_SIZE,
   });
 
   return {
     listings,
-    totalCount: allListings.length,
+    totalCount,
+    filteredCount,
+    page: clampedPage,
+    totalPages,
     plan,
     activeCount,
     activeLimit: plan.activeInventoryLimit,

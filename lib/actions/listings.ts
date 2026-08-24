@@ -3,11 +3,9 @@
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { listingSchema, ListingFormData } from "@/lib/schemas/listing";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
 import { canCreateListing, incrementListingUsage } from "@/lib/actions/usage";
 import { track } from "@/lib/analytics/track";
-import { getUserId } from "@/lib/auth-helpers";
+import { requireUserId } from "@/lib/auth-helpers";
 
 async function trackListingCompleted(userId: string, listingId: string) {
   await track("listing_completed", userId, { listingId });
@@ -18,8 +16,7 @@ async function trackListingCompleted(userId: string, listingId: string) {
 }
 
 export async function getListings() {
-  const session = await getServerSession(authOptions);
-  const userId = getUserId(session);
+  const userId = await requireUserId();
   return prisma.listing.findMany({
     where: { userId, isDraft: false },
     include: { photos: true, platformListings: true },
@@ -28,8 +25,7 @@ export async function getListings() {
 }
 
 export async function getDrafts() {
-  const session = await getServerSession(authOptions);
-  const userId = getUserId(session);
+  const userId = await requireUserId();
   return prisma.listing.findMany({
     where: { userId, isDraft: true },
     include: { photos: true, platformListings: true },
@@ -38,8 +34,7 @@ export async function getDrafts() {
 }
 
 export async function getListing(id: string) {
-  const session = await getServerSession(authOptions);
-  const userId = getUserId(session);
+  const userId = await requireUserId();
   return prisma.listing.findFirst({
     where: { id, userId },
     include: { photos: true, platformListings: true, jobs: true },
@@ -47,8 +42,7 @@ export async function getListing(id: string) {
 }
 
 export async function createListing(data: ListingFormData) {
-  const session = await getServerSession(authOptions);
-  const userId = getUserId(session);
+  const userId = await requireUserId();
   const parsed = listingSchema.safeParse(data);
   if (!parsed.success) {
     return { error: parsed.error.format() };
@@ -112,8 +106,7 @@ function normalizeDraft(data: Partial<ListingFormData>) {
 }
 
 export async function saveDraft(data: Partial<ListingFormData>, id?: string) {
-  const session = await getServerSession(authOptions);
-  const userId = getUserId(session);
+  const userId = await requireUserId();
 
   const normalized = normalizeDraft(data);
   if ("error" in normalized) {
@@ -163,8 +156,7 @@ export async function saveDraft(data: Partial<ListingFormData>, id?: string) {
 }
 
 export async function publishDraft(id: string, data: ListingFormData) {
-  const session = await getServerSession(authOptions);
-  const userId = getUserId(session);
+  const userId = await requireUserId();
 
   const existing = await prisma.listing.findFirst({ where: { id, userId, isDraft: true } });
   if (!existing) return { error: "Draft not found" };
@@ -208,8 +200,7 @@ export async function publishDraft(id: string, data: ListingFormData) {
 }
 
 export async function updateListing(id: string, data: Partial<ListingFormData>) {
-  const session = await getServerSession(authOptions);
-  const userId = getUserId(session);
+  const userId = await requireUserId();
   const existing = await prisma.listing.findFirst({ where: { id, userId } });
   if (!existing) return { error: "Listing not found" };
 
@@ -238,8 +229,7 @@ export async function updateListing(id: string, data: Partial<ListingFormData>) 
 }
 
 export async function deleteListing(id: string) {
-  const session = await getServerSession(authOptions);
-  const userId = getUserId(session);
+  const userId = await requireUserId();
   await prisma.listing.deleteMany({ where: { id, userId } });
   revalidatePath("/listings");
   revalidatePath("/listings/drafts");
@@ -248,8 +238,7 @@ export async function deleteListing(id: string) {
 }
 
 export async function bulkDeleteListings(ids: string[]) {
-  const session = await getServerSession(authOptions);
-  const userId = getUserId(session);
+  const userId = await requireUserId();
   if (ids.length === 0) return { success: true, count: 0 };
   const result = await prisma.listing.deleteMany({ where: { id: { in: ids }, userId } });
   revalidatePath("/listings");

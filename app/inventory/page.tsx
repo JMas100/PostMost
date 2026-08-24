@@ -10,6 +10,8 @@ import { PlatformBadge } from "@/components/platform-badge";
 import { EmptyState } from "@/components/ui/empty-state";
 import { getInventory } from "@/lib/actions/inventory";
 import { InventoryFilters } from "./inventory-filters";
+import { cn } from "@/lib/utils";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 import {
   Table,
   TableBody,
@@ -21,7 +23,7 @@ import {
 
 export default async function InventoryPage(
   props: {
-    searchParams: Promise<{ q?: string; filter?: string }>;
+    searchParams: Promise<{ q?: string; filter?: string; page?: string }>;
   }
 ) {
   const searchParams = await props.searchParams;
@@ -29,18 +31,30 @@ export default async function InventoryPage(
   if (!session?.user?.id) redirect("/login");
 
   const missingCostOnly = searchParams.filter === "missing-cost";
+  const page = Math.max(1, parseInt(searchParams.page ?? "1", 10) || 1);
   const {
     listings,
     totalCount,
+    filteredCount,
+    page: clampedPage,
+    totalPages,
     activeCount,
     activeLimit,
     totalValue,
     missingCostCount,
     costBasis,
     potentialProfit,
-  } = await getInventory({ q: searchParams.q, missingCostOnly });
+  } = await getInventory({ q: searchParams.q, missingCostOnly, page });
 
   const isFiltered = Boolean(searchParams.q || missingCostOnly);
+  const buildPageHref = (p: number) => {
+    const params = new URLSearchParams();
+    if (searchParams.q) params.set("q", searchParams.q);
+    if (missingCostOnly) params.set("filter", "missing-cost");
+    if (p > 1) params.set("page", String(p));
+    const qs = params.toString();
+    return qs ? `/inventory?${qs}` : "/inventory";
+  };
 
   return (
     <Shell>
@@ -150,6 +164,7 @@ export default async function InventoryPage(
                 primaryAction={{ label: "Clear filters", href: "/inventory" }}
               />
             ) : (
+              <>
               <Card>
                 <CardContent className="p-0">
                   <Table>
@@ -216,6 +231,42 @@ export default async function InventoryPage(
                   </Table>
                 </CardContent>
               </Card>
+
+              {totalPages > 1 && (
+                <div className="flex items-center justify-between text-sm">
+                  <p className="text-muted-foreground">
+                    Showing {(clampedPage - 1) * 25 + 1}–{Math.min(clampedPage * 25, filteredCount)} of {filteredCount}
+                  </p>
+                  <div className="flex items-center gap-2">
+                    <Link
+                      href={buildPageHref(clampedPage - 1)}
+                      aria-disabled={clampedPage <= 1}
+                      className={cn(
+                        buttonVariants({ variant: "outline", size: "sm" }),
+                        clampedPage <= 1 && "pointer-events-none opacity-50"
+                      )}
+                    >
+                      <ChevronLeft className="h-4 w-4" />
+                      Previous
+                    </Link>
+                    <span className="text-muted-foreground">
+                      Page {clampedPage} of {totalPages}
+                    </span>
+                    <Link
+                      href={buildPageHref(clampedPage + 1)}
+                      aria-disabled={clampedPage >= totalPages}
+                      className={cn(
+                        buttonVariants({ variant: "outline", size: "sm" }),
+                        clampedPage >= totalPages && "pointer-events-none opacity-50"
+                      )}
+                    >
+                      Next
+                      <ChevronRight className="h-4 w-4" />
+                    </Link>
+                  </div>
+                </div>
+              )}
+              </>
             )}
           </>
         )}
