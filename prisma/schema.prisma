@@ -151,6 +151,8 @@ model CrossPostJob {
   listingId   String
   listing     Listing  @relation(fields: [listingId], references: [id], onDelete: Cascade)
   platform    String
+  /// "POST" | "DELIST" | "RELIST" — what the worker does with this job.
+  type        String   @default("POST")
   status      String   @default("PENDING")
   payload     String?  // JSON
   result      String?  // JSON

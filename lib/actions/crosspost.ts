@@ -75,7 +75,7 @@ export async function crossPost(listingId: string, platformIds: string[]) {
   return { success: true, results };
 }
 
-function triggerJobWorker(listingId: string) {
+function triggerJobWorker(listingId?: string) {
   const baseUrl = process.env.APP_URL || process.env.NEXTAUTH_URL;
   const masterKey = process.env.MASTER_KEY;
   if (!baseUrl || !masterKey) return;
@@ -83,11 +83,56 @@ function triggerJobWorker(listingId: string) {
   void fetch(`${baseUrl.replace(/\/$/, "")}/api/jobs/run`, {
     method: "POST",
     headers: { "content-type": "application/json", "x-master-key": masterKey },
-    body: JSON.stringify({ listingId }),
+    body: JSON.stringify(listingId ? { listingId } : {}),
     cache: "no-store",
   }).catch(() => {
     // Best-effort trigger; the cron will pick the jobs up regardless.
   });
+}
+
+/** Queues a DELIST or RELIST job for every currently-POSTED platform on each selected listing.
+ *  Ownership is verified via the listing query itself -- a listing id that isn't the caller's
+ *  simply won't match and contributes zero jobs. */
+async function queueBulkJob(listingIds: string[], type: "DELIST" | "RELIST") {
+  const session = await getServerSession(authOptions);
+  const userId = getUserId(session);
+
+  if (listingIds.length === 0) return { success: true, queued: 0 };
+
+  const listings = await prisma.listing.findMany({
+    where: { id: { in: listingIds }, userId },
+    include: { platformListings: { where: { status: PlatformListingStatus.POSTED } } },
+  });
+
+  let queued = 0;
+  for (const listing of listings) {
+    for (const platformListing of listing.platformListings) {
+      await prisma.crossPostJob.create({
+        data: {
+          userId,
+          listingId: listing.id,
+          platform: platformListing.platform,
+          type,
+          status: "PENDING",
+        },
+      });
+      queued += 1;
+    }
+  }
+
+  if (queued > 0) triggerJobWorker();
+
+  revalidatePath("/listings");
+  for (const listing of listings) revalidatePath(`/listings/${listing.id}`);
+  return { success: true, queued };
+}
+
+export async function bulkDelist(listingIds: string[]) {
+  return queueBulkJob(listingIds, "DELIST");
+}
+
+export async function bulkRelist(listingIds: string[]) {
+  return queueBulkJob(listingIds, "RELIST");
 }
 
 export async function getCrossPostJobs(listingId?: string) {

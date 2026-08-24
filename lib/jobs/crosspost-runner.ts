@@ -1,9 +1,11 @@
 import { prisma } from "@/lib/prisma";
 import { getAdapter } from "@/lib/marketplaces";
 import { getAccountData } from "@/lib/marketplaces/account-data";
+import { relistPlatformListing } from "@/lib/marketplaces/relist";
 import { PlatformListingStatus } from "@/lib/marketplaces/listing-status";
 import { track } from "@/lib/analytics/track";
-import { Photo } from "@prisma/client";
+import { Photo, Prisma } from "@prisma/client";
+import type { MarketplaceAdapter } from "@/lib/marketplaces/types";
 
 /** A RUNNING job whose lock is older than this is considered abandoned and is reclaimed. */
 const STUCK_JOB_TIMEOUT_MS = 5 * 60 * 1000;
@@ -90,6 +92,15 @@ export async function processPendingCrossPostJobs(listingId?: string): Promise<C
       continue;
     }
 
+    if (job.type === "DELIST") {
+      await processDelistJob(job, adapter, attempts, summary);
+      continue;
+    }
+    if (job.type === "RELIST") {
+      await processRelistJob(job, attempts, summary);
+      continue;
+    }
+
     const listingData = {
       title: job.listing.title,
       description: job.listing.description,
@@ -172,6 +183,149 @@ export async function processPendingCrossPostJobs(listingId?: string): Promise<C
   }
 
   return summary;
+}
+
+type JobWithListing = Prisma.CrossPostJobGetPayload<{ include: { listing: { include: { photos: true } } } }>;
+
+async function processDelistJob(
+  job: JobWithListing,
+  adapter: MarketplaceAdapter,
+  attempts: number,
+  summary: CrossPostRunSummary
+) {
+  if (!adapter.delist) {
+    await handleFailure(job.id, job.userId, job.listingId, job.platform, attempts, job.maxAttempts, `${adapter.name} doesn't support delisting`, summary);
+    return;
+  }
+
+  const platformListing = await prisma.platformListing.findUnique({
+    where: { listingId_platform: { listingId: job.listingId, platform: job.platform } },
+  });
+  if (!platformListing?.externalId) {
+    await handleFailure(job.id, job.userId, job.listingId, job.platform, attempts, job.maxAttempts, "No listing URL recorded for this platform", summary);
+    return;
+  }
+
+  const accountData = (await getAccountData(job.userId, job.platform)) ?? { accessToken: null };
+
+  try {
+    const result = await withTimeout(
+      adapter.delist(platformListing.externalId, accountData),
+      JOB_TIMEOUT_MS,
+      `Timed out after ${JOB_TIMEOUT_MS / 1000}s`
+    );
+
+    if (!result.success) {
+      await handleFailure(job.id, job.userId, job.listingId, job.platform, attempts, job.maxAttempts, result.error || "Unknown error", summary);
+      return;
+    }
+
+    await prisma.crossPostJob.update({
+      where: { id: job.id },
+      data: { status: "COMPLETED", error: null, attempts, lockedAt: null, completedAt: new Date() },
+    });
+    await prisma.platformListing.update({
+      where: { id: platformListing.id },
+      data: { status: PlatformListingStatus.DELISTED, errorMessage: null },
+    });
+    summary.succeeded += 1;
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "Unknown error";
+    await handleFailure(job.id, job.userId, job.listingId, job.platform, attempts, job.maxAttempts, message, summary);
+  }
+}
+
+async function processRelistJob(job: JobWithListing, attempts: number, summary: CrossPostRunSummary) {
+  const platformListing = await prisma.platformListing.findUnique({
+    where: { listingId_platform: { listingId: job.listingId, platform: job.platform } },
+  });
+
+  const outcome = await withTimeout(
+    relistPlatformListing({
+      userId: job.userId,
+      platform: job.platform,
+      externalId: platformListing?.externalId ?? null,
+      listingData: {
+        title: job.listing.title,
+        description: job.listing.description,
+        price: job.listing.price,
+        quantity: job.listing.quantity,
+        condition: job.listing.condition,
+        category: job.listing.category,
+        brand: job.listing.brand,
+        size: job.listing.size,
+        color: job.listing.color,
+        material: job.listing.material,
+        sku: job.listing.sku,
+        tags: job.listing.tags ? job.listing.tags.split(",").map((t) => t.trim()) : undefined,
+        photos: job.listing.photos.map((p: Photo) => p.url),
+      },
+    }),
+    JOB_TIMEOUT_MS * 2,
+    `Timed out after ${(JOB_TIMEOUT_MS * 2) / 1000}s`
+  ).catch((err) => ({ outcome: "delist_unconfirmed" as const, error: err instanceof Error ? err.message : "Unknown error" }));
+
+  if (outcome.outcome === "relisted") {
+    await prisma.crossPostJob.update({
+      where: { id: job.id },
+      data: { status: "COMPLETED", error: null, attempts, lockedAt: null, completedAt: new Date() },
+    });
+    if (platformListing) {
+      await prisma.platformListing.update({
+        where: { id: platformListing.id },
+        data: {
+          status: PlatformListingStatus.POSTED,
+          externalId: outcome.externalId || null,
+          externalUrl: outcome.externalUrl || null,
+          postedAt: new Date(),
+          errorMessage: null,
+        },
+      });
+    }
+    summary.succeeded += 1;
+    return;
+  }
+
+  if (outcome.outcome === "stranded") {
+    // Delisted for real, but the repost failed -- this genuinely needs attention. Not retried:
+    // retrying would just attempt to post fresh, which is fine, but we want a human to know
+    // this platform went down first.
+    await prisma.crossPostJob.update({
+      where: { id: job.id },
+      data: { status: "FAILED", error: outcome.error, attempts, lockedAt: null, completedAt: new Date() },
+    });
+    if (platformListing) {
+      await prisma.platformListing.update({
+        where: { id: platformListing.id },
+        data: {
+          status: PlatformListingStatus.FAILED,
+          externalId: null,
+          externalUrl: null,
+          errorMessage: `Relist failed after delist succeeded: ${outcome.error}`,
+        },
+      });
+    }
+    summary.failed += 1;
+    return;
+  }
+
+  // "not_attempted" or "delist_unconfirmed" -- nothing was touched, the listing is exactly as
+  // it was before. Retry with backoff like any transient failure, but never mark the
+  // platformListing FAILED for this -- it's still genuinely live and fine.
+  const message = outcome.outcome === "not_attempted" ? outcome.reason : `removal couldn't be confirmed: ${outcome.error}`;
+  if (attempts < job.maxAttempts) {
+    await prisma.crossPostJob.update({
+      where: { id: job.id },
+      data: { status: "PENDING", error: message, attempts, lockedAt: null, nextRunAt: new Date(Date.now() + backoffMs(attempts)) },
+    });
+    summary.retried += 1;
+    return;
+  }
+  await prisma.crossPostJob.update({
+    where: { id: job.id },
+    data: { status: "FAILED", error: message, attempts, lockedAt: null, completedAt: new Date() },
+  });
+  summary.failed += 1;
 }
 
 async function handleFailure(
