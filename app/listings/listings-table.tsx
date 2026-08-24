@@ -9,8 +9,9 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { PlatformBadge } from "@/components/platform-badge";
-import { Trash2 } from "lucide-react";
+import { Trash2, Ban, RefreshCw } from "lucide-react";
 import { bulkDeleteListings } from "@/lib/actions/listings";
+import { bulkDelist, bulkRelist } from "@/lib/actions/crosspost";
 import {
   Table,
   TableBody,
@@ -69,6 +70,48 @@ export function ListingsTable({ listings }: { listings: ListingRow[] }) {
     });
   }
 
+  function handleBulkDelist() {
+    const count = selected.size;
+    if (count === 0) return;
+    if (!window.confirm(`Delist ${count === 1 ? "this listing" : `these ${count} listings`} from every marketplace they're live on?`)) return;
+
+    startTransition(async () => {
+      const result = await bulkDelist(Array.from(selected));
+      if (result.success) {
+        toast.success(
+          result.queued > 0
+            ? `Queued ${result.queued} platform${result.queued === 1 ? "" : "s"} for delisting — check back in a minute.`
+            : "Nothing to delist — none of the selected listings are live anywhere."
+        );
+        setSelected(new Set());
+        router.refresh();
+      } else {
+        toast.error("Couldn't queue delisting. Try again.");
+      }
+    });
+  }
+
+  function handleBulkRelist() {
+    const count = selected.size;
+    if (count === 0) return;
+    if (!window.confirm(`Refresh ${count === 1 ? "this listing" : `these ${count} listings`}? This delists and reposts on every marketplace they're live on.`)) return;
+
+    startTransition(async () => {
+      const result = await bulkRelist(Array.from(selected));
+      if (result.success) {
+        toast.success(
+          result.queued > 0
+            ? `Queued ${result.queued} platform${result.queued === 1 ? "" : "s"} to refresh — check back in a minute.`
+            : "Nothing to refresh — none of the selected listings are live anywhere."
+        );
+        setSelected(new Set());
+        router.refresh();
+      } else {
+        toast.error("Couldn't queue refresh. Try again.");
+      }
+    });
+  }
+
   return (
     <div className="space-y-3">
       {selected.size > 0 && (
@@ -77,6 +120,14 @@ export function ListingsTable({ listings }: { listings: ListingRow[] }) {
           <div className="flex items-center gap-2">
             <Button variant="ghost" size="sm" onClick={() => setSelected(new Set())}>
               Clear
+            </Button>
+            <Button variant="outline" size="sm" onClick={handleBulkRelist} disabled={isPending}>
+              <RefreshCw className="mr-1 h-4 w-4" />
+              Refresh
+            </Button>
+            <Button variant="outline" size="sm" onClick={handleBulkDelist} disabled={isPending}>
+              <Ban className="mr-1 h-4 w-4" />
+              Delist
             </Button>
             <Button variant="destructive" size="sm" onClick={handleBulkDelete} disabled={isPending}>
               <Trash2 className="mr-1 h-4 w-4" />

@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { getAdapter } from "@/lib/marketplaces";
 import { getAccountData } from "@/lib/marketplaces/account-data";
+import { relistPlatformListing } from "@/lib/marketplaces/relist";
 import { STOCK_SYNC_RULE, RELIST_STALE_RULE, RELIST_STALE_DAYS } from "@/lib/automation/rule-types";
 import type { Photo } from "@prisma/client";
 
@@ -181,58 +182,13 @@ export async function runRelistStaleRule(): Promise<RelistRunSummary> {
     const { listing } = platformListing;
     if (!listing) continue;
     summary.candidatesProcessed += 1;
+    const platformName = getAdapter(platformListing.platform)?.name || platformListing.platform;
 
-    const adapter = getAdapter(platformListing.platform);
-    if (!adapter?.delist || !platformListing.externalId) {
-      summary.failed += 1;
-      await prisma.automationEvent.create({
-        data: {
-          userId: listing.userId,
-          ruleType: RELIST_STALE_RULE,
-          listingId: listing.id,
-          platform: platformListing.platform,
-          message: `"${listing.title}" wasn't relisted — ${adapter?.name || platformListing.platform} doesn't support automatic delisting yet`,
-          success: false,
-        },
-      });
-      continue;
-    }
-
-    const accountData = await getAccountData(listing.userId, platformListing.platform);
-    if (!accountData) {
-      summary.failed += 1;
-      await prisma.automationEvent.create({
-        data: {
-          userId: listing.userId,
-          ruleType: RELIST_STALE_RULE,
-          listingId: listing.id,
-          platform: platformListing.platform,
-          message: `"${listing.title}" wasn't relisted — no connected ${adapter.name} account was found`,
-          success: false,
-        },
-      });
-      continue;
-    }
-
-    try {
-      const delistResult = await adapter.delist(platformListing.externalId, accountData);
-      if (!delistResult.success) {
-        // Not confirmed removed — leave everything untouched, this is a safe no-op.
-        summary.failed += 1;
-        await prisma.automationEvent.create({
-          data: {
-            userId: listing.userId,
-            ruleType: RELIST_STALE_RULE,
-            listingId: listing.id,
-            platform: platformListing.platform,
-            message: `"${listing.title}" wasn't relisted on ${adapter.name} — removal couldn't be confirmed, so it was left as-is: ${delistResult.error || "unknown error"}`,
-            success: false,
-          },
-        });
-        continue;
-      }
-
-      const listingData = {
+    const outcome = await relistPlatformListing({
+      userId: listing.userId,
+      platform: platformListing.platform,
+      externalId: platformListing.externalId,
+      listingData: {
         title: listing.title,
         description: listing.description,
         price: listing.price,
@@ -246,64 +202,63 @@ export async function runRelistStaleRule(): Promise<RelistRunSummary> {
         sku: listing.sku,
         tags: listing.tags ? listing.tags.split(",").map((t) => t.trim()) : undefined,
         photos: listing.photos.map((p: Photo) => p.url),
-      };
+      },
+    });
 
-      const postResult = await adapter.post(listingData, accountData);
-
-      if (postResult.success) {
-        await prisma.platformListing.update({
-          where: { id: platformListing.id },
-          data: {
-            status: "POSTED",
-            externalId: postResult.externalId || null,
-            externalUrl: postResult.externalUrl || null,
-            postedAt: new Date(),
-            errorMessage: null,
-          },
-        });
-        summary.relisted += 1;
-        await prisma.automationEvent.create({
-          data: {
-            userId: listing.userId,
-            ruleType: RELIST_STALE_RULE,
-            listingId: listing.id,
-            platform: platformListing.platform,
-            message: `"${listing.title}" relisted on ${adapter.name} after ${RELIST_STALE_DAYS} days`,
-          },
-        });
-      } else {
-        // Delisted for real, but the repost didn't take — nothing live for this platform now.
-        await prisma.platformListing.update({
-          where: { id: platformListing.id },
-          data: {
-            status: "FAILED",
-            externalId: null,
-            externalUrl: null,
-            errorMessage: `Relist failed after delist succeeded: ${postResult.error || "unknown error"}`,
-          },
-        });
-        summary.strandedAfterDelist += 1;
-        await prisma.automationEvent.create({
-          data: {
-            userId: listing.userId,
-            ruleType: RELIST_STALE_RULE,
-            listingId: listing.id,
-            platform: platformListing.platform,
-            message: `"${listing.title}" was taken down from ${adapter.name} to relist, but the repost failed — it needs attention`,
-            success: false,
-          },
-        });
-      }
-    } catch (err) {
-      summary.failed += 1;
-      const message = err instanceof Error ? err.message : "Unknown error";
+    if (outcome.outcome === "relisted") {
+      await prisma.platformListing.update({
+        where: { id: platformListing.id },
+        data: {
+          status: "POSTED",
+          externalId: outcome.externalId || null,
+          externalUrl: outcome.externalUrl || null,
+          postedAt: new Date(),
+          errorMessage: null,
+        },
+      });
+      summary.relisted += 1;
       await prisma.automationEvent.create({
         data: {
           userId: listing.userId,
           ruleType: RELIST_STALE_RULE,
           listingId: listing.id,
           platform: platformListing.platform,
-          message: `"${listing.title}" relist on ${adapter.name} threw an error: ${message}`,
+          message: `"${listing.title}" relisted on ${platformName} after ${RELIST_STALE_DAYS} days`,
+        },
+      });
+    } else if (outcome.outcome === "stranded") {
+      // Delisted for real, but the repost didn't take — nothing live for this platform now.
+      await prisma.platformListing.update({
+        where: { id: platformListing.id },
+        data: {
+          status: "FAILED",
+          externalId: null,
+          externalUrl: null,
+          errorMessage: `Relist failed after delist succeeded: ${outcome.error}`,
+        },
+      });
+      summary.strandedAfterDelist += 1;
+      await prisma.automationEvent.create({
+        data: {
+          userId: listing.userId,
+          ruleType: RELIST_STALE_RULE,
+          listingId: listing.id,
+          platform: platformListing.platform,
+          message: `"${listing.title}" was taken down from ${platformName} to relist, but the repost failed — it needs attention`,
+          success: false,
+        },
+      });
+    } else {
+      // "not_attempted" or "delist_unconfirmed" — nothing was touched, a safe no-op.
+      summary.failed += 1;
+      const reason = outcome.outcome === "not_attempted" ? outcome.reason : `removal couldn't be confirmed, so it was left as-is: ${outcome.error}`;
+      await prisma.automationEvent.create({
+        data: {
+          userId: listing.userId,
+          ruleType: RELIST_STALE_RULE,
+          listingId: listing.id,
+          platform: platformListing.platform,
+          message: `"${listing.title}" wasn't relisted on ${platformName} — ${reason}`,
           success: false,
         },
       });
