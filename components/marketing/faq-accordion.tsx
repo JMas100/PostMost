@@ -17,7 +17,7 @@ const FAQS = [
   },
   {
     q: "Which marketplaces does PostMost support?",
-    a: "eBay, Poshmark, Mercari, Depop, Etsy, Whatnot, Grailed, Vinted, and Shopify. Your plan determines how many you can connect at once.",
+    a: "eBay, Etsy, Poshmark, Mercari, Depop, Facebook Marketplace, Craigslist, OfferUp, Vinted, and Grailed. Your plan determines how many you can connect at once.",
   },
   {
     q: "Do I need to install anything?",
