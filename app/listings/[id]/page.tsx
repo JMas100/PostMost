@@ -140,7 +140,10 @@ export default async function ListingDetailPage(props: { params: Promise<{ id: s
                   <CardTitle>Inventory</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <SoldButton listingId={listing.id} />
+                  <SoldButton
+                    listingId={listing.id}
+                    postedPlatforms={listing.platformListings.filter((pl) => pl.status === "POSTED").map((pl) => pl.platform)}
+                  />
                 </CardContent>
               </Card>
             )}
