@@ -7,7 +7,7 @@ FROM (
   FROM "PlatformListing" AS "platformListing"
   INNER JOIN "Listing" AS "listing"
     ON "listing"."id" = "platformListing"."listingId"
-  WHERE "platformListing"."status" = 'POSTED'
+  WHERE "platformListing"."status" IN ('SOLD', 'DELISTED')
   GROUP BY "listing"."userId"
 ) AS "firstPost"
 WHERE "user"."id" = "firstPost"."userId"
