@@ -5,7 +5,7 @@ import { cookies } from "next/headers";
 import { prisma } from "@/lib/prisma";
 import { getAdapter } from "@/lib/marketplaces";
 import { decrypt, encrypt } from "@/lib/crypto";
-import { getPlan } from "@/lib/plans";
+import { getEffectivePlan, PLAN_ASSIGNMENT_SELECT } from "@/lib/plans";
 import crypto from "crypto";
 import { requireUserId } from "@/lib/auth-helpers";
 
@@ -13,14 +13,14 @@ import { requireUserId } from "@/lib/auth-helpers";
  *  (existing platforms being reconnected/updated never count against it). */
 async function canConnectMarketplace(userId: string, platform: string): Promise<{ allowed: boolean; reason?: string }> {
   const [user, activePlatforms] = await Promise.all([
-    prisma.user.findUnique({ where: { id: userId }, select: { plan: true } }),
+    prisma.user.findUnique({ where: { id: userId }, select: PLAN_ASSIGNMENT_SELECT }),
     prisma.marketplaceAccount.findMany({
       where: { userId, isActive: true },
       select: { platform: true },
       distinct: ["platform"],
     }),
   ]);
-  const plan = getPlan(user?.plan);
+  const plan = getEffectivePlan(user);
   if (plan.marketplaces === -1) return { allowed: true };
   const alreadyConnected = activePlatforms.some((a) => a.platform === platform);
   if (alreadyConnected || activePlatforms.length < plan.marketplaces) return { allowed: true };

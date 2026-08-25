@@ -1,7 +1,7 @@
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { getPlan } from "@/lib/plans";
+import { getEffectivePlan, getPlan, PLAN_ASSIGNMENT_SELECT } from "@/lib/plans";
 import { MarketingNav } from "@/components/marketing/marketing-nav";
 import { MarketingFooter } from "@/components/marketing/marketing-footer";
 import { FinalCta } from "@/components/marketing/final-cta";
@@ -16,9 +16,9 @@ export default async function PricingPage() {
   if (session?.user?.id) {
     const user = await prisma.user.findUnique({
       where: { id: session.user.id },
-      select: { plan: true },
+      select: PLAN_ASSIGNMENT_SELECT,
     });
-    currentPlanId = getPlan(user?.plan).id;
+    currentPlanId = getEffectivePlan(user).id;
   }
 
   return (

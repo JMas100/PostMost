@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
-import { PlanId, PLANS } from "@/lib/plans";
+import { getEffectivePlan, PlanId, PLANS } from "@/lib/plans";
 import { getStripePriceId, getStripe } from "@/lib/stripe";
 
 // Deliberately local and null-returning, unlike the shared throwing getUserId in
@@ -27,7 +27,7 @@ export async function getBilling() {
   });
   if (!user) return null;
 
-  const plan = PLANS.find((p) => p.id === user.plan) ?? PLANS[0];
+  const plan = getEffectivePlan(user);
   return {
     plan,
     usage: user.usage,

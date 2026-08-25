@@ -16,6 +16,8 @@ model User {
   password          String?
   image             String?
   plan              String         @default("free")
+  planOverride      String?
+  planOverrideExpiresAt DateTime?
   stripeCustomerId  String?
   stripeSubscriptionId String?
   stripePriceId     String?
