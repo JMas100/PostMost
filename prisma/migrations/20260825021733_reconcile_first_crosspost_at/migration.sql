@@ -7,8 +7,11 @@ FROM (
   FROM "PlatformListing" AS "platformListing"
   INNER JOIN "Listing" AS "listing"
     ON "listing"."id" = "platformListing"."listingId"
-  WHERE "platformListing"."status" IN ('SOLD', 'DELISTED')
+  WHERE "platformListing"."status" IN ('POSTED', 'SOLD', 'DELISTED')
   GROUP BY "listing"."userId"
 ) AS "firstPost"
 WHERE "user"."id" = "firstPost"."userId"
-  AND "user"."firstCrosspostAt" IS NULL;
+  AND (
+    "user"."firstCrosspostAt" IS NULL
+    OR "firstPost"."postedAt" < "user"."firstCrosspostAt"
+  );
