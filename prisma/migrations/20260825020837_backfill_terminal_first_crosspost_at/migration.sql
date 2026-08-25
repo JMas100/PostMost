@@ -11,4 +11,7 @@ FROM (
   GROUP BY "listing"."userId"
 ) AS "firstPost"
 WHERE "user"."id" = "firstPost"."userId"
-  AND "user"."firstCrosspostAt" IS NULL;
+  AND (
+    "user"."firstCrosspostAt" IS NULL
+    OR "firstPost"."postedAt" < "user"."firstCrosspostAt"
+  );
