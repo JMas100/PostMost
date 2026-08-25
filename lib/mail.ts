@@ -1,4 +1,6 @@
 import { Resend } from "resend";
+import { render } from "@react-email/render";
+import { PasswordResetEmail } from "@/emails/password-reset";
 
 let _resend: Resend | null = null;
 
@@ -16,14 +18,12 @@ function getResend(): Resend {
 const FROM = process.env.EMAIL_FROM || "PostMost <onboarding@resend.dev>";
 
 export async function sendPasswordResetEmail(to: string, resetUrl: string) {
+  const email = PasswordResetEmail({ resetUrl });
   await getResend().emails.send({
     from: FROM,
     to,
     subject: "Reset your PostMost password",
-    html: `
-      <p>Someone requested a password reset for your PostMost account.</p>
-      <p><a href="${resetUrl}">Click here to choose a new password</a>. This link expires in 1 hour.</p>
-      <p>If you didn't request this, you can safely ignore this email.</p>
-    `,
+    react: email,
+    text: await render(email, { plainText: true }),
   });
 }
