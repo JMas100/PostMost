@@ -65,6 +65,21 @@ export async function connectMarketplaceAccount(input: AccountConnectionInput) {
     }
   }
 
+  // For browser-automation platforms, actually attempt a login with the given credentials
+  // before ever saving them -- a wrong username/password should be caught here, not silently
+  // stored and only discovered the next time a post/delist job fails. Only a confirmed
+  // rejection blocks saving; an inconclusive check (Playwright unavailable, likely bot
+  // detection) never does, since that's not evidence the credentials are actually wrong.
+  if (input.accessToken) {
+    const adapter = getAdapter(input.platform);
+    if (adapter?.verifyLogin) {
+      const check = await adapter.verifyLogin(input.displayName, input.accessToken);
+      if (check.status === "rejected") {
+        throw new Error(`Couldn't sign in to ${adapter.name} with these credentials: ${check.error}`);
+      }
+    }
+  }
+
   const data = {
     displayName: input.displayName,
     // A blank password/token field on an update means "leave it as-is," not "clear it" — the

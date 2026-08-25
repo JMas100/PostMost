@@ -256,12 +256,21 @@ function ManualForm({ platform, account, onDone }: FormProps) {
   }
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4 pt-2">
+    <form onSubmit={handleSubmit} className="space-y-4 pt-2" autoComplete="off">
+      {/* Browsers/password managers key off type="password" + adjacent text input to decide
+          "this looks like a login form for the current site" and offer to fill in PostMost's
+          own saved credentials -- these fields are for a *different* site's login, so
+          autoComplete is deliberately set to values that tell every major password manager
+          (Chrome, Safari/iCloud Keychain, 1Password, LastPass, Bitwarden) not to touch them. */}
       <div className="space-y-2">
         <Label htmlFor={`${platform.id}-displayName`}>Username or email</Label>
         <Input
           id={`${platform.id}-displayName`}
           name="displayName"
+          autoComplete="off"
+          data-1p-ignore
+          data-lpignore="true"
+          data-bwignore
           defaultValue={account?.displayName ?? ""}
           placeholder={`Your ${platform.name} login`}
           required
@@ -273,16 +282,21 @@ function ManualForm({ platform, account, onDone }: FormProps) {
           id={`${platform.id}-password`}
           name="password"
           type="password"
+          autoComplete="new-password"
+          data-1p-ignore
+          data-lpignore="true"
+          data-bwignore
           placeholder={account?.hasCredentials ? "Leave blank to keep your current password" : "Your account password"}
         />
       </div>
       <p className="text-xs text-muted-foreground">
         Stored encrypted, used only to sign in and manage listings on {platform.name} on your
-        behalf. Never shown again after you save it.
+        behalf. Never shown again after you save it. If a password is entered, PostMost signs
+        into {platform.name} to confirm it works before saving — this takes a few seconds.
       </p>
       <div className="flex gap-2 pt-2">
         <Button type="submit" disabled={isPending} className="flex-1">
-          {isPending ? "Saving..." : account ? "Update" : "Connect"}
+          {isPending ? "Verifying..." : account ? "Update" : "Connect"}
         </Button>
         {account && (
           <Button type="button" variant="destructive" disabled={isPending} onClick={handleDisconnect}>

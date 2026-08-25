@@ -1,4 +1,132 @@
-import type { ListingData, PlatformAccount, PostResult } from "../types";
+import type { ListingData, PlatformAccount, PostResult, CredentialCheckResult } from "../types";
+
+/** Phrases that show up across most login forms when credentials are rejected -- checked as a
+ *  supplement to the "did the password field disappear" heuristic, since some sites re-render
+ *  the same login form with an error banner rather than staying in a state that looks identical
+ *  to a fresh page load. */
+const CREDENTIAL_ERROR_PHRASES = [
+  "incorrect password",
+  "invalid password",
+  "wrong password",
+  "invalid credentials",
+  "incorrect username",
+  "couldn't find an account",
+  "we don't recognize",
+  "doesn't match our records",
+  "check your email and password",
+];
+
+export interface LoginAttemptResult {
+  success: boolean;
+  error?: string;
+}
+
+/**
+ * Fills and submits a login form, then reports whether it actually worked. Never assumes a
+ * submit succeeded just because it didn't throw -- wrong credentials, a 2FA/verification
+ * interstitial, or a layout change all need to be told apart from a real login, so this checks
+ * both a positive signal (left the login page, no password field left) and known rejection
+ * copy before calling it a success.
+ *
+ * A 2FA prompt is the one case this can't fully resolve: the password field is gone (2FA is a
+ * separate step after it), so this reports "success" even though the account isn't actually
+ * usable yet without completing that step. There's no generic way to detect an arbitrary site's
+ * 2FA interstitial without per-site selectors, so this is a known, documented limitation rather
+ * than a silent gap.
+ */
+export async function attemptLogin(
+  page: import("playwright").Page,
+  config: { loginUrl: string; usernameSelector?: string; passwordSelector?: string; submitSelector?: string },
+  username: string,
+  password: string
+): Promise<LoginAttemptResult> {
+  await page.goto(config.loginUrl, { waitUntil: "networkidle" });
+
+  if (config.usernameSelector) await page.fill(config.usernameSelector, username);
+  if (config.passwordSelector) await page.fill(config.passwordSelector, password);
+  if (config.submitSelector) {
+    await Promise.all([
+      page.waitForNavigation({ waitUntil: "networkidle" }).catch(() => {}),
+      page.click(config.submitSelector),
+    ]);
+  }
+
+  if (!config.passwordSelector) return { success: true };
+
+  // The password field still being present is the primary signal: a real logged-in page
+  // essentially never has one. URL equality alone is deliberately NOT treated as sufficient —
+  // some sites handle a successful login without a hard navigation (client-side routing that
+  // never changes the URL Playwright sees), and using URL-unchanged as a standalone trigger
+  // produces false rejections on exactly those sites.
+  const stillOnLogin = (await page.locator(config.passwordSelector).count().catch(() => 0)) > 0;
+
+  const bodyText = (await page.locator("body").innerText().catch(() => "")).toLowerCase();
+  const matchedError = CREDENTIAL_ERROR_PHRASES.find((phrase) => bodyText.includes(phrase));
+
+  if (stillOnLogin || matchedError) {
+    return {
+      success: false,
+      error: matchedError
+        ? `The site reported: "${matchedError}"`
+        : "The login form didn't accept these credentials",
+    };
+  }
+
+  return { success: true };
+}
+
+/**
+ * Standalone credential check for the "Connect account" flow -- attempts a real login with
+ * nothing else attached, so a wrong username/password is caught before it's ever saved, rather
+ * than silently accepted and only discovered the next time a post/delist job fails. Bot
+ * detection is the real limitation here: some sites actively block headless browser logins
+ * regardless of whether the credentials are correct -- that surfaces as "unknown", not
+ * "rejected", specifically so it never blocks a user with genuinely correct credentials.
+ */
+export async function verifyLogin(
+  platformId: string,
+  config: { loginUrl: string; usernameSelector?: string; passwordSelector?: string; submitSelector?: string },
+  username: string,
+  password: string
+): Promise<CredentialCheckResult> {
+  let playwright;
+  try {
+    playwright = await import("playwright");
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    return { status: "unknown", error: `Playwright is not available in this environment. ${message}` };
+  }
+
+  const browser = await playwright.chromium.launch({
+    headless: true,
+    args: ["--no-sandbox", "--disable-setuid-sandbox"],
+  });
+
+  try {
+    const context = await browser.newContext({
+      userAgent:
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+      viewport: { width: 1280, height: 800 },
+    });
+    const page = await context.newPage();
+    // Runs inline in the user-facing "Connect" click rather than the async job worker, so it
+    // gets a tighter budget than post()/delist() would — a slow or hung site should fail fast
+    // with a clear message instead of eating most of the route's execution time budget.
+    page.setDefaultTimeout(15_000);
+    page.setDefaultNavigationTimeout(15_000);
+    const result = await attemptLogin(page, config, username, password);
+    if (result.success) return { status: "verified" };
+    return { status: "rejected", error: result.error || "The login form didn't accept these credentials" };
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    if (message.includes("Timeout")) {
+      return { status: "unknown", error: `${platformId} took too long to respond — try connecting again.` };
+    }
+    return { status: "unknown", error: `Couldn't verify ${platformId} credentials: ${message}` };
+  } finally {
+    await browser.close();
+  }
+}
 
 export interface AutomationStep {
   name: string;
@@ -69,32 +197,14 @@ export async function runPlaywrightAutomation(
     });
     page = await context.newPage();
 
-    await page.goto(config.loginUrl, { waitUntil: "networkidle" });
-
-    if (config.usernameSelector) {
-      await page.fill(config.usernameSelector, username);
-    }
-    if (config.passwordSelector) {
-      await page.fill(config.passwordSelector, password);
-    }
-    if (config.submitSelector) {
-      await Promise.all([
-        page.waitForNavigation({ waitUntil: "networkidle" }).catch(() => {}),
-        page.click(config.submitSelector),
-      ]);
-    }
-
     // Never assume a login form submit actually logged in — wrong credentials, an unexpected
     // 2FA/verification prompt, or a layout change all leave the browser looking similar to a
-    // fresh page load. If the password field is still there (or we never left the login URL),
-    // the login didn't take, and continuing on would just fill out a form nobody can see.
-    if (config.passwordSelector) {
-      const stillOnLogin =
-        page.url() === config.loginUrl ||
-        (await page.locator(config.passwordSelector).count().catch(() => 0)) > 0;
-      if (stillOnLogin) {
-        return await fail(`Couldn't log into ${platformId} — check the stored username and password.`);
-      }
+    // fresh page load. attemptLogin checks both a positive signal and known rejection copy
+    // before calling it a success, and continuing on from a failed login would just fill out a
+    // form nobody can see.
+    const loginResult = await attemptLogin(page, config, username, password);
+    if (!loginResult.success) {
+      return await fail(`Couldn't log into ${platformId} — ${loginResult.error || "check the stored username and password."}`);
     }
 
     if (config.postLoginSteps) {
@@ -246,27 +356,12 @@ export async function runPlaywrightDelist(
     });
     page = await context.newPage();
 
-    await page.goto(config.loginUrl, { waitUntil: "networkidle" });
-    steps.push(`Loaded login page: ${config.loginUrl}`);
-
-    if (config.usernameSelector) await page.fill(config.usernameSelector, username);
-    if (config.passwordSelector) await page.fill(config.passwordSelector, password);
-    if (config.submitSelector) {
-      await Promise.all([
-        page.waitForNavigation({ waitUntil: "networkidle" }).catch(() => {}),
-        page.click(config.submitSelector),
-      ]);
+    steps.push(`Loading login page: ${config.loginUrl}`);
+    const loginResult = await attemptLogin(page, config, username, password);
+    if (!loginResult.success) {
+      return await fail(`Couldn't log into ${platformId} — ${loginResult.error || "check the stored username and password."}`);
     }
-    steps.push("Submitted login form");
-
-    if (config.passwordSelector) {
-      const stillOnLogin =
-        page.url() === config.loginUrl ||
-        (await page.locator(config.passwordSelector).count().catch(() => 0)) > 0;
-      if (stillOnLogin) {
-        return await fail(`Couldn't log into ${platformId} — check the stored username and password.`);
-      }
-    }
+    steps.push("Logged in");
 
     if (config.postLoginSteps) {
       for (const step of config.postLoginSteps) {

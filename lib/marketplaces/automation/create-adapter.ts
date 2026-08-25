@@ -1,5 +1,5 @@
 import { MarketplaceAdapter, ListingData, PlatformAccount, PostResult } from "../types";
-import { runPlaywrightAutomation, runPlaywrightDelist, genericVerifyRemoved, uploadPhotoOnPage } from "./playwright-runner";
+import { runPlaywrightAutomation, runPlaywrightDelist, genericVerifyRemoved, uploadPhotoOnPage, verifyLogin } from "./playwright-runner";
 import type { AutomationConfig, DelistConfig } from "./playwright-runner";
 import type { Page } from "playwright";
 
@@ -145,6 +145,9 @@ export function createManualAdapter(config: ManualAdapterConfig): MarketplaceAda
       const trail = outcome.steps.length ? ` | Steps: ${outcome.steps.join(" → ")}` : "";
       const shot = outcome.screenshotUrl ? ` | Screenshot: ${outcome.screenshotUrl}` : "";
       return { success: false, error: `${outcome.error || "Delist failed"}${trail}${shot}` };
+    },
+    verifyLogin(username: string, password: string) {
+      return verifyLogin(config.id, config, username, password);
     },
   };
 }
