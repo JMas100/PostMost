@@ -38,6 +38,7 @@ model User {
   events            Event[]
   automationRules   AutomationRule[]
   automationEvents  AutomationEvent[]
+  passwordResetTokens PasswordResetToken[]
 }
 
 model Listing {
@@ -215,6 +216,20 @@ model TeamMember {
   updatedAt   DateTime @updatedAt
 
   @@unique([teamId, email])
+}
+
+model PasswordResetToken {
+  id        String    @id @default(cuid())
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  /// SHA-256 hash of the raw token that's emailed to the user -- like ApiKey.keyHash, so a DB
+  /// leak alone can't be used to reset anyone's password.
+  tokenHash String    @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([userId])
 }
 
 model ApiKey {

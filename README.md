@@ -54,6 +54,8 @@ Copy `.env.example` to `.env` and set at least:
 | `FAL_KEY` | fal.ai key used by the BiRefNet adapter |
 | `BIREFNET_MODEL` / `BIREFNET_RESOLUTION` | Optional BiRefNet variant and operating resolution |
 | `PHOTOROOM_API_KEY` | PhotoRoom key for the premium fallback |
+| `RESEND_API_KEY` | Resend key used to send password-reset emails |
+| `EMAIL_FROM` | From address for outgoing email; must be a domain verified in Resend |
 
 Outside production, a `DATABASE_URL` that is not a `*.neon.tech` host uses Prisma's standard TCP
 client instead of the Neon serverless driver, so a local Postgres works without any code change.
