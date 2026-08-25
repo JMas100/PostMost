@@ -9,6 +9,7 @@
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
     "seed": "node prisma/seed.js",
+    "plan:override": "tsx scripts/set-plan-override.ts",
     "postinstall": "prisma generate"
   },
   "prisma": {

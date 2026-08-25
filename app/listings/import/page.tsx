@@ -3,7 +3,7 @@ import Link from "next/link";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { getPlan, meetsMinimumTier } from "@/lib/plans";
+import { getEffectivePlan, meetsMinimumTier, PLAN_ASSIGNMENT_SELECT } from "@/lib/plans";
 import { Shell } from "@/components/sidebar";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { buttonVariants } from "@/components/ui/button";
@@ -15,9 +15,9 @@ export default async function ImportPage() {
 
   const user = await prisma.user.findUnique({
     where: { id: session.user.id },
-    select: { plan: true },
+    select: PLAN_ASSIGNMENT_SELECT,
   });
-  const plan = getPlan(user?.plan);
+  const plan = getEffectivePlan(user);
   const allowed = meetsMinimumTier(plan.id, "grow");
 
   return (

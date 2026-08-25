@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
-import { getPlan, meetsMinimumTier } from "@/lib/plans";
+import { getEffectivePlan, meetsMinimumTier, PLAN_ASSIGNMENT_SELECT } from "@/lib/plans";
 import { STOCK_SYNC_RULE, DELIST_ON_SALE_RULE, RELIST_STALE_RULE, RELIST_STALE_DAYS } from "@/lib/automation/rule-types";
 import { requireUserId } from "@/lib/auth-helpers";
 
@@ -21,7 +21,7 @@ export async function getAutomationOverview() {
     recentEvents,
     delistOnSaleEvents,
   ] = await Promise.all([
-    prisma.user.findUnique({ where: { id: userId }, select: { plan: true } }),
+    prisma.user.findUnique({ where: { id: userId }, select: PLAN_ASSIGNMENT_SELECT }),
     prisma.automationRule.findUnique({ where: { userId_ruleType: { userId, ruleType: STOCK_SYNC_RULE } } }),
     prisma.automationRule.findUnique({ where: { userId_ruleType: { userId, ruleType: RELIST_STALE_RULE } } }),
     prisma.listing.count({
@@ -54,7 +54,7 @@ export async function getAutomationOverview() {
     }),
   ]);
 
-  const plan = getPlan(user?.plan);
+  const plan = getEffectivePlan(user);
 
   return {
     plan,
@@ -76,8 +76,8 @@ export async function getAutomationOverview() {
 export async function setStockSyncEnabled(enabled: boolean) {
   const userId = await requireUserId();
 
-  const user = await prisma.user.findUnique({ where: { id: userId }, select: { plan: true } });
-  const plan = getPlan(user?.plan);
+  const user = await prisma.user.findUnique({ where: { id: userId }, select: PLAN_ASSIGNMENT_SELECT });
+  const plan = getEffectivePlan(user);
   if (!meetsMinimumTier(plan.id, "pro")) {
     return { error: `The ${plan.name} plan doesn't include stock sync automation. Upgrade to Pro or higher to unlock it.` };
   }
@@ -95,8 +95,8 @@ export async function setStockSyncEnabled(enabled: boolean) {
 export async function setRelistEnabled(enabled: boolean) {
   const userId = await requireUserId();
 
-  const user = await prisma.user.findUnique({ where: { id: userId }, select: { plan: true } });
-  const plan = getPlan(user?.plan);
+  const user = await prisma.user.findUnique({ where: { id: userId }, select: PLAN_ASSIGNMENT_SELECT });
+  const plan = getEffectivePlan(user);
   if (!meetsMinimumTier(plan.id, "grow")) {
     return { error: `The ${plan.name} plan doesn't include relisting automation. Upgrade to Grow or higher to unlock it.` };
   }

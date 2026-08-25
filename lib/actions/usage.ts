@@ -1,7 +1,7 @@
 "use server";
 
 import { prisma } from "@/lib/prisma";
-import { BgRemovalTier, getPlan, meetsMinimumTier } from "@/lib/plans";
+import { BgRemovalTier, getEffectivePlan, meetsMinimumTier, PLAN_ASSIGNMENT_SELECT } from "@/lib/plans";
 
 function getMonthWindow(now = new Date()): { start: Date; end: Date } {
   const start = new Date(now.getFullYear(), now.getMonth(), 1);
@@ -39,7 +39,9 @@ async function resetIfNeeded(userId: string) {
 export async function getUsage(userId: string) {
   await resetIfNeeded(userId);
   const usage = await getOrCreateUsage(userId);
-  const plan = getPlan((await prisma.user.findUnique({ where: { id: userId }, select: { plan: true } }))?.plan);
+  const plan = getEffectivePlan(
+    await prisma.user.findUnique({ where: { id: userId }, select: PLAN_ASSIGNMENT_SELECT })
+  );
   return {
     plan,
     listingsThisMonth: usage.listingsThisMonth,
