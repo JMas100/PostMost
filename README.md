@@ -23,7 +23,11 @@ A reseller operating system that lets you create one listing and cross-post it t
 
 ## Setup
 
+Needs a local Postgres. `docker-compose.yml` provides one (persistent, isolated from
+production):
+
 ```bash
+docker compose up -d
 npm install
 npx prisma migrate dev
 npm run seed
