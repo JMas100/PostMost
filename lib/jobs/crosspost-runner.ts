@@ -141,10 +141,6 @@ export async function processPendingCrossPostJobs(listingId?: string): Promise<C
         continue;
       }
 
-      const priorSuccesses = await prisma.platformListing.count({
-        where: { status: PlatformListingStatus.POSTED, listing: { userId: job.userId } },
-      });
-
       await prisma.crossPostJob.update({
         where: { id: job.id },
         data: {
@@ -173,7 +169,11 @@ export async function processPendingCrossPostJobs(listingId?: string): Promise<C
       summary.succeeded += 1;
 
       await track("publish_platform_succeeded", job.userId, { listingId: job.listingId, platform: job.platform });
-      if (priorSuccesses === 0) {
+      const claim = await prisma.user.updateMany({
+        where: { id: job.userId, firstCrosspostAt: null },
+        data: { firstCrosspostAt: new Date() },
+      });
+      if (claim.count === 1) {
         await track("first_crosspost_completed", job.userId, { listingId: job.listingId, platform: job.platform });
       }
     } catch (err) {
