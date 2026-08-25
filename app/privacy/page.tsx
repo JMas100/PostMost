@@ -7,7 +7,7 @@ export const metadata: Metadata = {
   description: "How PostMost collects, uses, and protects your information.",
 };
 
-const EFFECTIVE_DATE = "August 23, 2026";
+const EFFECTIVE_DATE = "August 25, 2026";
 
 export default function PrivacyPolicyPage() {
   return (
@@ -60,12 +60,15 @@ export default function PrivacyPolicyPage() {
                 </span>{" "}
                 you provide your username and password for that marketplace directly to PostMost, and we
                 use automated browser sessions to sign in and manage listings exactly as you would in a
-                browser, on your instruction.
+                browser, on your instruction. For Poshmark, you can instead connect via the PostMost
+                browser extension: you log into Poshmark normally in your own browser, and the extension
+                sends us the resulting session (not your password) — see &quot;The PostMost browser
+                extension&quot; below.
               </li>
             </ul>
             <p className="mt-2">
-              All stored credentials and tokens — for every marketplace — are encrypted at rest and are
-              never shown back to you or anyone else after you save them.
+              All stored credentials, tokens, and sessions — for every marketplace — are encrypted at
+              rest and are never shown back to you or anyone else after you save them.
             </p>
             <h3 className="mt-4 font-heading text-base font-semibold">Payment information</h3>
             <p className="mt-2">
@@ -82,7 +85,45 @@ export default function PrivacyPolicyPage() {
           </section>
 
           <section>
-            <h2 className="font-heading text-xl font-semibold">2. How we use information</h2>
+            <h2 className="font-heading text-xl font-semibold">2. The PostMost browser extension</h2>
+            <p className="mt-2">
+              The optional PostMost browser extension runs in two places, and only ever acts when you
+              take an action that triggers it — it does not run in the background or monitor your
+              browsing otherwise:
+            </p>
+            <ul className="mt-2 list-disc space-y-2 pl-6">
+              <li>
+                <span className="font-medium text-foreground">On postmost.co:</span> when you publish a
+                listing to a marketplace marked &quot;Via extension,&quot; the extension reads that
+                listing&apos;s content (title, description, price, photos) so it can fill it into a
+                marketplace&apos;s listing form for you. It also reports back to PostMost when you
+                confirm a listing was posted or sold, using your existing signed-in PostMost session.
+              </li>
+              <li>
+                <span className="font-medium text-foreground">On a marketplace site</span> (Facebook
+                Marketplace, OfferUp, Poshmark, Mercari, Depop, Vinted, Grailed, or Craigslist): the
+                extension fills the listing-creation form with the content above.
+              </li>
+              <li>
+                <span className="font-medium text-foreground">
+                  Session capture (Poshmark, when you choose &quot;Browser session&quot; to connect
+                  your account):
+                </span>{" "}
+                only when you click &quot;I&apos;ve logged in — connect my session,&quot; the extension
+                reads Poshmark&apos;s cookies from your browser and sends them to PostMost, which stores
+                them encrypted and uses them to sign in on your behalf, the same way your own browser
+                would. This never includes your Poshmark password, and never happens automatically or
+                for any other site.
+              </li>
+            </ul>
+            <p className="mt-2">
+              The extension only requests access to postmost.co and the specific marketplace domains it
+              supports — never all websites you visit.
+            </p>
+          </section>
+
+          <section>
+            <h2 className="font-heading text-xl font-semibold">3. How we use information</h2>
             <ul className="mt-2 list-disc space-y-2 pl-6">
               <li>To operate the core service: creating, publishing, and syncing your listings across the marketplaces you connect.</li>
               <li>To power optional AI features (photo-based listing generation, title/description suggestions, pricing suggestions, and background removal), which send the specific photo or text you submit to the AI provider below to generate a result.</li>
@@ -94,7 +135,7 @@ export default function PrivacyPolicyPage() {
           </section>
 
           <section>
-            <h2 className="font-heading text-xl font-semibold">3. Third-party service providers</h2>
+            <h2 className="font-heading text-xl font-semibold">4. Third-party service providers</h2>
             <p className="mt-2">
               We use the following providers to operate PostMost. Each processes only the data necessary
               to perform its function for us, under its own privacy and security terms:
@@ -116,7 +157,7 @@ export default function PrivacyPolicyPage() {
           </section>
 
           <section>
-            <h2 className="font-heading text-xl font-semibold">4. Cookies</h2>
+            <h2 className="font-heading text-xl font-semibold">5. Cookies</h2>
             <p className="mt-2">
               PostMost uses a single session cookie to keep you signed in. We do not use third-party
               advertising or tracking cookies.
@@ -124,7 +165,7 @@ export default function PrivacyPolicyPage() {
           </section>
 
           <section>
-            <h2 className="font-heading text-xl font-semibold">5. Data security</h2>
+            <h2 className="font-heading text-xl font-semibold">6. Data security</h2>
             <p className="mt-2">
               Passwords are hashed, never stored in plain text. Marketplace credentials and OAuth tokens
               are encrypted at rest. All traffic to PostMost is encrypted in transit (HTTPS). No method of
@@ -134,7 +175,7 @@ export default function PrivacyPolicyPage() {
           </section>
 
           <section>
-            <h2 className="font-heading text-xl font-semibold">6. Data retention &amp; deletion</h2>
+            <h2 className="font-heading text-xl font-semibold">7. Data retention &amp; deletion</h2>
             <p className="mt-2">
               We retain your account and listing data for as long as your account is active. To request
               deletion of your account and associated data, email{" "}
@@ -148,7 +189,7 @@ export default function PrivacyPolicyPage() {
           </section>
 
           <section>
-            <h2 className="font-heading text-xl font-semibold">7. Your rights</h2>
+            <h2 className="font-heading text-xl font-semibold">8. Your rights</h2>
             <p className="mt-2">
               Depending on where you live, you may have rights to access, correct, export, or delete your
               personal information, and to object to or restrict certain processing. To exercise any of
@@ -161,7 +202,7 @@ export default function PrivacyPolicyPage() {
           </section>
 
           <section>
-            <h2 className="font-heading text-xl font-semibold">8. Children&apos;s privacy</h2>
+            <h2 className="font-heading text-xl font-semibold">9. Children&apos;s privacy</h2>
             <p className="mt-2">
               PostMost is not directed to, and we do not knowingly collect personal information from,
               anyone under 18. If you believe a minor has provided us with personal information, contact
@@ -170,7 +211,7 @@ export default function PrivacyPolicyPage() {
           </section>
 
           <section>
-            <h2 className="font-heading text-xl font-semibold">9. Changes to this policy</h2>
+            <h2 className="font-heading text-xl font-semibold">10. Changes to this policy</h2>
             <p className="mt-2">
               We may update this policy from time to time. If we make material changes, we&apos;ll update
               the effective date above and, where appropriate, notify you directly.
@@ -178,7 +219,7 @@ export default function PrivacyPolicyPage() {
           </section>
 
           <section>
-            <h2 className="font-heading text-xl font-semibold">10. Contact us</h2>
+            <h2 className="font-heading text-xl font-semibold">11. Contact us</h2>
             <p className="mt-2">
               Questions about this policy or your data? Email{" "}
               <a href="mailto:hello@postmost.co" className="underline underline-offset-2">

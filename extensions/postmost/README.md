@@ -6,10 +6,15 @@ It also supports connecting a marketplace account via browser session instead of
 
 ## How it works
 
-1. In PostMost, open a listing and click **“Send to extension”** for the manual marketplaces you want to post to.
-2. Open the PostMost extension popup from Chrome’s toolbar.
-3. Click a marketplace button — the extension opens the site’s listing creation page with the listing data in the URL hash.
-4. The extension content script reads the data and tries to fill the form and upload photos automatically.
+1. In PostMost, open a listing and click **Publish**. Marketplaces without a public API and no
+   browser-session connection are labeled **"Via extension"** — those are the ones this handles.
+2. The listing content (title, description, price, photos) is handed to the extension and stored
+   in `chrome.storage.local`, not the URL — open the PostMost extension popup from Chrome's
+   toolbar to see it queued.
+3. Click a marketplace button in the popup — the extension opens that site's listing creation
+   page in a new tab.
+4. The extension's content script reads the queued listing from `chrome.storage.local` and tries
+   to fill the form and upload photos automatically.
 5. Review the draft and submit on the marketplace site.
 
 ## Load the extension (developer mode)
@@ -20,10 +25,18 @@ It also supports connecting a marketplace account via browser session instead of
 4. Select this `extensions/postmost` folder.
 5. The PostMost icon should appear in Chrome’s toolbar.
 
+`manifest.json` is deliberately scoped to `https://postmost.co/*` only — no `localhost` or
+`*.vercel.app`, since the latter is a wildcard over every app hosted on Vercel's shared domain,
+not just PostMost's, and Chrome Web Store review flags exactly that kind of unnecessarily broad
+host permission. To test against a local dev server or a preview deployment, temporarily add
+`http://localhost:3000/*` and/or `https://your-preview-url.vercel.app/*` to both
+`host_permissions` and the first `content_scripts` entry's `matches` in your own local copy —
+don't commit that back.
+
 ## Test
 
 1. Open `https://postmost.co`, sign in, and create a listing.
-2. On the listing detail page, click **“Send to extension”** next to a manual marketplace.
+2. On the listing detail page, select a marketplace labeled "Via extension" and click **Publish**.
 3. Open the extension popup and click the marketplace.
 4. The marketplace create-listing page opens in a new tab and the form fields are pre-filled.
 

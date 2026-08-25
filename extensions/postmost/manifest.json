@@ -6,8 +6,6 @@
   "permissions": ["storage", "activeTab", "tabs", "scripting", "cookies"],
   "host_permissions": [
     "https://postmost.co/*",
-    "https://*.vercel.app/*",
-    "http://localhost:3000/*",
     "https://*.facebook.com/*",
     "https://*.offerup.com/*",
     "https://*.poshmark.com/*",
@@ -23,9 +21,7 @@
   "content_scripts": [
     {
       "matches": [
-        "https://postmost.co/*",
-        "https://*.vercel.app/*",
-        "http://localhost:3000/*"
+        "https://postmost.co/*"
       ],
       "js": ["src/postmost-content.js"],
       "run_at": "document_end"
