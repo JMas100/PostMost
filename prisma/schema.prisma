@@ -16,6 +16,8 @@ model User {
   password          String?
   image             String?
   plan              String         @default("free")
+  planOverride      String?
+  planOverrideExpiresAt DateTime?
   stripeCustomerId  String?
   stripeSubscriptionId String?
   stripePriceId     String?
@@ -23,6 +25,7 @@ model User {
   /// Timestamp of the most recently applied Stripe webhook event for this subscription, used to
   /// ignore an older/out-of-order event that arrives after a newer one was already applied.
   stripeEventCreatedAt DateTime?
+  firstCrosspostAt  DateTime?
   role              String         @default("OWNER")
   createdAt         DateTime       @default(now())
   updatedAt         DateTime       @updatedAt

@@ -21,6 +21,18 @@ export interface Plan {
   features: string[];
 }
 
+export interface PlanAssignment {
+  plan: string | null;
+  planOverride: string | null;
+  planOverrideExpiresAt: Date | null;
+}
+
+export const PLAN_ASSIGNMENT_SELECT = {
+  plan: true,
+  planOverride: true,
+  planOverrideExpiresAt: true,
+} as const;
+
 export const PLANS: Plan[] = [
   {
     id: "free",
@@ -190,6 +202,19 @@ export const PLAN_BY_ID: Record<PlanId, Plan> = PLANS.reduce((acc, plan) => {
 
 export function getPlan(id: string | null | undefined): Plan {
   return PLAN_BY_ID[(id as PlanId) ?? "free"] ?? PLAN_BY_ID.free;
+}
+
+export function getEffectivePlan(
+  assignment: PlanAssignment | null | undefined,
+  now = new Date()
+): Plan {
+  const override = assignment?.planOverride;
+  const overrideIsActive =
+    override &&
+    Object.prototype.hasOwnProperty.call(PLAN_BY_ID, override) &&
+    (!assignment.planOverrideExpiresAt || assignment.planOverrideExpiresAt > now);
+
+  return getPlan(overrideIsActive ? override : assignment?.plan);
 }
 
 export function meetsMinimumTier(planId: string | null | undefined, minimumId: PlanId): boolean {

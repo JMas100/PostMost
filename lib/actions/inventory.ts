@@ -5,7 +5,7 @@ import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { getAdapter } from "@/lib/marketplaces";
 import { getAccountData } from "@/lib/marketplaces/account-data";
-import { getPlan } from "@/lib/plans";
+import { getEffectivePlan, PLAN_ASSIGNMENT_SELECT } from "@/lib/plans";
 import { DELIST_ON_SALE_RULE } from "@/lib/automation/rule-types";
 import { requireUserId } from "@/lib/auth-helpers";
 
@@ -173,10 +173,10 @@ export async function getInventory(filters: { q?: string; missingCostOnly?: bool
       where: { userId, isDraft: false },
       select: { quantity: true, price: true, cost: true },
     }),
-    prisma.user.findUnique({ where: { id: userId }, select: { plan: true } }),
+    prisma.user.findUnique({ where: { id: userId }, select: PLAN_ASSIGNMENT_SELECT }),
   ]);
 
-  const plan = getPlan(user?.plan);
+  const plan = getEffectivePlan(user);
   const activeCount = statRows.filter((l) => l.quantity > 0).length;
   const totalValue = statRows.reduce((sum, l) => sum + l.price * l.quantity, 0);
   const missingCostCount = statRows.filter((l) => l.cost === null).length;
