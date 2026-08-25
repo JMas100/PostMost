@@ -58,6 +58,19 @@ This needs the `cookies` permission (added in manifest v1.1.0) — real users on
 install will see Chrome disable the extension and prompt for permission re-approval on next
 launch until they review it.
 
+## Permissions
+
+`manifest.json`'s `permissions` is deliberately just `["storage", "cookies"]`. Earlier versions
+also declared `activeTab`, `tabs`, and `scripting`, but none of them were ever actually used —
+`chrome.tabs.create()` doesn't require the `tabs` permission (only reading another tab's
+url/title/favicon does), and neither `chrome.scripting.*` nor anything relying on `activeTab`'s
+temporary grant is called anywhere in this codebase. Declaring a permission the code never uses
+is exactly what gets flagged in Chrome Web Store review, so they were removed after verifying
+(via a real unpacked-extension test) that popup → new-tab and the postmost.co handshake still
+work without them. If you add a feature that genuinely needs one of these back, confirm the
+actual API call requires it before re-adding — check the specific chrome.* API's docs, not just
+what "sounds right."
+
 ## Notes
 
 - Marketplace sites change their DOM frequently, so the generic form-filler may need platform-specific tweaks for production reliability.
