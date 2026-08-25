@@ -1,5 +1,6 @@
 import { MarketplaceAdapter, ListingData, PlatformAccount, PostResult } from "../types";
-import { runPlaywrightAutomation, runPlaywrightDelist, genericVerifyRemoved, uploadPhotoOnPage, verifyLogin } from "./playwright-runner";
+import { runPlaywrightAutomation, runPlaywrightDelist, genericVerifyRemoved, uploadPhotoOnPage, verifyLogin, verifySession } from "./playwright-runner";
+import type { SessionCookie } from "../types";
 import type { AutomationConfig, DelistConfig } from "./playwright-runner";
 import type { Page } from "playwright";
 
@@ -148,6 +149,9 @@ export function createManualAdapter(config: ManualAdapterConfig): MarketplaceAda
     },
     verifyLogin(username: string, password: string) {
       return verifyLogin(config.id, config, username, password);
+    },
+    verifySession(cookies: SessionCookie[]) {
+      return verifySession(config.id, { loginUrl: config.loginUrl, listingUrl: config.listingUrl, passwordSelector: config.passwordSelector }, cookies);
     },
   };
 }

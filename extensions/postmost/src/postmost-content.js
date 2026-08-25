@@ -19,6 +19,42 @@
       return;
     }
 
+    if (data.type === "CAPTURE_SESSION") {
+      try {
+        const response = await chrome.runtime.sendMessage({ type: "CAPTURE_SESSION", platform: data.platform });
+        if (!response?.ok) {
+          window.postMessage(
+            { source: "postmost-extension", type: "SESSION_CAPTURE_ERROR", platform: data.platform, message: response?.error || "Couldn't read the session" },
+            "*"
+          );
+          return;
+        }
+
+        const res = await fetch(`${SYNC_ORIGIN}/api/extension/session`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify({ platform: data.platform, cookies: response.cookies }),
+        });
+        const body = await res.json().catch(() => ({}));
+        if (!res.ok) {
+          window.postMessage(
+            { source: "postmost-extension", type: "SESSION_CAPTURE_ERROR", platform: data.platform, message: body.error || "Couldn't save the session" },
+            "*"
+          );
+          return;
+        }
+
+        window.postMessage({ source: "postmost-extension", type: "SESSION_CAPTURED", platform: data.platform }, "*");
+      } catch (err) {
+        window.postMessage(
+          { source: "postmost-extension", type: "SESSION_CAPTURE_ERROR", platform: data.platform, message: err.message },
+          "*"
+        );
+      }
+      return;
+    }
+
     if (data.type !== "SEND_LISTING") return;
 
     try {

@@ -2,6 +2,8 @@
 
 This extension lets PostMost push a listing into the user’s browser so it can be filled into marketplace sites that do not offer public APIs (Facebook Marketplace, OfferUp, Poshmark, Mercari, Depop, Vinted, Grailed, Craigslist).
 
+It also supports connecting a marketplace account via browser session instead of a stored password (Poshmark only for now — see "Browser-session connect" below) — this is what makes two-factor-authenticated accounts connectable at all, since PostMost never sees the password or needs to complete 2FA itself.
+
 ## How it works
 
 1. In PostMost, open a listing and click **“Send to extension”** for the manual marketplaces you want to post to.
@@ -25,8 +27,29 @@ This extension lets PostMost push a listing into the user’s browser so it can 
 3. Open the extension popup and click the marketplace.
 4. The marketplace create-listing page opens in a new tab and the form fields are pre-filled.
 
+## Browser-session connect
+
+Instead of typing a marketplace password into PostMost, Settings → Marketplace accounts → a
+platform's "Connect" dialog offers a "Browser session" tab (only shown when this extension is
+detected, and only for platforms in `SESSION_AUTH_PLATFORMS` in
+`app/api/extension/session/route.ts` — Poshmark only as of this writing):
+
+1. Click "Open [Platform] login" — a new tab opens to the site's real login page.
+2. Log in there normally, including any 2FA/verification step. PostMost never sees this.
+3. Come back to the PostMost tab and click "I've logged in — connect my session."
+4. `postmost-content.js` asks `background.js` (the only place `chrome.cookies.getAll()` can run
+   in Manifest V3) to read that domain's cookies, then POSTs them to
+   `/api/extension/session`, which does a real headless-browser check before saving anything.
+
+This needs the `cookies` permission (added in manifest v1.1.0) — real users on an existing
+install will see Chrome disable the extension and prompt for permission re-approval on next
+launch until they review it.
+
 ## Notes
 
 - Marketplace sites change their DOM frequently, so the generic form-filler may need platform-specific tweaks for production reliability.
 - Photo uploads may fail if the marketplace blocks cross-origin image fetching. In that case, upload photos manually.
 - This extension is for your own accounts. Posting through third-party automation may violate a platform’s Terms of Service; use it responsibly.
+- Session cookies aren't permanent — some sites refresh them via background requests a real
+  browser makes automatically, which a static captured snapshot won't get. Reconnecting is the
+  fix when a job reports the session expired.

@@ -57,5 +57,6 @@ export async function getAccountData(userId: string, platform: string): Promise<
     externalId: account.externalId,
     tokenExpiresAt,
     settings: account.settings ? JSON.parse(account.settings) : {},
+    authMethod: account.authMethod,
   };
 }

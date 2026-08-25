@@ -8,6 +8,7 @@ import {
   getOAuthUrl,
 } from "@/lib/actions/accounts";
 import { PLATFORMS } from "@/lib/marketplaces/platforms";
+import { useExtensionDetector } from "@/components/publish-panel/use-extension-detector";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -21,7 +22,8 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { PlatformLogo } from "@/components/platform-logo";
 import { toast } from "sonner";
-import { ExternalLink, Link2, Unlink } from "lucide-react";
+import { ExternalLink, Link2, Unlink, ShieldCheck } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 export type AccountView = {
   id: string;
@@ -33,6 +35,16 @@ export type AccountView = {
   createdAt: Date;
   updatedAt: Date;
   hasCredentials: boolean;
+  authMethod: string;
+};
+
+// Phase 1 pilot: only Poshmark exposes the browser-session connect flow (matches
+// SESSION_AUTH_PLATFORMS in app/api/extension/session/route.ts) while the whole chain gets
+// proven against one real account before rolling out to the rest of the manual platforms.
+const SESSION_AUTH_PLATFORMS = new Set(["poshmark"]);
+
+const LOGIN_URLS: Record<string, string> = {
+  poshmark: "https://poshmark.com/login",
 };
 
 export interface PlatformStats {
@@ -99,6 +111,13 @@ interface DialogProps {
 
 function ConnectDialog({ platform, account }: DialogProps) {
   const [open, setOpen] = useState(false);
+  const extensionInstalled = useExtensionDetector();
+  const supportsSessionAuth = SESSION_AUTH_PLATFORMS.has(platform.id) && platform.authType === "manual";
+  const [tab, setTab] = useState<"session" | "password">(
+    account?.authMethod === "password" ? "password" : "session"
+  );
+
+  const offerSessionTab = supportsSessionAuth && extensionInstalled === true;
 
   return (
     <>
@@ -121,12 +140,130 @@ function ConnectDialog({ platform, account }: DialogProps) {
           </DialogHeader>
           {platform.authType === "oauth" ? (
             <OAuthForm platform={platform} account={account} onDone={() => setOpen(false)} />
+          ) : offerSessionTab ? (
+            <>
+              <div className="flex gap-1 rounded-md bg-muted p-1 text-sm">
+                <button
+                  type="button"
+                  onClick={() => setTab("session")}
+                  className={cn(
+                    "flex-1 rounded px-3 py-1.5 font-medium transition-colors",
+                    tab === "session" ? "bg-background shadow-sm" : "text-muted-foreground"
+                  )}
+                >
+                  Browser session
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setTab("password")}
+                  className={cn(
+                    "flex-1 rounded px-3 py-1.5 font-medium transition-colors",
+                    tab === "password" ? "bg-background shadow-sm" : "text-muted-foreground"
+                  )}
+                >
+                  Username &amp; password
+                </button>
+              </div>
+              {tab === "session" ? (
+                <SessionConnectForm platform={platform} account={account} onDone={() => setOpen(false)} />
+              ) : (
+                <ManualForm platform={platform} account={account} onDone={() => setOpen(false)} />
+              )}
+            </>
           ) : (
             <ManualForm platform={platform} account={account} onDone={() => setOpen(false)} />
           )}
         </DialogContent>
       </Dialog>
     </>
+  );
+}
+
+function SessionConnectForm({ platform, account, onDone }: FormProps) {
+  const router = useRouter();
+  const [step, setStep] = useState<"start" | "ready">("start");
+  // Deliberately not useTransition here: the "pending" period is bounded by an external
+  // postMessage round-trip through the extension (which can take 15-20s, it launches a real
+  // Playwright check), not a React state transition — startTransition's isPending only tracks
+  // until its callback returns, which happens immediately since nothing in it is awaited.
+  const [isVerifying, setIsVerifying] = useState(false);
+
+  function openLogin() {
+    window.open(LOGIN_URLS[platform.id], "_blank", "noopener,noreferrer");
+    setStep("ready");
+  }
+
+  function captureSession() {
+    setIsVerifying(true);
+
+    function onMessage(event: MessageEvent) {
+      if (event.source !== window) return;
+      const data = event.data;
+      if (!data || data.source !== "postmost-extension" || data.platform !== platform.id) return;
+      if (data.type === "SESSION_CAPTURED") {
+        window.removeEventListener("message", onMessage);
+        setIsVerifying(false);
+        toast.success(`${platform.name} connected via browser session`);
+        onDone();
+        router.refresh();
+      } else if (data.type === "SESSION_CAPTURE_ERROR") {
+        window.removeEventListener("message", onMessage);
+        setIsVerifying(false);
+        toast.error(data.message || `Couldn't connect ${platform.name}`);
+      }
+    }
+    window.addEventListener("message", onMessage);
+    window.postMessage({ source: "postmost", type: "CAPTURE_SESSION", platform: platform.id }, "*");
+
+    // The extension always responds (success or error) -- this timeout is a safety net in case
+    // a message gets dropped, not the primary completion path.
+    setTimeout(() => {
+      window.removeEventListener("message", onMessage);
+      setIsVerifying((wasVerifying) => {
+        if (wasVerifying) toast.error(`${platform.name} connection timed out — try again.`);
+        return false;
+      });
+    }, 45_000);
+  }
+
+  return (
+    <div className="space-y-4 pt-2">
+      <div className="flex items-start gap-2 rounded-md border bg-muted/40 p-3 text-sm">
+        <ShieldCheck className="mt-0.5 h-4 w-4 flex-none text-primary" />
+        <p className="text-muted-foreground">
+          PostMost never sees your {platform.name} password — it uses the session from your own
+          logged-in browser instead, so two-factor authentication works normally.
+        </p>
+      </div>
+      {step === "start" ? (
+        <Button type="button" onClick={openLogin} className="w-full">
+          Open {platform.name} login <ExternalLink className="ml-2 h-4 w-4" />
+        </Button>
+      ) : (
+        <div className="space-y-3">
+          <p className="text-sm text-muted-foreground">
+            Log in to {platform.name} in the tab that opened — including any verification step —
+            then come back here.
+          </p>
+          <Button type="button" onClick={captureSession} disabled={isVerifying} className="w-full">
+            {isVerifying ? "Verifying..." : "I've logged in — connect my session"}
+          </Button>
+          <button
+            type="button"
+            className="w-full text-center text-xs text-muted-foreground underline"
+            onClick={openLogin}
+          >
+            Reopen the login page
+          </button>
+        </div>
+      )}
+      {account && (
+        <p className="text-center text-xs text-muted-foreground">
+          Currently connected{account.authMethod === "session" ? " via browser session" : " with a password"}.
+          Connecting again replaces it.
+        </p>
+      )}
+    </div>
   );
 }
 

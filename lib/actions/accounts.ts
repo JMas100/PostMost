@@ -38,6 +38,11 @@ export interface AccountConnectionInput {
   tokenExpiresAt?: Date;
   externalId?: string;
   settings?: Record<string, unknown>;
+  /** "password" (default) or "session" -- see MarketplaceAccount.authMethod. When "session",
+   *  accessToken holds an already-verified, JSON-serialized cookie array (verification happens
+   *  in the caller, e.g. the extension session-capture route), not a password, so the
+   *  verifyLogin check below is skipped. */
+  authMethod?: string;
 }
 
 export async function getMarketplaceAccounts() {
@@ -65,12 +70,15 @@ export async function connectMarketplaceAccount(input: AccountConnectionInput) {
     }
   }
 
-  // For browser-automation platforms, actually attempt a login with the given credentials
-  // before ever saving them -- a wrong username/password should be caught here, not silently
+  // For browser-automation platforms connecting with a password, actually attempt a login
+  // before ever saving it -- a wrong username/password should be caught here, not silently
   // stored and only discovered the next time a post/delist job fails. Only a confirmed
   // rejection blocks saving; an inconclusive check (Playwright unavailable, likely bot
   // detection) never does, since that's not evidence the credentials are actually wrong.
-  if (input.accessToken) {
+  // Session-based connections are already verified by the caller (see verifySession in the
+  // extension session-capture route) before this function is ever called, so this is skipped
+  // for those -- input.accessToken there is a cookie array, not a password.
+  if (input.accessToken && input.authMethod !== "session") {
     const adapter = getAdapter(input.platform);
     if (adapter?.verifyLogin) {
       const check = await adapter.verifyLogin(input.displayName, input.accessToken);
@@ -89,6 +97,7 @@ export async function connectMarketplaceAccount(input: AccountConnectionInput) {
     refreshToken: input.refreshToken ? encrypt(input.refreshToken) : existing?.refreshToken ?? null,
     tokenExpiresAt: input.tokenExpiresAt ?? existing?.tokenExpiresAt ?? null,
     externalId: input.externalId ?? existing?.externalId ?? null,
+    authMethod: input.authMethod ?? existing?.authMethod ?? "password",
     isActive: true,
     settings: input.settings ? JSON.stringify(input.settings) : existing?.settings ?? null,
   };

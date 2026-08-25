@@ -1,4 +1,4 @@
-import type { ListingData, PlatformAccount, PostResult, CredentialCheckResult } from "../types";
+import type { ListingData, PlatformAccount, PostResult, CredentialCheckResult, SessionCookie } from "../types";
 
 /** Phrases that show up across most login forms when credentials are rejected -- checked as a
  *  supplement to the "did the password field disappear" heuristic, since some sites re-render
@@ -76,6 +76,42 @@ export async function attemptLogin(
 }
 
 /**
+ * Seeds a browser context with a captured session (instead of filling a login form) and
+ * confirms it actually leaves the page authenticated before anything proceeds -- same "never
+ * assume, always check" principle as attemptLogin, just for a cookie-based session instead of a
+ * password. Checked against whatever page.url() ends up at after navigating (the caller decides
+ * where), using the same "is a password field visible" heuristic as attemptLogin, inverted: if
+ * one shows up, the cookies didn't actually authenticate us (expired, revoked, or wrong site).
+ */
+export async function authenticateWithSession(
+  context: import("playwright").BrowserContext,
+  page: import("playwright").Page,
+  config: { loginUrl: string; listingUrl?: string; passwordSelector?: string },
+  cookies: SessionCookie[]
+): Promise<LoginAttemptResult> {
+  await context.addCookies(cookies);
+  await page.goto(config.listingUrl || config.loginUrl, { waitUntil: "networkidle" });
+
+  if (!config.passwordSelector) return { success: true };
+
+  const loggedOut = (await page.locator(config.passwordSelector).count().catch(() => 0)) > 0;
+  if (loggedOut) {
+    return { success: false, error: "The saved session has expired or was rejected — reconnect via the browser extension." };
+  }
+  return { success: true };
+}
+
+export function parseSessionCookies(serialized: string): SessionCookie[] | null {
+  try {
+    const parsed = JSON.parse(serialized);
+    if (!Array.isArray(parsed) || parsed.length === 0) return null;
+    return parsed;
+  } catch {
+    return null;
+  }
+}
+
+/**
  * Standalone credential check for the "Connect account" flow -- attempts a real login with
  * nothing else attached, so a wrong username/password is caught before it's ever saved, rather
  * than silently accepted and only discovered the next time a post/delist job fails. Bot
@@ -128,6 +164,53 @@ export async function verifyLogin(
   }
 }
 
+/**
+ * Standalone session check for the extension's "capture session" flow -- mirrors verifyLogin,
+ * but for a captured cookie array instead of a username/password pair. Same reasoning applies:
+ * an inconclusive check ("unknown") never blocks saving, since a timeout or bot-detection block
+ * isn't evidence the session itself is bad.
+ */
+export async function verifySession(
+  platformId: string,
+  config: { loginUrl: string; listingUrl?: string; passwordSelector?: string },
+  cookies: SessionCookie[]
+): Promise<CredentialCheckResult> {
+  let playwright;
+  try {
+    playwright = await import("playwright");
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    return { status: "unknown", error: `Playwright is not available in this environment. ${message}` };
+  }
+
+  const browser = await playwright.chromium.launch({
+    headless: true,
+    args: ["--no-sandbox", "--disable-setuid-sandbox"],
+  });
+
+  try {
+    const context = await browser.newContext({
+      userAgent:
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+      viewport: { width: 1280, height: 800 },
+    });
+    const page = await context.newPage();
+    page.setDefaultTimeout(15_000);
+    page.setDefaultNavigationTimeout(15_000);
+    const result = await authenticateWithSession(context, page, config, cookies);
+    if (result.success) return { status: "verified" };
+    return { status: "rejected", error: result.error || "The saved session didn't leave the browser logged in" };
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    if (message.includes("Timeout")) {
+      return { status: "unknown", error: `${platformId} took too long to respond — try connecting again.` };
+    }
+    return { status: "unknown", error: `Couldn't verify ${platformId} session: ${message}` };
+  } finally {
+    await browser.close();
+  }
+}
+
 export interface AutomationStep {
   name: string;
   action: (page: import("playwright").Page, listing: ListingData, account: PlatformAccount) => Promise<void>;
@@ -163,9 +246,15 @@ export async function runPlaywrightAutomation(
     };
   }
 
+  const isSessionAuth = account.authMethod === "session";
+  const sessionCookies = isSessionAuth ? parseSessionCookies(account.accessToken || "") : null;
   const username = String(account.externalId || account.settings?.username || "");
   const password = String(account.accessToken || "");
-  if (!username || !password) {
+  if (isSessionAuth) {
+    if (!sessionCookies) {
+      return { success: false, error: `No saved session for ${platformId}. Reconnect via the browser extension.` };
+    }
+  } else if (!username || !password) {
     return {
       success: false,
       error: `Missing username or password for ${platformId}. Store username in External ID and password in Access Token fields.`,
@@ -197,14 +286,23 @@ export async function runPlaywrightAutomation(
     });
     page = await context.newPage();
 
-    // Never assume a login form submit actually logged in — wrong credentials, an unexpected
-    // 2FA/verification prompt, or a layout change all leave the browser looking similar to a
-    // fresh page load. attemptLogin checks both a positive signal and known rejection copy
-    // before calling it a success, and continuing on from a failed login would just fill out a
-    // form nobody can see.
-    const loginResult = await attemptLogin(page, config, username, password);
-    if (!loginResult.success) {
-      return await fail(`Couldn't log into ${platformId} — ${loginResult.error || "check the stored username and password."}`);
+    // Never assume a login form submit (or a replayed session) actually left us authenticated —
+    // wrong credentials, an expired/rejected session, an unexpected 2FA/verification prompt, or
+    // a layout change all leave the browser looking similar to a fresh page load. Both paths
+    // check both a positive signal and known rejection copy before calling it a success, and
+    // continuing on from a failed one would just fill out a form nobody can see.
+    let navigatedToListingUrl = false;
+    if (isSessionAuth) {
+      const sessionResult = await authenticateWithSession(context, page, config, sessionCookies!);
+      if (!sessionResult.success) {
+        return await fail(`Couldn't use the saved ${platformId} session — ${sessionResult.error}`);
+      }
+      navigatedToListingUrl = Boolean(config.listingUrl);
+    } else {
+      const loginResult = await attemptLogin(page, config, username, password);
+      if (!loginResult.success) {
+        return await fail(`Couldn't log into ${platformId} — ${loginResult.error || "check the stored username and password."}`);
+      }
     }
 
     if (config.postLoginSteps) {
@@ -213,7 +311,7 @@ export async function runPlaywrightAutomation(
       }
     }
 
-    if (config.listingUrl) {
+    if (config.listingUrl && !navigatedToListingUrl) {
       await page.goto(config.listingUrl, { waitUntil: "networkidle" });
     }
 
@@ -329,9 +427,15 @@ export async function runPlaywrightDelist(
     return { success: false, error: `Playwright is not available in this environment. ${message}`, steps };
   }
 
+  const isSessionAuth = account.authMethod === "session";
+  const sessionCookies = isSessionAuth ? parseSessionCookies(account.accessToken || "") : null;
   const username = String(account.externalId || account.settings?.username || "");
   const password = String(account.accessToken || "");
-  if (!username || !password) {
+  if (isSessionAuth) {
+    if (!sessionCookies) {
+      return { success: false, error: `No saved session for ${platformId}. Reconnect via the browser extension.`, steps };
+    }
+  } else if (!username || !password) {
     return { success: false, error: `Missing username or password for ${platformId}.`, steps };
   }
 
@@ -356,10 +460,18 @@ export async function runPlaywrightDelist(
     });
     page = await context.newPage();
 
-    steps.push(`Loading login page: ${config.loginUrl}`);
-    const loginResult = await attemptLogin(page, config, username, password);
-    if (!loginResult.success) {
-      return await fail(`Couldn't log into ${platformId} — ${loginResult.error || "check the stored username and password."}`);
+    if (isSessionAuth) {
+      steps.push("Applying saved session");
+      const sessionResult = await authenticateWithSession(context, page, config, sessionCookies!);
+      if (!sessionResult.success) {
+        return await fail(`Couldn't use the saved ${platformId} session — ${sessionResult.error}`);
+      }
+    } else {
+      steps.push(`Loading login page: ${config.loginUrl}`);
+      const loginResult = await attemptLogin(page, config, username, password);
+      if (!loginResult.success) {
+        return await fail(`Couldn't log into ${platformId} — ${loginResult.error || "check the stored username and password."}`);
+      }
     }
     steps.push("Logged in");
 

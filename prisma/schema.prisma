@@ -105,6 +105,10 @@ model MarketplaceAccount {
   refreshToken  String?
   tokenExpiresAt DateTime?
   externalId    String?
+  /// "password" (accessToken holds an encrypted password, manual adapters) | "session"
+  /// (accessToken holds an encrypted JSON cookie array, captured via the browser extension).
+  /// Irrelevant for OAuth platforms (eBay/Etsy), which always use real OAuth tokens.
+  authMethod    String   @default("password")
   isActive      Boolean  @default(true)
   settings      String?  // JSON string for platform-specific settings
   createdAt     DateTime @default(now())

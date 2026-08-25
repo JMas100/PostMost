@@ -20,6 +20,23 @@ export interface PlatformAccount {
   externalId?: string | null;
   tokenExpiresAt?: Date | null;
   settings?: Record<string, unknown>;
+  /** "password" (accessToken is an encrypted password) | "session" (accessToken is an
+   *  encrypted JSON array of browser cookies, captured via the extension). Only meaningful
+   *  for "manual" (browser-automation) platforms. */
+  authMethod?: string;
+}
+
+/** A single cookie in Playwright's `context.addCookies()` shape. The browser extension's
+ *  background script translates Chrome's native cookie shape into this before sending it. */
+export interface SessionCookie {
+  name: string;
+  value: string;
+  domain: string;
+  path: string;
+  expires: number;
+  httpOnly: boolean;
+  secure: boolean;
+  sameSite: "Strict" | "Lax" | "None";
 }
 
 export interface PostResult {
@@ -65,6 +82,10 @@ export interface MarketplaceAdapter {
    *  timeout) is deliberately distinct from "rejected" -- only a real rejection should block
    *  saving; an inconclusive check should not. */
   verifyLogin?(username: string, password: string): Promise<CredentialCheckResult>;
+  /** Same idea as verifyLogin, but for a session captured via the browser extension instead of
+   *  a username/password pair -- confirms the cookies actually leave the browser authenticated
+   *  before they're ever saved. */
+  verifySession?(cookies: SessionCookie[]): Promise<CredentialCheckResult>;
   getAuthUrl?(opts?: { codeVerifier?: string }): string;
   exchangeCode?(code: string, ctx?: { codeVerifier?: string }): Promise<OAuthTokenResult>;
   /** Exchanges a stored refresh token for a new access token once the current one expires. */
