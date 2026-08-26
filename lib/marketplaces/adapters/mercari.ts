@@ -1,11 +1,17 @@
 import { createManualAdapter } from "../automation/create-adapter";
 
-// Delete-flow selectors are best-effort, written from general knowledge of Mercari's UI —
-// not verified against a live account. Needs real-account testing before it's trusted.
+// Tested against a real account (2026-08-26): the login form/field selectors below are correct
+// (loginUrl was previously wrong -- "/us/login/" 404s, the real path is "/login/", fixed here),
+// but Mercari's login is behind reCAPTCHA Enterprise and rejects the automated submission
+// outright with a 403 -- this isn't a selector problem, no amount of selector tweaking gets past
+// it. Password-based automation is unlikely to ever work reliably for this platform; the
+// browser-session connect mechanism built for Poshmark (see app/api/extension/session/route.ts)
+// is the real fix, since the user's own browser passes the CAPTCHA naturally. Delete-flow
+// selectors below remain unverified against a live account -- couldn't get past login to check.
 export const mercariAdapter = createManualAdapter({
   id: "mercari",
   name: "Mercari",
-  loginUrl: "https://www.mercari.com/us/login/",
+  loginUrl: "https://www.mercari.com/login/",
   listingUrl: "https://www.mercari.com/sell/",
   usernameSelector: "input[type=\"email\"]",
   passwordSelector: "input[type=\"password\"]",
