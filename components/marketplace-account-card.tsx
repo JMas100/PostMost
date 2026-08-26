@@ -38,13 +38,14 @@ export type AccountView = {
   authMethod: string;
 };
 
-// Phase 1 pilot: only Poshmark exposes the browser-session connect flow (matches
-// SESSION_AUTH_PLATFORMS in app/api/extension/session/route.ts) while the whole chain gets
-// proven against one real account before rolling out to the rest of the manual platforms.
-const SESSION_AUTH_PLATFORMS = new Set(["poshmark"]);
+// Must match SESSION_AUTH_PLATFORMS in app/api/extension/session/route.ts. Poshmark proved the
+// whole chain end-to-end; Mercari was added after confirming its password login is blocked by
+// reCAPTCHA Enterprise (2026-08-26) -- exactly the case this mechanism exists for.
+const SESSION_AUTH_PLATFORMS = new Set(["poshmark", "mercari"]);
 
 const LOGIN_URLS: Record<string, string> = {
   poshmark: "https://poshmark.com/login",
+  mercari: "https://www.mercari.com/login/",
 };
 
 export interface PlatformStats {

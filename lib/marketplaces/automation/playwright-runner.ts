@@ -40,15 +40,21 @@ export async function attemptLogin(
   username: string,
   password: string
 ): Promise<LoginAttemptResult> {
-  await page.goto(config.loginUrl, { waitUntil: "networkidle" });
+  // "networkidle" is too strict for real-world sites with persistent background network chatter
+  // (analytics, polling) -- confirmed live against Mercari, where it made page.goto() time out
+  // and throw before ever reaching the actual login check. "domcontentloaded" resolves
+  // reliably; subsequent fill()/click() calls already auto-wait for their own elements to be
+  // ready, and the settle wait after submit gives client-rendered result state time to paint.
+  await page.goto(config.loginUrl, { waitUntil: "domcontentloaded" });
 
   if (config.usernameSelector) await page.fill(config.usernameSelector, username);
   if (config.passwordSelector) await page.fill(config.passwordSelector, password);
   if (config.submitSelector) {
     await Promise.all([
-      page.waitForNavigation({ waitUntil: "networkidle" }).catch(() => {}),
+      page.waitForNavigation({ waitUntil: "domcontentloaded" }).catch(() => {}),
       page.click(config.submitSelector),
     ]);
+    await page.waitForTimeout(1500);
   }
 
   if (!config.passwordSelector) return { success: true };
@@ -90,7 +96,13 @@ export async function authenticateWithSession(
   cookies: SessionCookie[]
 ): Promise<LoginAttemptResult> {
   await context.addCookies(cookies);
-  await page.goto(config.listingUrl || config.loginUrl, { waitUntil: "networkidle" });
+  // "networkidle" is too strict here -- confirmed live against Mercari, whose login page never
+  // fully quiets down (persistent analytics/polling), so page.goto() with that wait condition
+  // just times out and throws before the page state is ever inspected, regardless of whether
+  // the session was actually good or bad. "domcontentloaded" resolves reliably; the settle wait
+  // below gives client-rendered content (React, etc.) time to paint before the check runs.
+  await page.goto(config.listingUrl || config.loginUrl, { waitUntil: "domcontentloaded" });
+  await page.waitForTimeout(1500);
 
   if (!config.passwordSelector) return { success: true };
 
@@ -312,7 +324,10 @@ export async function runPlaywrightAutomation(
     }
 
     if (config.listingUrl && !navigatedToListingUrl) {
-      await page.goto(config.listingUrl, { waitUntil: "networkidle" });
+      // See the note on attemptLogin's goto -- "networkidle" hangs on sites with persistent
+      // background network activity instead of resolving once the page is actually usable.
+      await page.goto(config.listingUrl, { waitUntil: "domcontentloaded" });
+      await page.waitForTimeout(1500);
     }
 
     if (config.preSubmitSteps) {
@@ -482,7 +497,10 @@ export async function runPlaywrightDelist(
       }
     }
 
-    await page.goto(listingUrl, { waitUntil: "networkidle" });
+    // See the note on attemptLogin's goto -- "networkidle" hangs on sites with persistent
+    // background network activity instead of resolving once the page is actually usable.
+    await page.goto(listingUrl, { waitUntil: "domcontentloaded" });
+    await page.waitForTimeout(1500);
     steps.push(`Navigated to listing: ${listingUrl}`);
 
     if (config.openMenuSelectors) {

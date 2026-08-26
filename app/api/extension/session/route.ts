@@ -8,10 +8,13 @@ import type { SessionCookie } from "@/lib/marketplaces/types";
 export const runtime = "nodejs";
 export const maxDuration = 60;
 
-// Phase 1: only Poshmark exposes the browser-session connect flow, so the whole chain (extension
-// capture, this endpoint, Playwright cookie consumption) gets proven against one real account
-// before rolling out to the other manual-adapter platforms.
-const SESSION_AUTH_PLATFORMS = new Set(["poshmark"]);
+// Phase 1 (Poshmark) proved the whole chain end-to-end against a real account. Phase 2 platforms
+// get added here once there's a real reason to believe browser-session connect helps them --
+// Mercari's password-based login was confirmed blocked by reCAPTCHA Enterprise (2026-08-26),
+// which is exactly the failure mode this mechanism sidesteps (the user's own browser passes the
+// CAPTCHA naturally; only the resulting session gets captured, no automated login attempt ever
+// happens).
+const SESSION_AUTH_PLATFORMS = new Set(["poshmark", "mercari"]);
 
 const MAX_COOKIES = 200;
 const MAX_BODY_BYTES = 200_000;
