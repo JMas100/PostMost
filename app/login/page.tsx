@@ -39,7 +39,7 @@ export default function LoginPage() {
     });
     setLoading(false);
     if (res?.error) {
-      toast.error(res.error);
+      toast.error(res.error === "CredentialsSignin" ? "Incorrect email or password." : res.error);
     } else {
       router.push(isRegister ? "/onboarding" : "/dashboard");
       router.refresh();

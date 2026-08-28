@@ -2,7 +2,7 @@ import { MarketplaceAdapter, ListingData, PlatformAccount, PostResult } from "..
 import { runPlaywrightAutomation, runPlaywrightDelist, genericVerifyRemoved, uploadPhotoOnPage, verifyLogin, verifySession } from "./playwright-runner";
 import type { SessionCookie } from "../types";
 import type { AutomationConfig, DelistConfig } from "./playwright-runner";
-import type { Page } from "playwright";
+import type { Page } from "playwright-core";
 
 export interface ManualAdapterConfig extends AutomationConfig {
   id: string;

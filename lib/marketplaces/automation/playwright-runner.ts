@@ -1,5 +1,33 @@
 import type { ListingData, PlatformAccount, PostResult, CredentialCheckResult, SessionCookie } from "../types";
 
+/**
+ * On Vercel, the full `playwright` package's browser binary lives in a separate download cache
+ * that the serverless function bundle doesn't include (it's not part of a traceable
+ * require()/import() graph), so `playwright-core` alone can't find a browser to launch there —
+ * confirmed live in production via a "Cannot find module '.../playwright-core/browsers.json'"
+ * failure on every single post/delist job. `@sparticuz/chromium` ships its Chromium binary as an
+ * actual file inside its own package directory, which does get traced and included, so it's used
+ * as the executable on Vercel specifically. Locally, `playwright-core` finds the browser
+ * downloaded via `npx playwright install` the normal way, so no override is needed there — and
+ * `@sparticuz/chromium`'s binary is Linux-only and wouldn't run on a macOS/Windows dev machine
+ * anyway.
+ */
+async function launchBrowser(headless: boolean) {
+  const { chromium } = await import("playwright-core");
+  if (process.env.VERCEL) {
+    const chromiumBinary = (await import("@sparticuz/chromium")).default;
+    return chromium.launch({
+      args: chromiumBinary.args,
+      executablePath: await chromiumBinary.executablePath(),
+      headless: true,
+    });
+  }
+  return chromium.launch({
+    headless,
+    args: ["--no-sandbox", "--disable-setuid-sandbox"],
+  });
+}
+
 /** Phrases that show up across most login forms when credentials are rejected -- checked as a
  *  supplement to the "did the password field disappear" heuristic, since some sites re-render
  *  the same login form with an error banner rather than staying in a state that looks identical
@@ -35,7 +63,7 @@ export interface LoginAttemptResult {
  * than a silent gap.
  */
 export async function attemptLogin(
-  page: import("playwright").Page,
+  page: import("playwright-core").Page,
   config: { loginUrl: string; usernameSelector?: string; passwordSelector?: string; submitSelector?: string },
   username: string,
   password: string
@@ -90,8 +118,8 @@ export async function attemptLogin(
  * one shows up, the cookies didn't actually authenticate us (expired, revoked, or wrong site).
  */
 export async function authenticateWithSession(
-  context: import("playwright").BrowserContext,
-  page: import("playwright").Page,
+  context: import("playwright-core").BrowserContext,
+  page: import("playwright-core").Page,
   config: { loginUrl: string; listingUrl?: string; passwordSelector?: string },
   cookies: SessionCookie[]
 ): Promise<LoginAttemptResult> {
@@ -137,18 +165,13 @@ export async function verifyLogin(
   username: string,
   password: string
 ): Promise<CredentialCheckResult> {
-  let playwright;
+  let browser;
   try {
-    playwright = await import("playwright");
+    browser = await launchBrowser(true);
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     return { status: "unknown", error: `Playwright is not available in this environment. ${message}` };
   }
-
-  const browser = await playwright.chromium.launch({
-    headless: true,
-    args: ["--no-sandbox", "--disable-setuid-sandbox"],
-  });
 
   try {
     const context = await browser.newContext({
@@ -187,18 +210,13 @@ export async function verifySession(
   config: { loginUrl: string; listingUrl?: string; passwordSelector?: string },
   cookies: SessionCookie[]
 ): Promise<CredentialCheckResult> {
-  let playwright;
+  let browser;
   try {
-    playwright = await import("playwright");
+    browser = await launchBrowser(true);
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     return { status: "unknown", error: `Playwright is not available in this environment. ${message}` };
   }
-
-  const browser = await playwright.chromium.launch({
-    headless: true,
-    args: ["--no-sandbox", "--disable-setuid-sandbox"],
-  });
 
   try {
     const context = await browser.newContext({
@@ -225,7 +243,7 @@ export async function verifySession(
 
 export interface AutomationStep {
   name: string;
-  action: (page: import("playwright").Page, listing: ListingData, account: PlatformAccount) => Promise<void>;
+  action: (page: import("playwright-core").Page, listing: ListingData, account: PlatformAccount) => Promise<void>;
 }
 
 export interface AutomationConfig {
@@ -247,17 +265,6 @@ export async function runPlaywrightAutomation(
   listing: ListingData,
   account: PlatformAccount
 ): Promise<PostResult> {
-  let playwright;
-  try {
-    playwright = await import("playwright");
-  } catch (err) {
-    const message = err instanceof Error ? err.message : String(err);
-    return {
-      success: false,
-      error: `Playwright is not available in this environment. ${message}`,
-    };
-  }
-
   const isSessionAuth = account.authMethod === "session";
   const sessionCookies = isSessionAuth ? parseSessionCookies(account.accessToken || "") : null;
   const username = String(account.externalId || account.settings?.username || "");
@@ -274,12 +281,15 @@ export async function runPlaywrightAutomation(
   }
 
   const raw: Record<string, unknown> = {};
-  const browser = await playwright.chromium.launch({
-    headless: config.headless !== false,
-    args: ["--no-sandbox", "--disable-setuid-sandbox"],
-  });
+  let browser;
+  try {
+    browser = await launchBrowser(config.headless !== false);
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    return { success: false, error: `Playwright is not available in this environment. ${message}` };
+  }
 
-  let page: import("playwright").Page | undefined;
+  let page: import("playwright-core").Page | undefined;
 
   async function fail(error: string): Promise<PostResult> {
     const screenshotUrl = page ? await captureFailureScreenshot(page, platformId) : undefined;
@@ -381,7 +391,7 @@ export interface DelistConfig {
   /** After clicking delete (+ confirm), the URL is expected to change away from the listing page,
    *  or the listing page should no longer show this selector (e.g. an "Edit" button only a live
    *  listing has). Used to verify removal actually happened rather than assuming a click succeeded. */
-  verifyRemoved: (page: import("playwright").Page, listingUrl: string) => Promise<boolean>;
+  verifyRemoved: (page: import("playwright-core").Page, listingUrl: string) => Promise<boolean>;
   headless?: boolean;
 }
 
@@ -398,7 +408,7 @@ export interface DelistOutcome {
 }
 
 async function captureFailureScreenshot(
-  page: import("playwright").Page,
+  page: import("playwright-core").Page,
   platformId: string
 ): Promise<string | undefined> {
   try {
@@ -434,14 +444,6 @@ export async function runPlaywrightDelist(
 ): Promise<DelistOutcome> {
   const steps: string[] = [];
 
-  let playwright;
-  try {
-    playwright = await import("playwright");
-  } catch (err) {
-    const message = err instanceof Error ? err.message : String(err);
-    return { success: false, error: `Playwright is not available in this environment. ${message}`, steps };
-  }
-
   const isSessionAuth = account.authMethod === "session";
   const sessionCookies = isSessionAuth ? parseSessionCookies(account.accessToken || "") : null;
   const username = String(account.externalId || account.settings?.username || "");
@@ -454,12 +456,15 @@ export async function runPlaywrightDelist(
     return { success: false, error: `Missing username or password for ${platformId}.`, steps };
   }
 
-  const browser = await playwright.chromium.launch({
-    headless: config.headless !== false,
-    args: ["--no-sandbox", "--disable-setuid-sandbox"],
-  });
+  let browser;
+  try {
+    browser = await launchBrowser(config.headless !== false);
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    return { success: false, error: `Playwright is not available in this environment. ${message}`, steps };
+  }
 
-  let page: import("playwright").Page | undefined;
+  let page: import("playwright-core").Page | undefined;
 
   async function fail(error: string): Promise<DelistOutcome> {
     steps.push(`FAILED: ${error}`);
@@ -569,7 +574,7 @@ export async function runPlaywrightDelist(
  * itself now reads as removed/unavailable/sold. Used as the default verifyRemoved for adapters
  * that don't need anything more specific.
  */
-export async function genericVerifyRemoved(page: import("playwright").Page, listingUrl: string): Promise<boolean> {
+export async function genericVerifyRemoved(page: import("playwright-core").Page, listingUrl: string): Promise<boolean> {
   if (page.url() !== listingUrl) return true;
   const bodyText = (await page.locator("body").innerText().catch(() => "")).toLowerCase();
   return (
@@ -581,7 +586,7 @@ export async function genericVerifyRemoved(page: import("playwright").Page, list
 }
 
 export async function uploadPhotoOnPage(
-  page: import("playwright").Page,
+  page: import("playwright-core").Page,
   selector: string,
   photoUrl: string,
   index: number
