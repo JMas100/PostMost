@@ -9,6 +9,8 @@ import { ChangePlan } from "./change-plan";
 import { redirect } from "next/navigation";
 import { AlertTriangle } from "lucide-react";
 import { PageHeader } from "@/components/page-header";
+import { Badge } from "@/components/ui/badge";
+import { cn } from "@/lib/utils";
 
 function getLimitLabel(value: number, limit: number) {
   if (limit === -1) return "Unlimited";
@@ -24,6 +26,17 @@ function indicatorColor(pct: number) {
   if (pct >= 100) return "bg-destructive";
   if (pct >= 80) return "bg-warning";
   return undefined;
+}
+
+/** The percentage only earns a badge once it's actually worth a seller's attention -- a "12%"
+ *  badge next to every meter, always, is just noise. */
+function PctBadge({ pct }: { pct: number }) {
+  if (pct < 80) return null;
+  return (
+    <Badge variant="outline" className={cn("border-warning/30 bg-warning/10 text-warning", pct >= 100 && "border-destructive/30 bg-destructive/10 text-destructive")}>
+      {Math.round(pct)}%
+    </Badge>
+  );
 }
 
 export default async function BillingPage(props: { searchParams: Promise<{ success?: string; canceled?: string }> }) {
@@ -90,9 +103,12 @@ export default async function BillingPage(props: { searchParams: Promise<{ succe
           </CardHeader>
           <CardContent className="space-y-4">
             <div>
-              <div className="mb-1 flex justify-between text-sm">
+              <div className="mb-1 flex items-center justify-between text-sm">
                 <span className="text-muted-foreground">Listings</span>
-                <span>{getLimitLabel(usage?.listingsThisMonth ?? 0, plan.listingsPerMonth)}</span>
+                <span className="flex items-center gap-2">
+                  <PctBadge pct={usagePct(usage?.listingsThisMonth ?? 0, plan.listingsPerMonth)} />
+                  {getLimitLabel(usage?.listingsThisMonth ?? 0, plan.listingsPerMonth)}
+                </span>
               </div>
               {plan.listingsPerMonth > 0 && (
                 <Progress
@@ -102,9 +118,12 @@ export default async function BillingPage(props: { searchParams: Promise<{ succe
               )}
             </div>
             <div>
-              <div className="mb-1 flex justify-between text-sm">
+              <div className="mb-1 flex items-center justify-between text-sm">
                 <span className="text-muted-foreground">AI photo analyses</span>
-                <span>{getLimitLabel(usage?.aiCreditsUsed ?? 0, plan.aiCreditsPerMonth)}</span>
+                <span className="flex items-center gap-2">
+                  <PctBadge pct={usagePct(usage?.aiCreditsUsed ?? 0, plan.aiCreditsPerMonth)} />
+                  {getLimitLabel(usage?.aiCreditsUsed ?? 0, plan.aiCreditsPerMonth)}
+                </span>
               </div>
               {plan.aiCreditsPerMonth > 0 && (
                 <Progress
@@ -114,9 +133,12 @@ export default async function BillingPage(props: { searchParams: Promise<{ succe
               )}
             </div>
             <div>
-              <div className="mb-1 flex justify-between text-sm">
+              <div className="mb-1 flex items-center justify-between text-sm">
                 <span className="text-muted-foreground">Background removals</span>
-                <span>{getLimitLabel(usage?.bgRemovalsUsed ?? 0, plan.bgRemovalsPerMonth)}</span>
+                <span className="flex items-center gap-2">
+                  <PctBadge pct={usagePct(usage?.bgRemovalsUsed ?? 0, plan.bgRemovalsPerMonth)} />
+                  {getLimitLabel(usage?.bgRemovalsUsed ?? 0, plan.bgRemovalsPerMonth)}
+                </span>
               </div>
               {plan.bgRemovalsPerMonth > 0 && (
                 <Progress

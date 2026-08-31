@@ -1,13 +1,25 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useEffect, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { updateProfile, changePassword } from "@/lib/actions/account";
+import { useTheme } from "next-themes";
+import { signOut } from "next-auth/react";
+import { updateProfile, changePassword, deleteAccount } from "@/lib/actions/account";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { cn } from "@/lib/utils";
 import { toast } from "sonner";
+import { Monitor, Moon, Sun } from "lucide-react";
 
 export function AccountClient({ name, email }: { name: string; email: string }) {
   const router = useRouter();
@@ -67,6 +79,8 @@ export function AccountClient({ name, email }: { name: string; email: string }) 
         </CardContent>
       </Card>
 
+      <AppearanceCard />
+
       <Card>
         <CardHeader>
           <CardTitle>Change password</CardTitle>
@@ -111,6 +125,111 @@ export function AccountClient({ name, email }: { name: string; email: string }) 
           </Button>
         </CardContent>
       </Card>
+
+      <DeleteAccountCard />
     </div>
+  );
+}
+
+function AppearanceCard() {
+  const { theme, setTheme } = useTheme();
+  const [mounted, setMounted] = useState(false);
+  // Only known after mount -- matching this on the server would cause a hydration mismatch.
+  // eslint-disable-next-line react-hooks/set-state-in-effect
+  useEffect(() => setMounted(true), []);
+
+  const options = [
+    { value: "light", label: "Light", icon: Sun },
+    { value: "dark", label: "Dark", icon: Moon },
+    { value: "system", label: "System", icon: Monitor },
+  ] as const;
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Appearance</CardTitle>
+        <CardDescription>Follows your operating system unless you pick one.</CardDescription>
+      </CardHeader>
+      <CardContent>
+        <div className="inline-flex gap-1 rounded-md border p-1">
+          {options.map((opt) => (
+            <button
+              key={opt.value}
+              type="button"
+              onClick={() => setTheme(opt.value)}
+              disabled={!mounted}
+              className={cn(
+                "flex items-center gap-2 rounded-sm px-3 py-1.5 text-sm font-medium transition-colors",
+                mounted && theme === opt.value ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"
+              )}
+            >
+              <opt.icon className="h-4 w-4" />
+              {opt.label}
+            </button>
+          ))}
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+function DeleteAccountCard() {
+  const [open, setOpen] = useState(false);
+  const [password, setPassword] = useState("");
+  const [isPending, startTransition] = useTransition();
+
+  function confirmDelete() {
+    startTransition(async () => {
+      const result = await deleteAccount(password);
+      if (result.error) {
+        toast.error(result.error);
+        return;
+      }
+      toast.success("Account deleted");
+      await signOut({ callbackUrl: "/" });
+    });
+  }
+
+  return (
+    <Card className="border-destructive/40">
+      <CardHeader>
+        <CardTitle>Delete account</CardTitle>
+        <CardDescription>
+          Removes your PostMost account and disconnects every marketplace. Listings already live on those
+          marketplaces stay live — we do not delist them on your way out.
+        </CardDescription>
+      </CardHeader>
+      <CardContent>
+        <Button variant="destructive" onClick={() => setOpen(true)}>
+          Delete account
+        </Button>
+      </CardContent>
+
+      <Dialog open={open} onOpenChange={(next) => { setOpen(next); if (!next) setPassword(""); }}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Delete your account?</DialogTitle>
+            <DialogDescription>
+              This permanently deletes your listings, marketplace connections, templates and everything else in
+              PostMost. This can&apos;t be undone. Enter your password to confirm.
+            </DialogDescription>
+          </DialogHeader>
+          <Input
+            type="password"
+            placeholder="Password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+          />
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setOpen(false)} disabled={isPending}>
+              Cancel
+            </Button>
+            <Button variant="destructive" onClick={confirmDelete} disabled={isPending || !password}>
+              {isPending ? "Deleting…" : "Delete my account"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </Card>
   );
 }
