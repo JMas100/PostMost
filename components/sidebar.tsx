@@ -128,7 +128,7 @@ function MobileTopBar() {
           <Wordmark className="text-lg" />
         </Link>
       </div>
-      <SheetContent side="left" className="w-64 border-r bg-background p-0">
+      <SheetContent side="left" className="w-64 border-r bg-sidebar p-0">
         <NavContent />
       </SheetContent>
     </Sheet>
@@ -138,7 +138,7 @@ function MobileTopBar() {
 export function Sidebar() {
   return (
     <>
-      <aside className="hidden w-64 flex-none border-r bg-background lg:block">
+      <aside className="hidden w-64 flex-none border-r bg-sidebar lg:block">
         <NavContent />
       </aside>
       <MobileTopBar />
