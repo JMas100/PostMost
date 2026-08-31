@@ -468,8 +468,8 @@ export function ListingForm({ mode = "create", draftId, initialData, templates =
         toast.error("Failed to publish draft");
         return;
       }
-      await publishToSelectedPlatforms(result.listing.id);
-      router.push(`/listings/${result.listing.id}`);
+      const published = await publishToSelectedPlatforms(result.listing.id);
+      router.push(`/listings/${result.listing.id}${published.length ? `?published=${published.join(",")}` : ""}`);
       router.refresh();
       return;
     }
@@ -484,8 +484,8 @@ export function ListingForm({ mode = "create", draftId, initialData, templates =
       toast.error("Listing creation failed");
       return;
     }
-    await publishToSelectedPlatforms(result.listing.id);
-    router.push(`/listings/${result.listing.id}`);
+    const published = await publishToSelectedPlatforms(result.listing.id);
+    router.push(`/listings/${result.listing.id}${published.length ? `?published=${published.join(",")}` : ""}`);
     router.refresh();
   }
 
@@ -493,18 +493,21 @@ export function ListingForm({ mode = "create", draftId, initialData, templates =
    *  ended at Review with publishing left for the detail page afterward. Reuses crossPost exactly
    *  as the detail page's Publish panel does -- no new backend needed. A failure here doesn't
    *  block the redirect: the listing was already created successfully, so the user lands on its
-   *  detail page (where the Publish panel can retry) rather than losing the listing they just made. */
-  async function publishToSelectedPlatforms(listingId: string) {
+   *  detail page (where the Publish panel can retry) rather than losing the listing they just made.
+   *  Returns the platforms actually queued, so the caller can carry them into the redirect and
+   *  trigger the same "watched live" payoff dialog the detail page's own Publish click shows. */
+  async function publishToSelectedPlatforms(listingId: string): Promise<string[]> {
     if (selectedPlatforms.size === 0) {
       toast.success(mode === "draft" ? "Draft published" : "Listing created");
-      return;
+      return [];
     }
-    const result = await crossPost(listingId, Array.from(selectedPlatforms));
+    const platforms = Array.from(selectedPlatforms);
+    const result = await crossPost(listingId, platforms);
     if (result.error) {
       toast.error(`Listing created, but publishing failed: ${result.error}`);
-      return;
+      return [];
     }
-    toast.success(`Publishing to ${selectedPlatforms.size} marketplace${selectedPlatforms.size === 1 ? "" : "s"}`);
+    return platforms;
   }
 
   function onInvalid(invalidErrors: FieldErrors<ListingFormData>) {

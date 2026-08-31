@@ -32,6 +32,7 @@ export interface PlatformListingSummary {
   platform: string;
   status: string;
   errorMessage: string | null;
+  externalUrl?: string | null;
 }
 
 export interface PublishPanelProps {
@@ -40,4 +41,7 @@ export interface PublishPanelProps {
   extensionListing: ExtensionListingPayload;
   hasActiveJobs: boolean;
   platformListings: PlatformListingSummary[];
+  /** Platform ids just published from the composer's Review step, if arriving straight from
+   *  there -- seeds the confirmation dialog open on mount instead of requiring another click. */
+  initialPublishedPlatforms?: string[];
 }

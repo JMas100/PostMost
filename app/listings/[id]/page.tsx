@@ -18,8 +18,9 @@ import { PlatformLogo } from "@/components/platform-logo";
 import { getPlatform } from "@/lib/marketplaces/platforms";
 import { SoldButton } from "./sold-button";
 
-export default async function ListingDetailPage(props: { params: Promise<{ id: string }> }) {
+export default async function ListingDetailPage(props: { params: Promise<{ id: string }>; searchParams: Promise<{ published?: string }> }) {
   const params = await props.params;
+  const searchParams = await props.searchParams;
   const session = await getServerSession(authOptions);
   if (!session?.user?.id) redirect("/login");
 
@@ -189,6 +190,7 @@ export default async function ListingDetailPage(props: { params: Promise<{ id: s
                   extensionListing={extensionListing}
                   hasActiveJobs={hasActiveJobs}
                   platformListings={listing.platformListings}
+                  initialPublishedPlatforms={searchParams.published?.split(",").filter(Boolean)}
                 />
               </CardContent>
             </Card>

@@ -12,12 +12,20 @@ import { PlatformRow } from "./platform-row";
 import { PublishConfirmationDialog } from "./publish-confirmation-dialog";
 import { PublishPanelProps } from "./types";
 
-export function PublishPanel({ listingId, accounts, extensionListing, hasActiveJobs, platformListings }: PublishPanelProps) {
+export function PublishPanel({ listingId, accounts, extensionListing, hasActiveJobs, platformListings, initialPublishedPlatforms }: PublishPanelProps) {
   const router = useRouter();
   const extensionInstalled = useExtensionDetector();
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [publishing, setPublishing] = useState(false);
-  const [confirmation, setConfirmation] = useState<{ automationIds: string[]; extensionIds: string[] } | null>(null);
+  // Seeded once, on mount, when arriving straight from the composer's own publish (see
+  // ?published= handling on the listing detail page) -- shows the exact same payoff dialog a
+  // Publish click from this panel would, so the "watched live" experience isn't special to one
+  // entry point.
+  const [confirmation, setConfirmation] = useState<{ automationIds: string[]; extensionIds: string[] } | null>(
+    initialPublishedPlatforms && initialPublishedPlatforms.length > 0
+      ? { automationIds: initialPublishedPlatforms, extensionIds: [] }
+      : null
+  );
 
   useJobPolling(listingId, hasActiveJobs);
 
