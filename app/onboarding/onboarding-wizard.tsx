@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { CheckCircle2, PartyPopper } from "lucide-react";
+import { CheckCircle2 } from "lucide-react";
 import { Wordmark, LogoMark } from "@/components/logo";
 import { buttonVariants } from "@/components/ui/button";
 import { PLATFORMS } from "@/lib/marketplaces/platforms";
@@ -10,13 +10,17 @@ import { cn } from "@/lib/utils";
 
 const CONNECTABLE_PLATFORMS = PLATFORMS.filter((p) => p.authType !== "none");
 
+// Step 3 ("you're set") isn't rendered here -- once the first listing is published, the page
+// component redirects straight to its real, live payoff on the detail page instead of showing a
+// second, less honest "you're all set" screen. The label stays in the progress strip so the
+// indicator still reads as a 3-step journey while steps 1-2 are on screen.
 const STEPS = [
   { step: 1, label: "Connect a marketplace" },
   { step: 2, label: "Publish your first listing" },
   { step: 3, label: "You're set" },
 ];
 
-export function OnboardingWizard({ step, accounts }: { step: 1 | 2 | 3; accounts: AccountView[] }) {
+export function OnboardingWizard({ step, accounts }: { step: 1 | 2; accounts: AccountView[] }) {
   const accountByPlatform = new Map(accounts.map((a) => [a.platform, a]));
 
   return (
@@ -93,19 +97,6 @@ export function OnboardingWizard({ step, accounts }: { step: 1 | 2 | 3; accounts
           </div>
         )}
 
-        {step === 3 && (
-          <div className="space-y-4 text-center">
-            <PartyPopper className="mx-auto h-10 w-10 text-primary" />
-            <h1 className="text-2xl font-bold">You&apos;re all set</h1>
-            <p className="text-muted-foreground">
-              Your first listing is live. Connect more marketplaces anytime from Marketplaces, and
-              we&apos;ll keep everything in sync as items sell.
-            </p>
-            <Link href="/dashboard" className={buttonVariants({ size: "lg" })}>
-              Go to my dashboard
-            </Link>
-          </div>
-        )}
       </div>
     </div>
   );
