@@ -36,6 +36,11 @@ export interface ListingFormProps {
   templates?: { id: string; name: string; payload: string }[];
   defaultTemplateId?: string;
   shippingProfiles?: ShippingProfileOption[];
+  /** Connected marketplace accounts, for the "where should this go?" step in Review -- letting
+   *  create-and-publish be one action instead of create-then-visit-the-detail-page. Only
+   *  automation (API/Playwright) platforms are offered here; extension-based publishing needs a
+   *  real created listing to message the extension about, so it stays on the detail page. */
+  accounts?: { platform: string }[];
 }
 
 export function computeInitialStep(data?: Partial<ListingFormData>): StepId {

@@ -6,6 +6,7 @@ import { FieldErrors, FormProvider, useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { listingSchema, ListingFormData } from "@/lib/schemas/listing";
 import { createListing, saveDraft, publishDraft } from "@/lib/actions/listings";
+import { crossPost } from "@/lib/actions/crosspost";
 import { saveTemplate } from "@/lib/actions/templates";
 import { generateListingFromPhoto } from "@/lib/actions/ai-generate";
 import {
@@ -31,7 +32,7 @@ import { StepDetails } from "./step-details";
 import { StepPricing } from "./step-pricing";
 import { StepReview } from "./step-review";
 
-export function ListingForm({ mode = "create", draftId, initialData, templates = [], defaultTemplateId = "", shippingProfiles = [] }: ListingFormProps) {
+export function ListingForm({ mode = "create", draftId, initialData, templates = [], defaultTemplateId = "", shippingProfiles = [], accounts = [] }: ListingFormProps) {
   const router = useRouter();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [photoUrls, setPhotoUrls] = useState<string[]>(initialData?.photos?.length ? initialData.photos : [""]);
@@ -45,6 +46,17 @@ export function ListingForm({ mode = "create", draftId, initialData, templates =
   const [background, setBackground] = useState<PhotoBackground>("transparent");
   const [preset, setPreset] = useState<string>(DEFAULT_PHOTO_PRESET);
   const [studioAvailable, setStudioAvailable] = useState(false);
+
+  const connectedPlatforms = accounts.map((a) => a.platform);
+  const [selectedPlatforms, setSelectedPlatforms] = useState<Set<string>>(() => new Set(connectedPlatforms));
+  function togglePlatform(platform: string) {
+    setSelectedPlatforms((prev) => {
+      const next = new Set(prev);
+      if (next.has(platform)) next.delete(platform);
+      else next.add(platform);
+      return next;
+    });
+  }
 
   const [optimizing, setOptimizing] = useState<OptimizingState>("");
   const [selectedCaptionPlatform, setSelectedCaptionPlatform] = useState<string>("");
@@ -456,7 +468,7 @@ export function ListingForm({ mode = "create", draftId, initialData, templates =
         toast.error("Failed to publish draft");
         return;
       }
-      toast.success("Draft published");
+      await publishToSelectedPlatforms(result.listing.id);
       router.push(`/listings/${result.listing.id}`);
       router.refresh();
       return;
@@ -472,9 +484,27 @@ export function ListingForm({ mode = "create", draftId, initialData, templates =
       toast.error("Listing creation failed");
       return;
     }
-    toast.success("Listing created");
+    await publishToSelectedPlatforms(result.listing.id);
     router.push(`/listings/${result.listing.id}`);
     router.refresh();
+  }
+
+  /** Folds "create" and "publish" into one action, per the design handoff: the wizard as built
+   *  ended at Review with publishing left for the detail page afterward. Reuses crossPost exactly
+   *  as the detail page's Publish panel does -- no new backend needed. A failure here doesn't
+   *  block the redirect: the listing was already created successfully, so the user lands on its
+   *  detail page (where the Publish panel can retry) rather than losing the listing they just made. */
+  async function publishToSelectedPlatforms(listingId: string) {
+    if (selectedPlatforms.size === 0) {
+      toast.success(mode === "draft" ? "Draft published" : "Listing created");
+      return;
+    }
+    const result = await crossPost(listingId, Array.from(selectedPlatforms));
+    if (result.error) {
+      toast.error(`Listing created, but publishing failed: ${result.error}`);
+      return;
+    }
+    toast.success(`Publishing to ${selectedPlatforms.size} marketplace${selectedPlatforms.size === 1 ? "" : "s"}`);
   }
 
   function onInvalid(invalidErrors: FieldErrors<ListingFormData>) {
@@ -556,6 +586,9 @@ export function ListingForm({ mode = "create", draftId, initialData, templates =
                 templateName={templateName}
                 onTemplateNameChange={setTemplateName}
                 onSaveTemplate={onSaveTemplate}
+                connectedPlatforms={connectedPlatforms}
+                selectedPlatforms={selectedPlatforms}
+                onTogglePlatform={togglePlatform}
               />
             )}
 
@@ -567,7 +600,13 @@ export function ListingForm({ mode = "create", draftId, initialData, templates =
               onSubmitClick={handleSubmit(onSubmit, onInvalid)}
               onSaveDraft={onSaveDraft}
               saving={saving}
-              submitLabel={mode === "draft" ? "Publish draft" : "Create listing"}
+              submitLabel={
+                selectedPlatforms.size > 0
+                  ? `Publish to ${selectedPlatforms.size} marketplace${selectedPlatforms.size === 1 ? "" : "s"}`
+                  : mode === "draft"
+                    ? "Publish draft"
+                    : "Create listing"
+              }
               isSubmitting={isSubmitting}
               navDisabled={navDisabled}
               nextStepLabel={STEP_LABELS[STEPS[STEPS.indexOf(wizard.currentStep) + 1]]}

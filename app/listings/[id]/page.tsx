@@ -32,6 +32,7 @@ export default async function ListingDetailPage(props: { params: Promise<{ id: s
 
   const templates = await getTemplates();
   const shippingProfiles = await getShippingProfiles();
+  const accounts = await getMarketplaceAccounts();
 
   if (listing.isDraft) {
     const initialData: Record<string, unknown> = {
@@ -46,13 +47,12 @@ export default async function ListingDetailPage(props: { params: Promise<{ id: s
             <ArrowLeft className="mr-1 h-4 w-4" /> Back to drafts
           </Link>
           <h1 className="text-3xl font-bold">Edit draft</h1>
-          <ListingForm mode="draft" draftId={listing.id} initialData={initialData} templates={templates} shippingProfiles={shippingProfiles} />
+          <ListingForm mode="draft" draftId={listing.id} initialData={initialData} templates={templates} shippingProfiles={shippingProfiles} accounts={accounts} />
         </div>
       </Shell>
     );
   }
 
-  const accounts = await getMarketplaceAccounts();
   const hasActiveJobs = listing.jobs.some((j) => j.status === "PENDING" || j.status === "RUNNING");
   const failedPlatformListings = listing.platformListings.filter((pl) => pl.status === "FAILED");
   const liveElsewherePlatformListings = listing.platformListings.filter(

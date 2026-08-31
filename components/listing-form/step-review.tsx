@@ -12,8 +12,11 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Sparkles, FileBox } from "lucide-react";
+import { Sparkles, FileBox, ChevronDown } from "lucide-react";
 import { PLATFORMS } from "@/lib/marketplaces/platforms";
+import { PlatformLogo } from "@/components/platform-logo";
+import { Checkbox } from "@/components/ui/checkbox";
+import Link from "next/link";
 import { CaptionDialog } from "./caption-dialog";
 import { OptimizingState } from "./types";
 
@@ -30,6 +33,9 @@ export function StepReview({
   templateName,
   onTemplateNameChange,
   onSaveTemplate,
+  connectedPlatforms,
+  selectedPlatforms,
+  onTogglePlatform,
 }: {
   photoUrls: string[];
   optimizing: OptimizingState;
@@ -43,12 +49,16 @@ export function StepReview({
   templateName: string;
   onTemplateNameChange: (name: string) => void;
   onSaveTemplate: () => void;
+  connectedPlatforms: string[];
+  selectedPlatforms: Set<string>;
+  onTogglePlatform: (platform: string) => void;
 }) {
   const { watch, getValues } = useFormContext<ListingFormData>();
   const title = watch("title");
   const description = watch("description");
   const price = watch("price");
   const validPhotos = photoUrls.filter((u) => u.trim().startsWith("http") || u.trim().startsWith("data:"));
+  const unconnectedCount = PLATFORMS.filter((p) => p.authType !== "none" && !connectedPlatforms.includes(p.id)).length;
 
   return (
     <div className="space-y-6">
@@ -70,6 +80,51 @@ export function StepReview({
         </div>
       </div>
 
+      <div className="rounded-lg border p-4 space-y-3">
+        <div>
+          <p className="text-sm font-medium">Where should this go?</p>
+          <p className="text-xs text-muted-foreground">
+            {connectedPlatforms.length > 0
+              ? "Everything is ready. Pick the marketplaces and publish."
+              : "Connect a marketplace to publish immediately, or save as a draft for now."}
+          </p>
+        </div>
+        {connectedPlatforms.length > 0 && (
+          <div className="space-y-1">
+            {connectedPlatforms.map((platform) => {
+              const info = PLATFORMS.find((p) => p.id === platform);
+              return (
+                <label
+                  key={platform}
+                  className="flex cursor-pointer items-center justify-between gap-3 rounded-md border p-2.5 hover:bg-muted"
+                >
+                  <div className="flex items-center gap-2.5">
+                    <Checkbox checked={selectedPlatforms.has(platform)} onCheckedChange={() => onTogglePlatform(platform)} />
+                    <PlatformLogo platform={platform} size={22} />
+                    <span className="text-sm font-medium">{info?.name ?? platform}</span>
+                  </div>
+                  <span className="text-sm text-muted-foreground">${Number(price || 0).toFixed(2)}</span>
+                </label>
+              );
+            })}
+          </div>
+        )}
+        {unconnectedCount > 0 && (
+          <p className="text-xs text-muted-foreground">
+            {unconnectedCount} more marketplace{unconnectedCount === 1 ? "" : "s"} available.{" "}
+            <Link href="/marketplaces" className="text-primary hover:underline">
+              Connect
+            </Link>
+          </p>
+        )}
+      </div>
+
+      <details className="group rounded-lg border p-4">
+        <summary className="flex cursor-pointer list-none items-center justify-between text-sm font-medium">
+          More options
+          <ChevronDown className="h-4 w-4 text-muted-foreground transition-transform group-open:rotate-180" />
+        </summary>
+        <div className="mt-4 space-y-4">
       <div className="rounded-lg border p-4 space-y-3">
         <div className="flex items-center gap-2 text-sm font-medium">
           <Sparkles className="h-4 w-4" />
@@ -104,23 +159,25 @@ export function StepReview({
         </div>
       </div>
 
-      <div className="flex items-end gap-2 rounded-lg border p-3">
-        <div className="flex-1 space-y-1">
-          <Label htmlFor="templateName" className="text-xs">
-            Save as template
-          </Label>
-          <Input
-            id="templateName"
-            value={templateName}
-            onChange={(e) => onTemplateNameChange(e.target.value)}
-            placeholder="Template name"
-          />
+          <div className="flex items-end gap-2 rounded-lg border p-3">
+            <div className="flex-1 space-y-1">
+              <Label htmlFor="templateName" className="text-xs">
+                Save as template
+              </Label>
+              <Input
+                id="templateName"
+                value={templateName}
+                onChange={(e) => onTemplateNameChange(e.target.value)}
+                placeholder="Template name"
+              />
+            </div>
+            <Button type="button" variant="secondary" onClick={onSaveTemplate} disabled={!templateName.trim()}>
+              <FileBox className="mr-2 h-4 w-4" />
+              Save
+            </Button>
+          </div>
         </div>
-        <Button type="button" variant="secondary" onClick={onSaveTemplate} disabled={!templateName.trim()}>
-          <FileBox className="mr-2 h-4 w-4" />
-          Save
-        </Button>
-      </div>
+      </details>
 
       <CaptionDialog
         open={captionDialogOpen}

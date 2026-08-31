@@ -42,7 +42,7 @@ export function WizardStepper({
             >
               <span
                 className={cn(
-                  "flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-xs",
+                  "flex h-5 w-5 shrink-0 items-center justify-center rounded-sm text-xs",
                   isActive
                     ? "bg-primary-foreground/20"
                     : isDone
