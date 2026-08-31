@@ -11,6 +11,7 @@ import { Progress } from "@/components/ui/progress";
 import { buttonVariants } from "@/components/ui/button";
 import { AlertCircle, Download } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { PageHeader } from "@/components/page-header";
 
 function StatusBadge({ status }: { status: string }) {
   const variant =
@@ -40,16 +41,16 @@ export default async function AnalyticsPage(
   return (
     <Shell>
       <div className="space-y-6">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-3xl font-bold">Analytics</h1>
-            <p className="text-muted-foreground">Track your listings and cross-post performance.</p>
-          </div>
-          <a href="/api/analytics/export" className={buttonVariants({ variant: "outline" })}>
-            <Download className="h-4 w-4" />
-            Export CSV
-          </a>
-        </div>
+        <PageHeader
+          title="Analytics"
+          description="Track your listings and cross-post performance."
+          actions={
+            <a href="/api/analytics/export" className={buttonVariants({ variant: "outline" })}>
+              <Download className="h-4 w-4" />
+              Export CSV
+            </a>
+          }
+        />
 
         {data.failures.total > 0 && (
           <Card className="border-destructive/40 bg-destructive/5">

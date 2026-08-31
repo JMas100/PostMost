@@ -4,6 +4,7 @@ import { authOptions } from "@/lib/auth";
 import { Shell } from "@/components/sidebar";
 import { getTemplates } from "@/lib/actions/templates";
 import { TemplatesList } from "./templates-list";
+import { PageHeader } from "@/components/page-header";
 
 export default async function TemplatesPage() {
   const session = await getServerSession(authOptions);
@@ -13,8 +14,8 @@ export default async function TemplatesPage() {
 
   return (
     <Shell>
-      <div className="mx-auto max-w-3xl">
-        <h1 className="mb-6 text-3xl font-bold">Templates</h1>
+      <div className="mx-auto max-w-3xl space-y-6">
+        <PageHeader title="Templates" />
         <TemplatesList templates={templates} />
       </div>
     </Shell>

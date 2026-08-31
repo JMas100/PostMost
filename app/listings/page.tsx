@@ -11,6 +11,7 @@ import { getPlatform } from "@/lib/marketplaces/platforms";
 import { ListingsFilters } from "./listings-filters";
 import { ListingsTabs, type ListingsTab } from "./listings-tabs";
 import { ListingsTable } from "./listings-table";
+import { PageHeader } from "@/components/page-header";
 import { cn } from "@/lib/utils";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 
@@ -100,12 +101,14 @@ export default async function ListingsPage(
   return (
     <Shell>
       <div className="space-y-6">
-        <div className="flex items-center justify-between">
-          <h1 className="text-3xl font-bold">Listings</h1>
-          <Link href="/listings/new" className={buttonVariants()}>
-            Create listing
-          </Link>
-        </div>
+        <PageHeader
+          title="Listings"
+          actions={
+            <Link href="/listings/new" className={buttonVariants()}>
+              Create listing
+            </Link>
+          }
+        />
 
         {totalCount > 0 && <ListingsTabs counts={counts} />}
 

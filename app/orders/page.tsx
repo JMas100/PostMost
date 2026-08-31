@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { authOptions } from "@/lib/auth";
 import { Shell } from "@/components/sidebar";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { PageHeader } from "@/components/page-header";
 
 export default async function OrdersPage() {
   const session = await getServerSession(authOptions);
@@ -11,10 +12,7 @@ export default async function OrdersPage() {
   return (
     <Shell>
       <div className="space-y-6">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">Orders</h1>
-          <p className="text-muted-foreground">Sales and fulfillment from every marketplace in one place.</p>
-        </div>
+        <PageHeader title="Orders" description="Sales and fulfillment from every marketplace in one place." />
         <Card>
           <CardHeader>
             <CardTitle className="text-base">Coming soon</CardTitle>

@@ -12,6 +12,7 @@ import { formatDistanceToNow } from "date-fns";
 import { AlertCircle } from "lucide-react";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
+import { PageHeader } from "@/components/page-header";
 
 function parseEventMessage(message: string) {
   const [rest, screenshotPart] = message.split(" | Screenshot: ");
@@ -41,10 +42,7 @@ export default async function AutomationPage() {
   return (
     <Shell>
       <div className="space-y-6">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">Automation</h1>
-          <p className="text-muted-foreground">Set rules that relist, delist, price, and sync without you.</p>
-        </div>
+        <PageHeader title="Automation" description="Set rules that relist, delist, price, and sync without you." />
 
         {hasActivity && (
           <div className="grid gap-4 sm:grid-cols-3">

@@ -1,9 +1,10 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { PageHeader } from "@/components/page-header";
 
 export default function TeamSettingsPage() {
   return (
     <div className="mx-auto max-w-2xl space-y-6">
-      <h1 className="text-3xl font-bold">Team</h1>
+      <PageHeader title="Team" />
       <Card>
         <CardHeader>
           <CardTitle className="text-base">Coming soon</CardTitle>

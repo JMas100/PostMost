@@ -8,6 +8,7 @@ import { buttonVariants } from "@/components/ui/button";
 import { ChangePlan } from "./change-plan";
 import { redirect } from "next/navigation";
 import { AlertTriangle } from "lucide-react";
+import { PageHeader } from "@/components/page-header";
 
 function getLimitLabel(value: number, limit: number) {
   if (limit === -1) return "Unlimited";
@@ -48,10 +49,7 @@ export default async function BillingPage(props: { searchParams: Promise<{ succe
 
   return (
     <main className="mx-auto max-w-4xl space-y-6">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">Billing & usage</h1>
-          <p className="text-muted-foreground">Manage your plan and track usage.</p>
-        </div>
+        <PageHeader title="Billing & usage" description="Manage your plan and track usage." />
 
         {searchParams?.success && (
           <div className="rounded-lg border border-success/30 bg-success/10 p-4 text-sm text-success">

@@ -11,6 +11,7 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { getInventory } from "@/lib/actions/inventory";
 import { InventoryFilters } from "./inventory-filters";
 import { InventoryCostCell } from "@/components/inventory-cost-cell";
+import { PageHeader } from "@/components/page-header";
 import { cn } from "@/lib/utils";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import {
@@ -60,20 +61,20 @@ export default async function InventoryPage(
   return (
     <Shell>
       <div className="space-y-6">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div>
-            <h1 className="text-3xl font-bold tracking-tight">Inventory</h1>
-            <p className="text-muted-foreground">Track stock, price, and marketplace status for every item.</p>
-          </div>
-          <div className="flex items-center gap-2">
-            <Link href="/listings/import" className={buttonVariants({ variant: "outline" })}>
-              Import CSV
-            </Link>
-            <Link href="/listings/new" className={buttonVariants()}>
-              New Listing
-            </Link>
-          </div>
-        </div>
+        <PageHeader
+          title="Inventory"
+          description="Track stock, price, and marketplace status for every item."
+          actions={
+            <>
+              <Link href="/listings/import" className={buttonVariants({ variant: "outline" })}>
+                Import CSV
+              </Link>
+              <Link href="/listings/new" className={buttonVariants()}>
+                New Listing
+              </Link>
+            </>
+          }
+        />
 
         {totalCount === 0 ? (
           <EmptyState

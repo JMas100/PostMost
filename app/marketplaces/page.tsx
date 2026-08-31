@@ -6,6 +6,7 @@ import { Shell } from "@/components/sidebar";
 import { getMarketplaceAccounts } from "@/lib/actions/accounts";
 import { PLATFORMS } from "@/lib/marketplaces/platforms";
 import { MarketplaceAccountCard, type PlatformStats } from "@/components/marketplace-account-card";
+import { PageHeader } from "@/components/page-header";
 
 const CONNECTABLE_PLATFORMS = PLATFORMS.filter((p) => p.authType !== "none");
 
@@ -48,13 +49,10 @@ export default async function MarketplacesPage() {
   return (
     <Shell>
       <div className="space-y-6">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">Marketplaces</h1>
-          <p className="text-muted-foreground">
-            {connectedPlatforms.length} of {CONNECTABLE_PLATFORMS.length} marketplaces connected. Connect, manage
-            credentials, and see how each platform is performing.
-          </p>
-        </div>
+        <PageHeader
+          title="Marketplaces"
+          description={`${connectedPlatforms.length} of ${CONNECTABLE_PLATFORMS.length} marketplaces connected. Connect, manage credentials, and see how each platform is performing.`}
+        />
 
         {connectedPlatforms.length > 0 && (
           <div className="space-y-3">

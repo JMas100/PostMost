@@ -16,6 +16,7 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { StatValue } from "@/components/stat-value";
+import { PageHeader } from "@/components/page-header";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
 import { Package, Activity, DollarSign, TrendingUp, TrendingDown, Store, AlertTriangle } from "lucide-react";
@@ -126,10 +127,7 @@ export default async function DashboardPage() {
     <Shell>
       <TrackOnMount action={trackDashboardViewed} />
       <div className="space-y-6">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">Overview</h1>
-          <p className="text-muted-foreground">Welcome back, {session.user.name || session.user.email}.</p>
-        </div>
+        <PageHeader title="Overview" description={`Welcome back, ${session.user.name || session.user.email}.`} />
 
         <ActivationChecklist state={activationState} />
 
