@@ -7,6 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { buttonVariants } from "@/components/ui/button";
 import { PlatformBadge } from "@/components/platform-badge";
+import { Badge } from "@/components/ui/badge";
 import { EmptyState } from "@/components/ui/empty-state";
 import { getInventory } from "@/lib/actions/inventory";
 import { InventoryFilters } from "./inventory-filters";
@@ -68,6 +69,9 @@ export default async function InventoryPage(
             <>
               <Link href="/listings/import" className={buttonVariants({ variant: "outline" })}>
                 Import CSV
+                <Badge variant="outline" className="ml-1.5 border-primary/30 bg-primary/10 text-primary">
+                  GROW
+                </Badge>
               </Link>
               <Link href="/listings/new" className={buttonVariants()}>
                 New Listing
