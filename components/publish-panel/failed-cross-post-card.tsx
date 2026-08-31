@@ -38,9 +38,9 @@ export function FailedCrossPostCard({
   }
 
   return (
-    <div className="rounded-lg border border-destructive/40 bg-destructive/5 p-3">
+    <div className="rounded-lg border border-warning/40 bg-warning/5 p-3">
       <div className="flex items-start gap-2">
-        <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-destructive" />
+        <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-warning" />
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-1.5">
             <PlatformLogo platform={platform} size={16} />

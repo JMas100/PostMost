@@ -21,9 +21,17 @@ export function PublishPanel({ listingId, accounts, extensionListing, hasActiveJ
 
   useJobPolling(listingId, hasActiveJobs);
 
+  // Platforms with a FAILED listing get their own retry card (FailedCrossPostCard) and platforms
+  // already POSTED/SOLD show in the "Where it's live" list -- this panel is specifically for
+  // posting somewhere new, so both are excluded here rather than offered twice.
+  const alreadyAttempted = useMemo(
+    () => new Set(platformListings.filter((pl) => pl.status === "POSTED" || pl.status === "SOLD" || pl.status === "FAILED" || pl.status === "PENDING").map((pl) => pl.platform)),
+    [platformListings]
+  );
+
   const platforms = useMemo(
-    () => resolveMechanisms(accounts, extensionInstalled === true),
-    [accounts, extensionInstalled]
+    () => resolveMechanisms(accounts, extensionInstalled === true).filter((p) => !alreadyAttempted.has(p.id)),
+    [accounts, extensionInstalled, alreadyAttempted]
   );
 
   function toggle(id: string) {
@@ -77,6 +85,10 @@ export function PublishPanel({ listingId, accounts, extensionListing, hasActiveJ
 
     setSelected(new Set());
     router.refresh();
+  }
+
+  if (platforms.length === 0) {
+    return <p className="text-sm text-muted-foreground">Posted everywhere it can be right now.</p>;
   }
 
   return (

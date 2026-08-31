@@ -13,8 +13,9 @@ import { getMarketplaceAccounts } from "@/lib/actions/accounts";
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import { PublishPanel } from "@/components/publish-panel";
-import { RetryablePlatformBadge } from "@/components/publish-panel/retry-platform-listing";
 import { FailedCrossPostCard } from "@/components/publish-panel/failed-cross-post-card";
+import { PlatformLogo } from "@/components/platform-logo";
+import { getPlatform } from "@/lib/marketplaces/platforms";
 import { SoldButton } from "./sold-button";
 
 export default async function ListingDetailPage(props: { params: Promise<{ id: string }> }) {
@@ -53,6 +54,10 @@ export default async function ListingDetailPage(props: { params: Promise<{ id: s
 
   const accounts = await getMarketplaceAccounts();
   const hasActiveJobs = listing.jobs.some((j) => j.status === "PENDING" || j.status === "RUNNING");
+  const failedPlatformListings = listing.platformListings.filter((pl) => pl.status === "FAILED");
+  const liveElsewherePlatformListings = listing.platformListings.filter(
+    (pl) => pl.status === "POSTED" || pl.status === "SOLD" || pl.status === "DELISTED"
+  );
 
   const extensionListing = {
     id: listing.id,
@@ -119,6 +124,60 @@ export default async function ListingDetailPage(props: { params: Promise<{ id: s
           </div>
 
           <div className="w-full space-y-6 lg:w-96">
+            {failedPlatformListings.length > 0 && (
+              <div className="space-y-2">
+                {failedPlatformListings.map((pl) => (
+                  <FailedCrossPostCard
+                    key={pl.id}
+                    listingId={listing.id}
+                    platform={pl.platform}
+                    errorMessage={pl.errorMessage}
+                    updatedAt={pl.updatedAt}
+                  />
+                ))}
+              </div>
+            )}
+
+            {liveElsewherePlatformListings.length > 0 && (
+              <Card>
+                <CardHeader>
+                  <CardTitle>
+                    Where it&apos;s live ·{" "}
+                    {liveElsewherePlatformListings.filter((pl) => pl.status !== "DELISTED").length} of {listing.platformListings.length}
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="divide-y p-0">
+                  {liveElsewherePlatformListings.map((pl) => {
+                    const price = pl.price ?? listing.price;
+                    const overridden = pl.price !== null && pl.price !== listing.price;
+                    return (
+                      <div key={pl.id} className="flex items-center justify-between gap-3 px-4 py-3">
+                        <div className="flex items-center gap-3">
+                          <PlatformLogo platform={pl.platform} size={26} />
+                          <div>
+                            <p className="text-sm font-medium">{getPlatform(pl.platform)?.name ?? pl.platform}</p>
+                            <p className="text-xs text-muted-foreground">
+                              ${price.toFixed(2)}
+                              {overridden && ` (base $${listing.price.toFixed(2)})`}
+                            </p>
+                          </div>
+                        </div>
+                        {pl.externalUrl ? (
+                          <a href={pl.externalUrl} target="_blank" rel="noopener noreferrer">
+                            <Badge variant="success">{pl.status === "SOLD" ? "Sold" : "Live"}</Badge>
+                          </a>
+                        ) : (
+                          <Badge variant={pl.status === "SOLD" ? "success" : "outline"}>
+                            {pl.status === "DELISTED" ? "Delisted" : pl.status === "SOLD" ? "Sold" : pl.status}
+                          </Badge>
+                        )}
+                      </div>
+                    );
+                  })}
+                </CardContent>
+              </Card>
+            )}
+
             <Card>
               <CardHeader>
                 <CardTitle>Publish</CardTitle>
@@ -147,38 +206,6 @@ export default async function ListingDetailPage(props: { params: Promise<{ id: s
                 </CardContent>
               </Card>
             )}
-
-            <Card>
-              <CardHeader>
-                <CardTitle>Platform status</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                {listing.platformListings.length === 0 ? (
-                  <p className="text-sm text-muted-foreground">Not posted anywhere yet.</p>
-                ) : (
-                  <>
-                    {listing.platformListings
-                      .filter((pl) => pl.status === "FAILED")
-                      .map((pl) => (
-                        <FailedCrossPostCard
-                          key={pl.id}
-                          listingId={listing.id}
-                          platform={pl.platform}
-                          errorMessage={pl.errorMessage}
-                          updatedAt={pl.updatedAt}
-                        />
-                      ))}
-                    <div className="flex flex-wrap gap-2">
-                      {listing.platformListings
-                        .filter((pl) => pl.status !== "FAILED")
-                        .map((pl) => (
-                          <RetryablePlatformBadge key={pl.id} listingId={listing.id} platform={pl.platform} status={pl.status} externalUrl={pl.externalUrl} />
-                        ))}
-                    </div>
-                  </>
-                )}
-              </CardContent>
-            </Card>
 
             {listing.status === "SOLD" && (
               <Card>
