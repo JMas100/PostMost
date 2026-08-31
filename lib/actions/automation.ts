@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { getEffectivePlan, meetsMinimumTier, PLAN_ASSIGNMENT_SELECT } from "@/lib/plans";
 import { STOCK_SYNC_RULE, DELIST_ON_SALE_RULE, RELIST_STALE_RULE, RELIST_STALE_DAYS } from "@/lib/automation/rule-types";
 import { requireUserId } from "@/lib/auth-helpers";
+import { getPlatform } from "@/lib/marketplaces/platforms";
 
 export async function getAutomationOverview() {
   const userId = await requireUserId();
@@ -15,6 +16,7 @@ export async function getAutomationOverview() {
     user,
     stockSyncRule,
     relistRule,
+    connectedAccounts,
     stockSyncCandidates,
     relistCandidates,
     monthEvents,
@@ -24,6 +26,7 @@ export async function getAutomationOverview() {
     prisma.user.findUnique({ where: { id: userId }, select: PLAN_ASSIGNMENT_SELECT }),
     prisma.automationRule.findUnique({ where: { userId_ruleType: { userId, ruleType: STOCK_SYNC_RULE } } }),
     prisma.automationRule.findUnique({ where: { userId_ruleType: { userId, ruleType: RELIST_STALE_RULE } } }),
+    prisma.marketplaceAccount.findMany({ where: { userId, isActive: true }, select: { platform: true } }),
     prisma.listing.count({
       where: {
         userId,
@@ -56,8 +59,19 @@ export async function getAutomationOverview() {
 
   const plan = getEffectivePlan(user);
 
+  // Delisting on an OAuth-connected marketplace (eBay, Etsy) runs the real API and works whether
+  // or not a browser is open. Every other connected platform delists through the extension, so
+  // it can't fire while the browser is closed -- the rule needs to say that on itself, not bury
+  // it in support.
+  const delistPlatforms = connectedAccounts.map((a) => ({
+    id: a.platform,
+    name: getPlatform(a.platform)?.name ?? a.platform,
+    needsExtension: getPlatform(a.platform)?.authType === "manual",
+  }));
+
   return {
     plan,
+    delistPlatforms,
     stockSyncEnabled: stockSyncRule?.enabled ?? false,
     stockSyncAvailable: meetsMinimumTier(plan.id, "pro"),
     stockSyncCandidates,

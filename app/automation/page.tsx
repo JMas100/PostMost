@@ -77,19 +77,31 @@ export default async function AutomationPage() {
 
         <div className="space-y-3">
           <Card>
-            <CardContent className="flex items-center justify-between gap-4 py-4">
-              <div className="flex items-center gap-3">
-                <div>
-                  <div className="flex items-center gap-2">
-                    <p className="font-medium">Delist everywhere when it sells</p>
-                    <TierBadge label="ALL PLANS" />
+            <CardContent className="space-y-3 py-4">
+              <div className="flex items-center justify-between gap-4">
+                <div className="flex items-center gap-3">
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <p className="font-medium">Delist everywhere when it sells</p>
+                      <TierBadge label="ALL PLANS" />
+                    </div>
+                    <p className="text-sm text-muted-foreground">
+                      When it sells anywhere, we remove it everywhere else — automatic, always on.
+                    </p>
                   </div>
-                  <p className="text-sm text-muted-foreground">
-                    When it sells anywhere, we remove it everywhere else — automatic, always on.
-                  </p>
                 </div>
+                <span className="shrink-0 text-xs font-medium text-muted-foreground">Always on</span>
               </div>
-              <span className="shrink-0 text-xs font-medium text-muted-foreground">Always on</span>
+              {overview.delistPlatforms.length > 0 && (
+                <div className="flex flex-wrap gap-x-4 gap-y-1 pl-0 text-xs text-muted-foreground">
+                  {overview.delistPlatforms.map((p) => (
+                    <span key={p.id}>
+                      {p.name}
+                      {p.needsExtension && <span className="text-warning"> — needs the extension running</span>}
+                    </span>
+                  ))}
+                </div>
+              )}
             </CardContent>
           </Card>
 
