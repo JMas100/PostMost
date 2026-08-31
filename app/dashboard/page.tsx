@@ -216,13 +216,13 @@ export default async function DashboardPage() {
                   <StatValue value={accountCount} />
                 </div>
                 {accountCount > 0 && (
-                  <span className="inline-flex items-center gap-1.5 rounded-full border border-success/30 bg-success/10 px-2 py-0.5 text-xs font-medium text-success">
+                  <Badge variant="live" className="gap-1.5">
                     <span className="relative flex h-2 w-2">
                       <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-success opacity-75" />
                       <span className="relative inline-flex h-2 w-2 rounded-full bg-success" />
                     </span>
                     Live
-                  </span>
+                  </Badge>
                 )}
               </div>
             </CardContent>

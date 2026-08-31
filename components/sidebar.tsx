@@ -7,7 +7,6 @@ import {
   LayoutDashboard,
   Package,
   Boxes,
-  ShoppingCart,
   BarChart3,
   Zap,
   Store,
@@ -24,11 +23,12 @@ import { cn } from "@/lib/utils";
 import { Wordmark, LogoMark } from "@/components/logo";
 import { ThemeToggle } from "@/components/theme-toggle";
 
+// Orders is deliberately excluded: it needs marketplace sync that doesn't exist yet. Sold items
+// surface via the "Sold" tab on Listings instead until real order sync lands.
 const primaryNav = [
   { href: "/dashboard", label: "Overview", icon: LayoutDashboard },
   { href: "/listings", label: "Listings", icon: Package },
   { href: "/inventory", label: "Inventory", icon: Boxes },
-  { href: "/orders", label: "Orders", icon: ShoppingCart },
   { href: "/analytics", label: "Analytics", icon: BarChart3 },
   { href: "/automation", label: "Automation", icon: Zap },
   { href: "/marketplaces", label: "Marketplaces", icon: Store },
