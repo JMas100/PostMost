@@ -7,6 +7,7 @@ import { canCreateListing, incrementListingUsage } from "@/lib/actions/usage";
 import { track } from "@/lib/analytics/track";
 import { requireUserId } from "@/lib/auth-helpers";
 import { queueRepriceJobs } from "@/lib/actions/crosspost";
+import { previewBulkPrice, type BulkPriceRule, type BulkPriceResult } from "@/lib/pricing";
 
 async function trackListingCompleted(userId: string, listingId: string) {
   await track("listing_completed", userId, { listingId });
@@ -263,38 +264,7 @@ export async function setCost(id: string, cost: number) {
   return { success: true };
 }
 
-export type PriceChange =
-  | { type: "percentage"; percent: number }
-  | { type: "amount"; amount: number }
-  | { type: "set"; value: number };
-
-export interface BulkPriceRule {
-  change: PriceChange;
-  /** Skip any row whose computed new price would fall below cost * (1 + floorMarginPercent / 100).
-   *  A row with no cost on file is also skipped when this is set, since the floor can't be
-   *  checked without one -- "skip, don't block": the rest of the batch still applies. */
-  floorMarginPercent?: number;
-}
-
-export interface BulkPriceResult {
-  id: string;
-  title: string;
-  oldPrice: number;
-  newPrice: number;
-  status: "applied" | "skipped";
-  reason?: string;
-}
-
-function computeNewPrice(oldPrice: number, change: PriceChange): number {
-  switch (change.type) {
-    case "percentage":
-      return Math.max(0, oldPrice * (1 - change.percent / 100));
-    case "amount":
-      return Math.max(0, oldPrice - change.amount);
-    case "set":
-      return Math.max(0, change.value);
-  }
-}
+export type { PriceChange, BulkPriceRule, BulkPriceResult } from "@/lib/pricing";
 
 /** Applies a single price rule across a selection, previewing every row's result before
  *  committing anything. Rows that would breach the cost floor are skipped and reported with a
@@ -323,41 +293,10 @@ export async function bulkUpdatePrice(
     select: { id: true, title: true, price: true, cost: true },
   });
 
-  const results: BulkPriceResult[] = [];
-  const toApply: { id: string; price: number }[] = [];
-
-  for (const listing of listings) {
-    const newPrice = Math.round(computeNewPrice(listing.price, rule.change) * 100) / 100;
-
-    if (rule.floorMarginPercent != null) {
-      if (listing.cost == null) {
-        results.push({
-          id: listing.id,
-          title: listing.title,
-          oldPrice: listing.price,
-          newPrice,
-          status: "skipped",
-          reason: "No cost on file to check the price floor against",
-        });
-        continue;
-      }
-      const floor = listing.cost * (1 + rule.floorMarginPercent / 100);
-      if (newPrice < floor) {
-        results.push({
-          id: listing.id,
-          title: listing.title,
-          oldPrice: listing.price,
-          newPrice,
-          status: "skipped",
-          reason: `Would fall below cost + ${rule.floorMarginPercent}%`,
-        });
-        continue;
-      }
-    }
-
-    results.push({ id: listing.id, title: listing.title, oldPrice: listing.price, newPrice, status: "applied" });
-    toApply.push({ id: listing.id, price: newPrice });
-  }
+  const results: BulkPriceResult[] = listings.map((listing) => previewBulkPrice(listing, rule));
+  const toApply = results
+    .filter((r): r is BulkPriceResult & { status: "applied" } => r.status === "applied")
+    .map((r) => ({ id: r.id, price: r.newPrice }));
 
   if (toApply.length > 0) {
     await prisma.$transaction(toApply.map((row) => prisma.listing.update({ where: { id: row.id }, data: { price: row.price } })));

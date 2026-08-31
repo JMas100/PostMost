@@ -160,8 +160,8 @@ export default async function AutomationPage() {
                   <TierBadge label="GROW" />
                 </div>
                 <p className="text-sm text-muted-foreground">
-                  Not yet available — none of our marketplace integrations currently support updating a live
-                  listing&apos;s price.
+                  Not yet available as an automatic rule — but you can already push a price change to every live
+                  marketplace at once from Listings&apos; bulk Edit price.
                 </p>
               </div>
               <span className="shrink-0 text-xs font-medium text-muted-foreground">Coming soon</span>

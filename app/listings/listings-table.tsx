@@ -9,9 +9,10 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { PlatformBadge } from "@/components/platform-badge";
-import { Trash2, Ban, RefreshCw } from "lucide-react";
+import { Trash2, Ban, RefreshCw, Tag } from "lucide-react";
 import { bulkDeleteListings } from "@/lib/actions/listings";
 import { bulkDelist, bulkRelist } from "@/lib/actions/crosspost";
+import { BulkPriceDialog } from "@/components/bulk-price-dialog";
 import {
   Table,
   TableBody,
@@ -25,6 +26,7 @@ export interface ListingRow {
   id: string;
   title: string;
   price: number;
+  cost: number | null;
   status: string;
   isDraft: boolean;
   photos: { id: string; url: string }[];
@@ -35,6 +37,7 @@ export function ListingsTable({ listings }: { listings: ListingRow[] }) {
   const router = useRouter();
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [isPending, startTransition] = useTransition();
+  const [priceDialogOpen, setPriceDialogOpen] = useState(false);
 
   const allSelected = listings.length > 0 && selected.size === listings.length;
   const someSelected = selected.size > 0 && !allSelected;
@@ -121,6 +124,10 @@ export function ListingsTable({ listings }: { listings: ListingRow[] }) {
             <Button variant="ghost" size="sm" onClick={() => setSelected(new Set())}>
               Clear
             </Button>
+            <Button variant="outline" size="sm" onClick={() => setPriceDialogOpen(true)} disabled={isPending}>
+              <Tag className="mr-1 h-4 w-4" />
+              Edit price
+            </Button>
             <Button variant="outline" size="sm" onClick={handleBulkRelist} disabled={isPending}>
               <RefreshCw className="mr-1 h-4 w-4" />
               Refresh
@@ -202,6 +209,24 @@ export function ListingsTable({ listings }: { listings: ListingRow[] }) {
           </Table>
         </CardContent>
       </Card>
+
+      <BulkPriceDialog
+        open={priceDialogOpen}
+        onOpenChange={setPriceDialogOpen}
+        listings={listings
+          .filter((l) => selected.has(l.id))
+          .map((l) => ({
+            id: l.id,
+            title: l.title,
+            price: l.price,
+            cost: l.cost,
+            hasLivePlatform: l.platformListings.some((pl) => pl.status === "POSTED"),
+          }))}
+        onApplied={() => {
+          setSelected(new Set());
+          router.refresh();
+        }}
+      />
     </div>
   );
 }

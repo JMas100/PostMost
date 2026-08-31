@@ -10,6 +10,7 @@ import { PlatformBadge } from "@/components/platform-badge";
 import { EmptyState } from "@/components/ui/empty-state";
 import { getInventory } from "@/lib/actions/inventory";
 import { InventoryFilters } from "./inventory-filters";
+import { InventoryCostCell } from "@/components/inventory-cost-cell";
 import { cn } from "@/lib/utils";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import {
@@ -147,7 +148,7 @@ export default async function InventoryPage(
                       </p>
                     </div>
                   </div>
-                  <Link href="/listings" className={buttonVariants({ variant: "outline" })}>
+                  <Link href="/inventory?filter=missing-cost" className={buttonVariants({ variant: "outline" })}>
                     Add costs
                   </Link>
                 </CardContent>
@@ -182,7 +183,7 @@ export default async function InventoryPage(
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {listings.map((listing) => {
+                      {listings.map((listing, index) => {
                         const soldOut = listing.quantity === 0;
                         const hasCost = listing.cost !== null;
                         const margin = hasCost && listing.price > 0 ? ((listing.price - listing.cost!) / listing.price) * 100 : null;
@@ -210,8 +211,8 @@ export default async function InventoryPage(
                               )}
                             </TableCell>
                             <TableCell>${listing.price.toFixed(2)}</TableCell>
-                            <TableCell className={hasCost ? undefined : "text-warning"}>
-                              {hasCost ? `$${listing.cost!.toFixed(2)}` : "—"}
+                            <TableCell>
+                              <InventoryCostCell id={listing.id} initialCost={listing.cost} rowIndex={index} />
                             </TableCell>
                             <TableCell className={hasCost ? undefined : "text-muted-foreground"}>
                               {margin !== null ? `${margin.toFixed(0)}%` : "—"}
