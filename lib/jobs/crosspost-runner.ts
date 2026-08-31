@@ -100,6 +100,10 @@ export async function processPendingCrossPostJobs(listingId?: string): Promise<C
       await processRelistJob(job, attempts, summary);
       continue;
     }
+    if (job.type === "REPRICE") {
+      await processRepriceJob(job, adapter, attempts, summary);
+      continue;
+    }
 
     const listingData = {
       title: job.listing.title,
@@ -227,6 +231,59 @@ async function processDelistJob(
     await prisma.platformListing.update({
       where: { id: platformListing.id },
       data: { status: PlatformListingStatus.DELISTED, errorMessage: null },
+    });
+    summary.succeeded += 1;
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "Unknown error";
+    await handleFailure(job.id, job.userId, job.listingId, job.platform, attempts, job.maxAttempts, message, summary);
+  }
+}
+
+/** Pushes the listing's current base price (already written to Listing.price by whatever queued
+ *  this job -- e.g. bulkUpdatePrice) out to one already-live platform listing. Never touches
+ *  PlatformListing.price itself: null there means "follows the base price", which stays true
+ *  after a successful push, and a non-null override is never queued for this job type in the
+ *  first place (see queueRepriceJobs in lib/actions/crosspost.ts). */
+async function processRepriceJob(
+  job: JobWithListing,
+  adapter: MarketplaceAdapter,
+  attempts: number,
+  summary: CrossPostRunSummary
+) {
+  if (!adapter.updatePrice) {
+    await handleFailure(job.id, job.userId, job.listingId, job.platform, attempts, job.maxAttempts, `${adapter.name} doesn't support automated price updates`, summary);
+    return;
+  }
+
+  const platformListing = await prisma.platformListing.findUnique({
+    where: { listingId_platform: { listingId: job.listingId, platform: job.platform } },
+  });
+  if (!platformListing?.externalId) {
+    await handleFailure(job.id, job.userId, job.listingId, job.platform, attempts, job.maxAttempts, "No listing URL recorded for this platform", summary);
+    return;
+  }
+
+  const accountData = (await getAccountData(job.userId, job.platform)) ?? { accessToken: null };
+
+  try {
+    const result = await withTimeout(
+      adapter.updatePrice(platformListing.externalId, job.listing.price, accountData, job.listing.sku),
+      JOB_TIMEOUT_MS,
+      `Timed out after ${JOB_TIMEOUT_MS / 1000}s`
+    );
+
+    if (!result.success) {
+      await handleFailure(job.id, job.userId, job.listingId, job.platform, attempts, job.maxAttempts, result.error || "Unknown error", summary);
+      return;
+    }
+
+    await prisma.crossPostJob.update({
+      where: { id: job.id },
+      data: { status: "COMPLETED", error: null, attempts, lockedAt: null, completedAt: new Date() },
+    });
+    await prisma.platformListing.update({
+      where: { id: platformListing.id },
+      data: { errorMessage: null },
     });
     summary.succeeded += 1;
   } catch (err) {

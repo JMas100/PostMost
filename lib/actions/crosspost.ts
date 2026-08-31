@@ -128,6 +128,41 @@ export async function bulkRelist(listingIds: string[]) {
   return queueBulkJob(listingIds, "RELIST");
 }
 
+/** Queues a REPRICE job for every currently-POSTED platform listing that (a) doesn't have its
+ *  own per-marketplace price override -- PlatformListing.price set means the seller deliberately
+ *  priced it differently there, and a base-price change shouldn't silently flatten that -- and
+ *  (b) whose adapter actually supports automated price updates. Called after a base-price change
+ *  lands in the DB (see bulkUpdatePrice in lib/actions/listings.ts) to push it out live. Ids not
+ *  owned by the caller simply contribute zero jobs, same as queueBulkJob. */
+export async function queueRepriceJobs(listingIds: string[]) {
+  const userId = await requireUserId();
+  if (listingIds.length === 0) return { success: true, queued: 0 };
+
+  const listings = await prisma.listing.findMany({
+    where: { id: { in: listingIds }, userId },
+    include: { platformListings: { where: { status: PlatformListingStatus.POSTED, price: null } } },
+  });
+
+  const jobs = listings.flatMap((listing) =>
+    listing.platformListings
+      .filter((platformListing) => Boolean(getAdapter(platformListing.platform)?.updatePrice))
+      .map((platformListing) => ({
+        userId,
+        listingId: listing.id,
+        platform: platformListing.platform,
+        type: "REPRICE",
+        status: "PENDING",
+      }))
+  );
+  const queued = jobs.length > 0 ? (await prisma.crossPostJob.createMany({ data: jobs })).count : 0;
+
+  if (queued > 0) triggerJobWorker();
+
+  revalidatePath("/listings");
+  for (const listing of listings) revalidatePath(`/listings/${listing.id}`);
+  return { success: true, queued };
+}
+
 export async function getCrossPostJobs(listingId?: string) {
   const userId = await requireUserId();
   return prisma.crossPostJob.findMany({

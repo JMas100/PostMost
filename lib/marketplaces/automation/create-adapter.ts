@@ -1,7 +1,7 @@
 import { MarketplaceAdapter, ListingData, PlatformAccount, PostResult } from "../types";
-import { runPlaywrightAutomation, runPlaywrightDelist, genericVerifyRemoved, uploadPhotoOnPage, verifyLogin, verifySession } from "./playwright-runner";
+import { runPlaywrightAutomation, runPlaywrightDelist, runPlaywrightUpdatePrice, genericVerifyRemoved, genericVerifyPriceUpdated, uploadPhotoOnPage, verifyLogin, verifySession } from "./playwright-runner";
 import type { SessionCookie } from "../types";
-import type { AutomationConfig, DelistConfig } from "./playwright-runner";
+import type { AutomationConfig, DelistConfig, PriceUpdateConfig } from "./playwright-runner";
 import type { Page } from "playwright-core";
 
 export interface ManualAdapterConfig extends AutomationConfig {
@@ -19,6 +19,18 @@ export interface ManualAdapterConfig extends AutomationConfig {
     deleteSelectors: string[];
     confirmSelectors?: string[];
     verifyRemoved?: DelistConfig["verifyRemoved"];
+  };
+  /**
+   * How to change a live listing's price on this platform. Same caveat as `delete`: best-effort
+   * selectors, not verified against a live account. Optional -- a platform without this simply
+   * doesn't support automated price pushes yet (queueRepriceJobs still only queues jobs for
+   * platforms where the adapter defines updatePrice, via this config being present).
+   */
+  reprice?: {
+    editTriggerSelectors?: string[];
+    priceSelectors: string[];
+    saveSelectors: string[];
+    verifyPriceUpdated?: PriceUpdateConfig["verifyPriceUpdated"];
   };
 }
 
@@ -147,6 +159,38 @@ export function createManualAdapter(config: ManualAdapterConfig): MarketplaceAda
       const shot = outcome.screenshotUrl ? ` | Screenshot: ${outcome.screenshotUrl}` : "";
       return { success: false, error: `${outcome.error || "Delist failed"}${trail}${shot}` };
     },
+    ...(config.reprice
+      ? {
+          async updatePrice(externalId: string, newPrice: number, account: PlatformAccount) {
+            // sku is eBay-specific (see MarketplaceAdapter.updatePrice) -- Playwright automation
+            // navigates by listing URL and never needs it.
+            if (!externalId) {
+              return { success: false, error: `No listing URL recorded for this ${config.name} listing.` };
+            }
+            const outcome = await runPlaywrightUpdatePrice(
+              config.id,
+              {
+                loginUrl: config.loginUrl,
+                usernameSelector: config.usernameSelector,
+                passwordSelector: config.passwordSelector,
+                submitSelector: config.submitSelector,
+                postLoginSteps: config.postLoginSteps,
+                editTriggerSelectors: config.reprice!.editTriggerSelectors,
+                priceSelectors: config.reprice!.priceSelectors,
+                saveSelectors: config.reprice!.saveSelectors,
+                verifyPriceUpdated: config.reprice!.verifyPriceUpdated || genericVerifyPriceUpdated,
+              },
+              externalId,
+              newPrice,
+              account
+            );
+            if (outcome.success) return { success: true };
+            const trail = outcome.steps.length ? ` | Steps: ${outcome.steps.join(" → ")}` : "";
+            const shot = outcome.screenshotUrl ? ` | Screenshot: ${outcome.screenshotUrl}` : "";
+            return { success: false, error: `${outcome.error || "Price update failed"}${trail}${shot}` };
+          },
+        }
+      : {}),
     verifyLogin(username: string, password: string) {
       return verifyLogin(config.id, config, username, password);
     },

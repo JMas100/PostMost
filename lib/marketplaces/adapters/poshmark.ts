@@ -27,4 +27,22 @@ export const poshmarkAdapter = createManualAdapter({
       "button:has-text('Confirm')",
     ],
   },
+  // Same caveat as delete: best-effort, unverified against a live account.
+  reprice: {
+    editTriggerSelectors: [
+      "a:has-text('Edit Listing')",
+      "button:has-text('Edit')",
+      "[data-et-name='edit_listing']",
+    ],
+    priceSelectors: [
+      "input[name=\"listing[price]\"]",
+      "input[id*=\"price\" i]",
+      "input[placeholder*=\"price\" i]",
+    ],
+    saveSelectors: [
+      "button:has-text('Save Changes')",
+      "button:has-text('Save')",
+      "button[type=\"submit\"]",
+    ],
+  },
 });

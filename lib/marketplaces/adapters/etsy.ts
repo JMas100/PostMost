@@ -191,6 +191,33 @@ export const etsyAdapter: MarketplaceAdapter = {
     }
     return { success: true };
   },
+  async updatePrice(externalId: string, newPrice: number, account: PlatformAccount) {
+    if (!account.accessToken) return { success: false, error: "Etsy account not connected." };
+    const { key } = getClientCredentials();
+    const userId = account.externalId;
+    if (!userId) return { success: false, error: "Etsy user ID is missing." };
+    let shopId = account.settings?.shopId as string | undefined;
+    if (!shopId) {
+      try {
+        shopId = await getShopId(account.accessToken, key, userId);
+      } catch (err) {
+        const message = err instanceof Error ? err.message : "Could not resolve Etsy shop";
+        return { success: false, error: message };
+      }
+    }
+    // Unlike eBay, Etsy's externalId IS the listing_id the update endpoint takes directly --
+    // no separate offer/sku lookup needed.
+    const res = await fetch(`${ETSY_API_ROOT}/shops/${shopId}/listings/${externalId}`, {
+      method: "PATCH",
+      headers: { ...etsyHeaders(account.accessToken, key), "Content-Type": "application/json" },
+      body: JSON.stringify({ price: newPrice }),
+    });
+    if (!res.ok) {
+      const text = await res.text();
+      return { success: false, error: `Etsy price update failed: ${res.status} ${text}` };
+    }
+    return { success: true };
+  },
   getAuthUrl(opts?: { codeVerifier?: string }) {
     const { key, redirectUri } = getClientCredentials();
     const params = new URLSearchParams({

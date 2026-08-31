@@ -26,4 +26,21 @@ export const offerupAdapter = createManualAdapter({
       "button:has-text('Confirm')",
     ],
   },
+  // Same caveat as delete: best-effort, unverified against a live account.
+  reprice: {
+    editTriggerSelectors: [
+      "a:has-text('Edit')",
+      "button:has-text('Edit')",
+    ],
+    priceSelectors: [
+      "input[name=\"price\"]",
+      "input[id*=\"price\" i]",
+      "input[placeholder*=\"price\" i]",
+    ],
+    saveSelectors: [
+      "button:has-text('Save')",
+      "button:has-text('Post')",
+      "button[type=\"submit\"]",
+    ],
+  },
 });

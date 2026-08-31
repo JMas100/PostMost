@@ -75,6 +75,13 @@ export interface MarketplaceAdapter {
   authFields?: { key: string; label: string; type: string }[];
   post(listing: ListingData, account: PlatformAccount): Promise<PostResult>;
   delist?(externalId: string, account: PlatformAccount): Promise<{ success: boolean; error?: string }>;
+  /** Pushes a new price to an already-live listing on this platform. Never called for a
+   *  PlatformListing with its own per-marketplace price override -- an override means the seller
+   *  deliberately set a different price here, and a base-price change shouldn't silently flatten
+   *  that. `sku` is the Listing's own sku field (not account-level) -- eBay's REST Inventory API
+   *  needs it to look up the internal offer id that externalId (the published listingId) doesn't
+   *  resolve to directly; other adapters can ignore it. */
+  updatePrice?(externalId: string, newPrice: number, account: PlatformAccount, sku?: string | null): Promise<{ success: boolean; error?: string }>;
   /** Attempts a real login with the given credentials before they're ever saved, so a wrong
    *  username/password is caught at connect time instead of the next time a job fails. Only
    *  meaningful for "manual" (browser-automation) platforms -- OAuth already verifies identity

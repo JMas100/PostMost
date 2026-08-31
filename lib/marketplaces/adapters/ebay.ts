@@ -297,6 +297,48 @@ export const eBayAdapter: MarketplaceAdapter = {
     }
     return { success: true };
   },
+  async updatePrice(externalId: string, newPrice: number, account: PlatformAccount, sku?: string | null) {
+    if (!account.accessToken) return { success: false, error: "eBay account not connected." };
+    const marketplaceId = (account.settings?.marketplaceId as string) || process.env.EBAY_MARKETPLACE_ID || "EBAY_US";
+    const token = account.accessToken;
+
+    // The REST Inventory API updates price via the *offer* (internal id), not the published
+    // listingId (externalId) -- there's no direct "reprice by listingId" endpoint. The offer's
+    // SKU is the only stable lookup key we have; post() uses listing.sku when the seller set
+    // one, or a generated postmost-{timestamp} fallback that isn't persisted anywhere, so a
+    // listing without a real SKU can't be repriced this way. That's a real, honest limitation,
+    // not something worth failing silently on.
+    if (!sku) {
+      return {
+        success: false,
+        error: "This eBay listing has no SKU on file, so its offer can't be looked up for a price update. Set a SKU on the listing and relist to enable automated repricing.",
+      };
+    }
+
+    const offerRes = await ebayRequest(token, "GET", `/sell/inventory/v1/offer?sku=${encodeURIComponent(sku)}&marketplace_id=${marketplaceId}`, undefined, marketplaceId);
+    if (!offerRes.ok) {
+      const text = await offerRes.text();
+      return { success: false, error: `Could not look up eBay offer for SKU ${sku}: ${offerRes.status} ${text}` };
+    }
+    const offerData = (await offerRes.json()) as { offers?: { offerId?: string; listing?: { listingId?: string } }[] };
+    const offer = offerData.offers?.find((o) => o.listing?.listingId === externalId) ?? offerData.offers?.[0];
+    if (!offer?.offerId) {
+      return { success: false, error: `No eBay offer found for SKU ${sku}.` };
+    }
+
+    const updateRes = await ebayRequest(
+      token,
+      "PUT",
+      `/sell/inventory/v1/offer/${offer.offerId}`,
+      { pricingSummary: { price: { currency: "USD", value: String(newPrice) } } },
+      marketplaceId
+    );
+    if (!updateRes.ok) {
+      const text = await updateRes.text();
+      return { success: false, error: `eBay offer price update failed: ${updateRes.status} ${text}` };
+    }
+    return { success: true };
+  },
   getAuthUrl(_opts?: { codeVerifier?: string }) {
     const { appId, ruName } = getClientCredentials();
     const params = new URLSearchParams({

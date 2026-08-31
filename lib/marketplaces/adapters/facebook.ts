@@ -29,4 +29,22 @@ export const facebookAdapter = createManualAdapter({
       "button:has-text('Confirm')",
     ],
   },
+  // Same caveat as delete: best-effort, unverified against a live account.
+  reprice: {
+    editTriggerSelectors: [
+      "[aria-label='Edit listing']",
+      "div[aria-label='Actions']",
+      "text=Edit listing",
+    ],
+    priceSelectors: [
+      "input[name=\"price\"]",
+      "input[aria-label='Price']",
+      "input[id*=\"price\" i]",
+    ],
+    saveSelectors: [
+      "div[aria-label='Save']",
+      "button:has-text('Save')",
+      "button[type=\"submit\"]",
+    ],
+  },
 });

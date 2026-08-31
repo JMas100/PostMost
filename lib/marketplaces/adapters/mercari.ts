@@ -33,4 +33,24 @@ export const mercariAdapter = createManualAdapter({
       "button:has-text('Confirm')",
     ],
   },
+  // Same caveat as delete: best-effort, unverified against a live account. Mercari's login is
+  // reCAPTCHA-blocked for password automation regardless (see the note above), so this path only
+  // matters once an account is connected via browser-session connect.
+  reprice: {
+    editTriggerSelectors: [
+      "a:has-text('Edit')",
+      "button:has-text('Edit')",
+      "[aria-label='Edit listing']",
+    ],
+    priceSelectors: [
+      "input[name=\"price\"]",
+      "input[id*=\"price\" i]",
+      "input[placeholder*=\"price\" i]",
+    ],
+    saveSelectors: [
+      "button:has-text('Update')",
+      "button:has-text('Save')",
+      "button[type=\"submit\"]",
+    ],
+  },
 });

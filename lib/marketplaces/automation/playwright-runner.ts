@@ -568,6 +568,191 @@ export async function runPlaywrightDelist(
   }
 }
 
+export interface PriceUpdateConfig {
+  loginUrl: string;
+  usernameSelector?: string;
+  passwordSelector?: string;
+  submitSelector?: string;
+  postLoginSteps?: AutomationStep[];
+  /** Optional click(s) to enter an edit/price mode before the price field is reachable (e.g. an
+   *  "Edit" button, or an "Edit price" menu item behind a "..." menu). */
+  editTriggerSelectors?: string[];
+  /** Selectors tried in order to find the price input once on/editing the listing page. */
+  priceSelectors: string[];
+  /** Selectors tried in order for the save/submit control after changing the price. */
+  saveSelectors: string[];
+  /** Confirms the new price actually took, after saving. Defaults to genericVerifyPriceUpdated
+   *  (checks the page's own text for the formatted new price) when not provided. */
+  verifyPriceUpdated?: (page: import("playwright-core").Page, newPrice: number) => Promise<boolean>;
+  headless?: boolean;
+}
+
+export interface PriceUpdateOutcome {
+  success: boolean;
+  error?: string;
+  /** Ordered trail of what actually happened -- same reasoning as DelistOutcome.steps: these
+   *  selectors are unverified against live accounts, so a failure should say exactly where it
+   *  broke rather than just "failed". */
+  steps: string[];
+  screenshotUrl?: string;
+}
+
+/**
+ * Best-effort, platform-agnostic check that a price change actually took: the page's own text
+ * now contains the new price, formatted the two common ways a site might render it ("$45" for a
+ * whole dollar amount, "$45.00" otherwise). Used as the default verifyPriceUpdated for adapters
+ * that don't need anything more specific.
+ */
+export async function genericVerifyPriceUpdated(page: import("playwright-core").Page, newPrice: number): Promise<boolean> {
+  const bodyText = await page.locator("body").innerText().catch(() => "");
+  const whole = Number.isInteger(newPrice) ? `$${newPrice}` : null;
+  const withCents = `$${newPrice.toFixed(2)}`;
+  return bodyText.includes(withCents) || (whole !== null && bodyText.includes(whole));
+}
+
+/**
+ * Generic browser-automation price update: log in (or apply a saved session), navigate to the
+ * listing's own page, open edit mode if the site needs it, replace the price field, save, and
+ * verify the new price actually shows before reporting success. Same "never report success it
+ * can't confirm" principle as runPlaywrightDelist -- a failed verification is a FAILED price
+ * update, not a silent no-op that leaves PostMost's record out of sync with the live listing.
+ *
+ * These selectors are written from general knowledge of each site's UI, not verified against a
+ * live account -- every failure records a step trail and a screenshot so the real point of
+ * breakage is visible immediately when this does eventually run for real.
+ */
+export async function runPlaywrightUpdatePrice(
+  platformId: string,
+  config: PriceUpdateConfig,
+  listingUrl: string,
+  newPrice: number,
+  account: PlatformAccount
+): Promise<PriceUpdateOutcome> {
+  const steps: string[] = [];
+
+  const isSessionAuth = account.authMethod === "session";
+  const sessionCookies = isSessionAuth ? parseSessionCookies(account.accessToken || "") : null;
+  const username = String(account.externalId || account.settings?.username || "");
+  const password = String(account.accessToken || "");
+  if (isSessionAuth) {
+    if (!sessionCookies) {
+      return { success: false, error: `No saved session for ${platformId}. Reconnect via the browser extension.`, steps };
+    }
+  } else if (!username || !password) {
+    return { success: false, error: `Missing username or password for ${platformId}.`, steps };
+  }
+
+  let browser;
+  try {
+    browser = await launchBrowser(config.headless !== false);
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    return { success: false, error: `Playwright is not available in this environment. ${message}`, steps };
+  }
+
+  let page: import("playwright-core").Page | undefined;
+
+  async function fail(error: string): Promise<PriceUpdateOutcome> {
+    steps.push(`FAILED: ${error}`);
+    const screenshotUrl = page ? await captureFailureScreenshot(page, platformId) : undefined;
+    return { success: false, error, steps, screenshotUrl };
+  }
+
+  try {
+    const context = await browser.newContext({
+      userAgent:
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+      viewport: { width: 1280, height: 800 },
+    });
+    page = await context.newPage();
+
+    if (isSessionAuth) {
+      steps.push("Applying saved session");
+      const sessionResult = await authenticateWithSession(context, page, config, sessionCookies!);
+      if (!sessionResult.success) {
+        return await fail(`Couldn't use the saved ${platformId} session — ${sessionResult.error}`);
+      }
+    } else {
+      steps.push(`Loading login page: ${config.loginUrl}`);
+      const loginResult = await attemptLogin(page, config, username, password);
+      if (!loginResult.success) {
+        return await fail(`Couldn't log into ${platformId} — ${loginResult.error || "check the stored username and password."}`);
+      }
+    }
+    steps.push("Logged in");
+
+    if (config.postLoginSteps) {
+      for (const step of config.postLoginSteps) {
+        await step.action(page, { title: "", description: "", price: newPrice, quantity: 0, condition: "", category: "", photos: [] }, account);
+        steps.push(`Ran post-login step: ${step.name}`);
+      }
+    }
+
+    // See the note on attemptLogin's goto -- "networkidle" hangs on sites with persistent
+    // background network activity instead of resolving once the page is actually usable.
+    await page.goto(listingUrl, { waitUntil: "domcontentloaded" });
+    await page.waitForTimeout(1500);
+    steps.push(`Navigated to listing: ${listingUrl}`);
+
+    if (config.editTriggerSelectors) {
+      let opened = false;
+      for (const sel of config.editTriggerSelectors) {
+        const loc = page.locator(sel).first();
+        if ((await loc.count()) > 0) {
+          await loc.click();
+          await page.waitForTimeout(400);
+          steps.push(`Entered edit mode via: ${sel}`);
+          opened = true;
+          break;
+        }
+      }
+      if (!opened) steps.push("No edit-trigger selector matched (continuing — price field may already be editable)");
+    }
+
+    let priceSelectorUsed: string | undefined;
+    for (const sel of config.priceSelectors) {
+      const loc = page.locator(sel).first();
+      if ((await loc.count()) > 0) {
+        await loc.fill(String(newPrice));
+        priceSelectorUsed = sel;
+        break;
+      }
+    }
+    if (!priceSelectorUsed) {
+      return fail(`Couldn't find a price field on the listing page. Tried: ${config.priceSelectors.join(", ")}`);
+    }
+    steps.push(`Filled price field via: ${priceSelectorUsed} → ${newPrice}`);
+
+    let saveSelectorUsed: string | undefined;
+    for (const sel of config.saveSelectors) {
+      const loc = page.locator(sel).first();
+      if ((await loc.count()) > 0) {
+        await loc.click();
+        saveSelectorUsed = sel;
+        break;
+      }
+    }
+    if (!saveSelectorUsed) {
+      return fail(`Couldn't find a save control on the listing page. Tried: ${config.saveSelectors.join(", ")}`);
+    }
+    steps.push(`Clicked save control: ${saveSelectorUsed}`);
+
+    await page.waitForTimeout(1500);
+    const verify = config.verifyPriceUpdated || genericVerifyPriceUpdated;
+    const updated = await verify(page, newPrice);
+    steps.push(`Verification check: ${updated ? "new price appears on page" : "new price not found on page"}`);
+    if (!updated) {
+      return fail("Price was submitted but the new price couldn't be confirmed on the page — not marking it updated.");
+    }
+    return { success: true, steps };
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    return fail(`${platformId} price update failed: ${message}`);
+  } finally {
+    await browser.close();
+  }
+}
+
 /**
  * Best-effort, platform-agnostic check that a listing is actually gone: either the page
  * navigated away from the listing's own URL (most sites redirect after a delete), or the page
