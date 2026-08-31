@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
+import { formatDistanceToNow } from "date-fns";
 import { createApiKey, deleteApiKey } from "@/lib/actions/api-keys";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -100,7 +101,10 @@ export function ApiClient({ keys }: ApiClientProps) {
               <div className="flex items-center justify-between">
                 <div>
                   <p className="font-medium">{k.name}</p>
-                  <p className="text-xs text-muted-foreground">Created {new Date(k.createdAt).toLocaleDateString()}</p>
+                  <p className="text-xs text-muted-foreground">
+                    Created {new Date(k.createdAt).toLocaleDateString()} ·{" "}
+                    {k.lastUsedAt ? `last used ${formatDistanceToNow(k.lastUsedAt, { addSuffix: true })}` : "never used"}
+                  </p>
                 </div>
                 <Button variant="destructive" size="sm" onClick={() => remove(k.id)}>Delete</Button>
               </div>

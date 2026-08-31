@@ -8,6 +8,9 @@ export async function getShippingProfiles() {
   const userId = await requireUserId();
   return prisma.shippingProfile.findMany({
     where: { userId },
+    // A profile is abstract until you know how many listings depend on it -- that's also what
+    // makes deleting one safe to reason about.
+    include: { _count: { select: { listings: true } } },
     orderBy: { createdAt: "desc" },
   });
 }

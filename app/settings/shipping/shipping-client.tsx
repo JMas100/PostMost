@@ -17,6 +17,7 @@ type Profile = {
   service: string;
   cost: number;
   isDefault: boolean;
+  _count?: { listings: number };
 };
 
 interface ShippingClientProps {
@@ -131,10 +132,24 @@ export function ShippingClient({ profiles }: ShippingClientProps) {
                   {profile.isDefault && <Badge>Default</Badge>}
                 </div>
                 <p className="text-sm text-muted-foreground">{profile.carrier} {profile.service} · ${profile.cost.toFixed(2)}</p>
+                <p className="text-xs text-muted-foreground">
+                  {profile._count?.listings ? `Used on ${profile._count.listings} listing${profile._count.listings === 1 ? "" : "s"}` : "Not used on any listings yet"}
+                </p>
               </div>
               <div className="flex gap-2">
                 <Button variant="outline" size="sm" onClick={() => edit(profile)}>Edit</Button>
-                <Button variant="destructive" size="sm" onClick={() => remove(profile.id)}>Delete</Button>
+                <Button
+                  variant="destructive"
+                  size="sm"
+                  onClick={() => {
+                    if (profile._count?.listings) {
+                      if (!window.confirm(`${profile._count.listings} listing${profile._count.listings === 1 ? "" : "s"} use this profile. Delete anyway?`)) return;
+                    }
+                    remove(profile.id);
+                  }}
+                >
+                  Delete
+                </Button>
               </div>
             </div>
           ))}
