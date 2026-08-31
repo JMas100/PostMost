@@ -115,10 +115,17 @@ export async function getAnalytics(range: "7d" | "30d" = "30d") {
       existing.profit += sale.profit ?? 0;
     }
   }
-  const platformBreakdownArray = Array.from(platformBreakdown.entries()).map(([platform, counts]) => ({
-    platform,
-    ...counts,
-  }));
+  // Sell-through is the ratio the posted/sold counts were always missing -- it's what tells a
+  // seller eBay converting at 11% against Etsy's 2% means the next hour of listing should go to
+  // eBay, which is the question this table exists to answer. Sorted by profit for the same
+  // reason: "where should I post next?" not "where do I have the most rows."
+  const platformBreakdownArray = Array.from(platformBreakdown.entries())
+    .map(([platform, counts]) => ({
+      platform,
+      ...counts,
+      sellThrough: counts.posted + counts.sold > 0 ? (counts.sold / (counts.posted + counts.sold)) * 100 : 0,
+    }))
+    .sort((a, b) => b.profit - a.profit);
 
   const totalRevenue = soldPlatformListings.reduce((sum, s) => sum + (s.soldPrice ?? 0), 0);
   const totalFees = soldPlatformListings.reduce((sum, s) => sum + (s.soldFees ?? 0), 0);
@@ -165,7 +172,6 @@ export async function getAnalytics(range: "7d" | "30d" = "30d") {
       totalProfit,
       profitMargin,
     },
-    topPlatforms: platformBreakdownArray.slice().sort((a, b) => b.profit - a.profit).slice(0, 5),
     failures: {
       total: totalFailed,
       listings: failedListings,

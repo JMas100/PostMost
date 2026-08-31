@@ -78,62 +78,41 @@ export default async function AnalyticsPage(
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           <Card>
             <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">Total listings</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-3xl font-bold">{data.totalListings}</div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">Published</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-3xl font-bold">{data.publishedListings}</div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">Drafts</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-3xl font-bold">{data.draftListings}</div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">Platform posts</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-3xl font-bold">{data.totalPlatformListings}</div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">Sell-through rate</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-3xl font-bold">{data.sellThroughRate.toFixed(1)}%</div>
-              <p className="text-xs text-muted-foreground">
-                {data.soldListings} sold of {data.publishedListings} published
-              </p>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">Total revenue</CardTitle>
+              <CardTitle className="text-sm font-medium text-muted-foreground">Revenue</CardTitle>
             </CardHeader>
             <CardContent>
               <div className="text-3xl font-bold">${data.financials.totalRevenue.toFixed(2)}</div>
+              <p className="text-xs text-muted-foreground">from {data.soldListings} sale{data.soldListings === 1 ? "" : "s"}</p>
             </CardContent>
           </Card>
           <Card>
             <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">Total profit</CardTitle>
+              <CardTitle className="text-sm font-medium text-muted-foreground">Profit</CardTitle>
             </CardHeader>
             <CardContent>
               <div className="text-3xl font-bold">${data.financials.totalProfit.toFixed(2)}</div>
-              <p className="text-xs text-muted-foreground">{data.financials.profitMargin.toFixed(1)}% margin</p>
+              <p className="text-xs text-muted-foreground">{data.financials.profitMargin.toFixed(1)}% after fees, shipping and cost</p>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium text-muted-foreground">Published listings</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-3xl font-bold">{data.publishedListings}</div>
+              <p className="text-xs text-muted-foreground">{data.draftListings} draft{data.draftListings === 1 ? "" : "s"} not counted</p>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium text-muted-foreground">Cross-posts</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-3xl font-bold">{data.totalPlatformListings}</div>
+              <p className="text-xs text-muted-foreground">
+                {data.publishedListings > 0 ? (data.totalPlatformListings / data.publishedListings).toFixed(1) : "0"} per item
+                {data.failures.total > 0 && <span className="text-destructive"> · {data.failures.total} failed and unresolved</span>}
+              </p>
             </CardContent>
           </Card>
         </div>
@@ -239,40 +218,43 @@ export default async function AnalyticsPage(
 
           <Card className="min-w-0">
             <CardHeader>
-              <CardTitle>Platform breakdown</CardTitle>
+              <CardTitle>Marketplace performance</CardTitle>
+              <p className="text-sm text-muted-foreground">
+                Sorted by profit. This table is the answer to &quot;where should I post next?&quot;
+              </p>
             </CardHeader>
             <CardContent>
-              {data.platformBreakdown.length > 0 ? (
+              {data.platformBreakdown.some((p) => p.sold > 0) ? (
                 <div className="overflow-x-auto">
                   <table className="w-full text-sm">
                     <thead>
                       <tr className="border-b text-left text-muted-foreground">
                         <th className="pb-2 font-medium">Platform</th>
-                        <th className="pb-2 font-medium">Total</th>
                         <th className="pb-2 font-medium">Posted</th>
-                        <th className="pb-2 font-medium">Failed</th>
                         <th className="pb-2 font-medium">Sold</th>
+                        <th className="pb-2 font-medium">Failed</th>
                         <th className="pb-2 font-medium">Revenue</th>
                         <th className="pb-2 font-medium">Profit</th>
+                        <th className="pb-2 font-medium">Sell-through</th>
                       </tr>
                     </thead>
                     <tbody>
                       {data.platformBreakdown.map((platform) => (
                         <tr key={platform.platform} className="border-b last:border-0">
                           <td className="py-2 font-medium">{platform.platform}</td>
-                          <td className="py-2">{platform.total}</td>
                           <td className="py-2">{platform.posted}</td>
-                          <td className="py-2 text-destructive">{platform.failed}</td>
                           <td className="py-2">{platform.sold}</td>
+                          <td className={platform.failed > 0 ? "py-2 text-destructive" : "py-2"}>{platform.failed}</td>
                           <td className="py-2">${platform.revenue.toFixed(2)}</td>
                           <td className="py-2">${platform.profit.toFixed(2)}</td>
+                          <td className="py-2">{platform.sellThrough.toFixed(0)}%</td>
                         </tr>
                       ))}
                     </tbody>
                   </table>
                 </div>
               ) : (
-                <p className="text-muted-foreground">No platform posts yet.</p>
+                <p className="text-muted-foreground">No sales yet — this table ranks marketplaces once something sells.</p>
               )}
             </CardContent>
           </Card>
