@@ -9,10 +9,24 @@ const templateSchema = listingSchema.partial();
 
 export async function getTemplates() {
   const userId = await requireUserId();
+  // Usage count is the strongest signal of which template to reach for -- it earns the sort,
+  // not recency.
   return prisma.template.findMany({
     where: { userId },
-    orderBy: { updatedAt: "desc" },
+    orderBy: [{ usageCount: "desc" }, { updatedAt: "desc" }],
   });
+}
+
+/** Fired when a template is actually loaded into the composer (not just visible in the list) --
+ *  the signal that it saved someone real typing, which is what the usage count is meant to
+ *  track. */
+export async function recordTemplateUsed(id: string) {
+  const userId = await requireUserId();
+  await prisma.template.updateMany({
+    where: { id, userId },
+    data: { usageCount: { increment: 1 }, lastUsedAt: new Date() },
+  });
+  revalidatePath("/templates");
 }
 
 export async function saveTemplate(

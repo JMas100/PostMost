@@ -7,7 +7,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { listingSchema, ListingFormData } from "@/lib/schemas/listing";
 import { createListing, saveDraft, publishDraft } from "@/lib/actions/listings";
 import { crossPost } from "@/lib/actions/crosspost";
-import { saveTemplate } from "@/lib/actions/templates";
+import { saveTemplate, recordTemplateUsed } from "@/lib/actions/templates";
 import { generateListingFromPhoto } from "@/lib/actions/ai-generate";
 import {
   optimizeTitle,
@@ -107,6 +107,7 @@ export function ListingForm({ mode = "create", draftId, initialData, templates =
           setPhotoUrls(payload.photos?.length ? payload.photos : [""]);
           wizard.resetTo(computeInitialStep(payload));
           toast.success(`Loaded template: ${template.name}`);
+          recordTemplateUsed(template.id);
         } catch {
           toast.error("Failed to load template");
         }
