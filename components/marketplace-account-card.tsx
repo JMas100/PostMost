@@ -32,6 +32,7 @@ export type AccountView = {
   displayName: string;
   externalId: string | null;
   isActive: boolean;
+  tokenExpiresAt: Date | null;
   createdAt: Date;
   updatedAt: Date;
   hasCredentials: boolean;
@@ -110,7 +111,7 @@ interface DialogProps {
   account?: AccountView;
 }
 
-function ConnectDialog({ platform, account }: DialogProps) {
+export function ConnectDialog({ platform, account }: DialogProps) {
   const [open, setOpen] = useState(false);
   const extensionInstalled = useExtensionDetector();
   const supportsSessionAuth = SESSION_AUTH_PLATFORMS.has(platform.id) && platform.authType === "manual";
