@@ -3,11 +3,13 @@ import { getAdapter } from "@/lib/marketplaces";
 import { getAccountData } from "@/lib/marketplaces/account-data";
 import { PlatformListingStatus } from "@/lib/marketplaces/listing-status";
 import { DELIST_ON_SALE_RULE } from "@/lib/automation/rule-types";
+import { triggerJobWorker } from "@/lib/jobs/trigger";
 
 interface InventorySyncResult {
   platform: string;
   externalId: string | null;
-  success: boolean;
+  /** Delist was queued as a real job (with its own retry/timeout handling), not completed here. */
+  queued: boolean;
   error?: string;
 }
 
@@ -39,14 +41,24 @@ export async function syncInventorySale(platform: string, externalId: string): P
     },
   });
 
+  // Delisting elsewhere runs through the same CrossPostJob queue as every other delist -- not
+  // synchronously here. A webhook handler doing real Playwright automation inline, one platform
+  // at a time with no timeout wrapper and no explicit maxDuration, is exactly the bug class
+  // already found and fixed in the scheduled job runner (see crosspost-runner.ts): get cut off
+  // mid-call and the remaining platforms are left silently still POSTED -- live and sellable --
+  // on a marketplace where the item is actually sold out, with no retry to ever correct it.
+  // Queuing reuses the runner's existing per-call timeout, retry-with-backoff, and time-budget
+  // guard for free.
   const results: InventorySyncResult[] = [];
+  const jobsToQueue: { userId: string; listingId: string; platform: string; type: "DELIST"; status: "PENDING" }[] = [];
+
   for (const platformListing of otherListings) {
     const adapter = getAdapter(platformListing.platform);
     if (!adapter || !adapter.delist) {
       results.push({
         platform: platformListing.platform,
         externalId: platformListing.externalId,
-        success: false,
+        queued: false,
         error: "Delist not supported for this platform",
       });
       await prisma.platformListing.update({
@@ -75,7 +87,7 @@ export async function syncInventorySale(platform: string, externalId: string): P
       results.push({
         platform: platformListing.platform,
         externalId: platformListing.externalId,
-        success: false,
+        queued: false,
         error: "No connected account to delist",
       });
       await prisma.platformListing.update({
@@ -98,52 +110,28 @@ export async function syncInventorySale(platform: string, externalId: string): P
       continue;
     }
 
-    try {
-      const delistResult = await adapter.delist(platformListing.externalId || "", accountData);
-      await prisma.platformListing.update({
-        where: { id: platformListing.id },
-        data: {
-          status: delistResult.success ? PlatformListingStatus.DELISTED : PlatformListingStatus.FAILED,
-          errorMessage: delistResult.error || null,
-        },
-      });
-      await prisma.automationEvent.create({
-        data: {
-          userId: soldListing.listing.userId,
-          ruleType: DELIST_ON_SALE_RULE,
-          listingId: soldListing.listingId,
-          platform: platformListing.platform,
-          message: delistResult.success
-            ? `"${soldListing.listing.title}" sold on ${platform} — delisted from ${adapter.name}`
-            : `"${soldListing.listing.title}" sold on ${platform}, but delisting from ${adapter.name} failed: ${delistResult.error || "unknown error"}`,
-          success: delistResult.success,
-          savedAmount: delistResult.success ? platformListing.price ?? soldListing.listing.price : undefined,
-        },
-      });
-      results.push({
+    jobsToQueue.push({
+      userId: soldListing.listing.userId,
+      listingId: soldListing.listingId,
+      platform: platformListing.platform,
+      type: "DELIST",
+      status: "PENDING",
+    });
+    await prisma.automationEvent.create({
+      data: {
+        userId: soldListing.listing.userId,
+        ruleType: DELIST_ON_SALE_RULE,
+        listingId: soldListing.listingId,
         platform: platformListing.platform,
-        externalId: platformListing.externalId,
-        success: delistResult.success,
-        error: delistResult.error,
-      });
-    } catch (err) {
-      const message = err instanceof Error ? err.message : "Unknown delist error";
-      await prisma.platformListing.update({
-        where: { id: platformListing.id },
-        data: { status: PlatformListingStatus.FAILED, errorMessage: message },
-      });
-      results.push({ platform: platformListing.platform, externalId: platformListing.externalId, success: false, error: message });
-      await prisma.automationEvent.create({
-        data: {
-          userId: soldListing.listing.userId,
-          ruleType: DELIST_ON_SALE_RULE,
-          listingId: soldListing.listingId,
-          platform: platformListing.platform,
-          message: `"${soldListing.listing.title}" sold on ${platform}, but delisting from ${adapter.name} threw an error: ${message}`,
-          success: false,
-        },
-      });
-    }
+        message: `"${soldListing.listing.title}" sold on ${platform} — delisting from ${adapter.name} queued`,
+      },
+    });
+    results.push({ platform: platformListing.platform, externalId: platformListing.externalId, queued: true });
+  }
+
+  if (jobsToQueue.length > 0) {
+    await prisma.crossPostJob.createMany({ data: jobsToQueue });
+    triggerJobWorker();
   }
 
   return results;

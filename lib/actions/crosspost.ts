@@ -6,6 +6,7 @@ import { getAdapter } from "@/lib/marketplaces";
 import { PlatformListingStatus } from "@/lib/marketplaces/listing-status";
 import { track } from "@/lib/analytics/track";
 import { requireUserId } from "@/lib/auth-helpers";
+import { triggerJobWorker } from "@/lib/jobs/trigger";
 
 export async function crossPost(listingId: string, platformIds: string[]) {
   const userId = await requireUserId();
@@ -72,21 +73,6 @@ export async function crossPost(listingId: string, platformIds: string[]) {
   revalidatePath(`/listings/${listingId}`);
   revalidatePath("/listings");
   return { success: true, results };
-}
-
-function triggerJobWorker(listingId?: string) {
-  const baseUrl = process.env.APP_URL || process.env.NEXTAUTH_URL;
-  const masterKey = process.env.MASTER_KEY;
-  if (!baseUrl || !masterKey) return;
-
-  void fetch(`${baseUrl.replace(/\/$/, "")}/api/jobs/run`, {
-    method: "POST",
-    headers: { "content-type": "application/json", "x-master-key": masterKey },
-    body: JSON.stringify(listingId ? { listingId } : {}),
-    cache: "no-store",
-  }).catch(() => {
-    // Best-effort trigger; the cron will pick the jobs up regardless.
-  });
 }
 
 /** Queues a DELIST or RELIST job for every currently-POSTED platform on each selected listing.
