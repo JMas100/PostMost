@@ -18,6 +18,8 @@ export interface Plan {
   studioBgRemovalsPerMonth: number;
   activeInventoryLimit: number;
   marketplaces: number;
+  /** Additional team members beyond the owner (0 = no team seats on this plan); -1 is unlimited. */
+  seats: number;
   features: string[];
 }
 
@@ -46,6 +48,7 @@ export const PLANS: Plan[] = [
     studioBgRemovalsPerMonth: 0,
     activeInventoryLimit: 50,
     marketplaces: 3,
+    seats: 0,
     features: [
       "25 new listings per month",
       "50 active inventory items",
@@ -71,6 +74,7 @@ export const PLANS: Plan[] = [
     studioBgRemovalsPerMonth: 10,
     activeInventoryLimit: 500,
     marketplaces: 5,
+    seats: 0,
     features: [
       "100 new listings per month",
       "500 active inventory items",
@@ -98,6 +102,7 @@ export const PLANS: Plan[] = [
     studioBgRemovalsPerMonth: 50,
     activeInventoryLimit: 2000,
     marketplaces: 999,
+    seats: 0,
     features: [
       "300 new listings per month",
       "2,000 active inventory items",
@@ -125,6 +130,7 @@ export const PLANS: Plan[] = [
     studioBgRemovalsPerMonth: 200,
     activeInventoryLimit: 5000,
     marketplaces: 999,
+    seats: 0,
     features: [
       "750 new listings per month",
       "5,000 active inventory items",
@@ -151,6 +157,7 @@ export const PLANS: Plan[] = [
     studioBgRemovalsPerMonth: 1000,
     activeInventoryLimit: -1,
     marketplaces: 999,
+    seats: 3,
     features: [
       "2,000 new listings per month",
       "Unlimited active inventory",
@@ -178,6 +185,7 @@ export const PLANS: Plan[] = [
     studioBgRemovalsPerMonth: -1,
     activeInventoryLimit: -1,
     marketplaces: 999,
+    seats: -1,
     features: [
       "Unlimited listings",
       "Unlimited active inventory",

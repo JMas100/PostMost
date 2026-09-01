@@ -1,6 +1,7 @@
 import { getServerSession } from "next-auth";
 import { redirect } from "next/navigation";
 import { authOptions } from "@/lib/auth";
+import { requireWorkspace } from "@/lib/auth-helpers";
 import { getActivationState } from "@/lib/actions/activation";
 import { getMarketplaceAccounts } from "@/lib/actions/accounts";
 import { prisma } from "@/lib/prisma";
@@ -9,8 +10,9 @@ import { OnboardingWizard } from "./onboarding-wizard";
 export default async function OnboardingPage() {
   const session = await getServerSession(authOptions);
   if (!session?.user?.id) redirect("/login");
+  const { workspaceUserId } = await requireWorkspace();
 
-  const activationState = await getActivationState(session.user.id);
+  const activationState = await getActivationState(workspaceUserId);
 
   // Step 3 used to be a static "you're all set" screen -- claiming success without checking it,
   // exactly the gap the design audit flagged in the wizard's old onboarding finish. The real
@@ -20,7 +22,7 @@ export default async function OnboardingPage() {
   // second, less honest version of the same moment.
   if (activationState.publishedFirst) {
     const listing = await prisma.listing.findFirst({
-      where: { userId: session.user.id, isDraft: false },
+      where: { userId: workspaceUserId, isDraft: false },
       orderBy: { createdAt: "desc" },
       select: { id: true },
     });

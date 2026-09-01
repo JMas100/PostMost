@@ -2,6 +2,7 @@
 
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
+import { requireWorkspace } from "@/lib/auth-helpers";
 import {
   canRemoveBackground,
   canUseAI,
@@ -24,9 +25,12 @@ import {
 import { DEFAULT_PHOTO_PRESET, isFormattingRequested } from "@/lib/images/presets";
 
 async function withAiUsage<T>(fn: () => Promise<T>): Promise<{ success: true; result: T } | { success: false; error: string }> {
-  const session = await getServerSession(authOptions);
-  const userId = session?.user?.id;
-  if (!userId) return { success: false, error: "You must be logged in." };
+  let userId: string;
+  try {
+    ({ workspaceUserId: userId } = await requireWorkspace());
+  } catch {
+    return { success: false, error: "You must be logged in." };
+  }
 
   const usage = await canUseAI(userId);
   if (!usage.allowed) return { success: false, error: usage.reason || "AI usage limit reached" };
@@ -114,9 +118,12 @@ export async function enhancePhoto(
 ): Promise<{ success: true; result: string; tier: BgRemovalTier } | RemovalFailure> {
   const requestedTier: BgRemovalTier = options.tier ?? "standard";
   const format = options.format;
-  const session = await getServerSession(authOptions);
-  const userId = session?.user?.id;
-  if (!userId) return { success: false, error: "You must be logged in.", code: "auth" };
+  let userId: string;
+  try {
+    ({ workspaceUserId: userId } = await requireWorkspace());
+  } catch {
+    return { success: false, error: "You must be logged in.", code: "auth" };
+  }
 
   // Studio is a best-effort upgrade: an unconfigured or failing premium provider (missing key,
   // exhausted credits, provider outage) degrades to the standard remover instead of erroring.

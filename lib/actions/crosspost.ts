@@ -5,11 +5,11 @@ import { prisma } from "@/lib/prisma";
 import { getAdapter } from "@/lib/marketplaces";
 import { PlatformListingStatus } from "@/lib/marketplaces/listing-status";
 import { track } from "@/lib/analytics/track";
-import { requireUserId } from "@/lib/auth-helpers";
+import { requireWorkspace } from "@/lib/auth-helpers";
 import { triggerJobWorker } from "@/lib/jobs/trigger";
 
 export async function crossPost(listingId: string, platformIds: string[]) {
-  const userId = await requireUserId();
+  const { actingUserId, workspaceUserId: userId } = await requireWorkspace();
 
   const listing = await prisma.listing.findFirst({
     where: { id: listingId, userId },
@@ -17,7 +17,7 @@ export async function crossPost(listingId: string, platformIds: string[]) {
   });
   if (!listing) return { error: "Listing not found" };
 
-  await track("publish_started", userId, { listingId, platformIds });
+  await track("publish_started", actingUserId, { listingId, platformIds });
 
   const accounts = await prisma.marketplaceAccount.findMany({
     where: { userId, platform: { in: platformIds }, isActive: true },
@@ -79,7 +79,7 @@ export async function crossPost(listingId: string, platformIds: string[]) {
  *  Ownership is verified via the listing query itself -- a listing id that isn't the caller's
  *  simply won't match and contributes zero jobs. */
 async function queueBulkJob(listingIds: string[], type: "DELIST" | "RELIST") {
-  const userId = await requireUserId();
+  const { workspaceUserId: userId } = await requireWorkspace();
 
   if (listingIds.length === 0) return { success: true, queued: 0 };
 
@@ -121,7 +121,7 @@ export async function bulkRelist(listingIds: string[]) {
  *  lands in the DB (see bulkUpdatePrice in lib/actions/listings.ts) to push it out live. Ids not
  *  owned by the caller simply contribute zero jobs, same as queueBulkJob. */
 export async function queueRepriceJobs(listingIds: string[]) {
-  const userId = await requireUserId();
+  const { workspaceUserId: userId } = await requireWorkspace();
   if (listingIds.length === 0) return { success: true, queued: 0 };
 
   const listings = await prisma.listing.findMany({
@@ -150,7 +150,7 @@ export async function queueRepriceJobs(listingIds: string[]) {
 }
 
 export async function getCrossPostJobs(listingId?: string) {
-  const userId = await requireUserId();
+  const { workspaceUserId: userId } = await requireWorkspace();
   return prisma.crossPostJob.findMany({
     where: { userId, ...(listingId ? { listingId } : {}) },
     orderBy: { createdAt: "desc" },

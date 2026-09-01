@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { authOptions } from "@/lib/auth";
+import { requireWorkspace } from "@/lib/auth-helpers";
 import { Shell } from "@/components/sidebar";
 import { buttonVariants } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -41,8 +42,8 @@ export default async function ListingsPage(
   const searchParams = await props.searchParams;
   const session = await getServerSession(authOptions);
   if (!session?.user?.id) redirect("/login");
-
-  const userId = session.user.id;
+  const { workspaceUserId: userId, role } = await requireWorkspace();
+  const canDelete = role !== "MEMBER";
   const q = searchParams.q?.trim();
   const platform = searchParams.platform;
   const tab = (["all", "live", "drafts", "sold", "attention"].includes(searchParams.tab ?? "")
@@ -130,7 +131,7 @@ export default async function ListingsPage(
             primaryAction={{ label: "Clear filters", href: "/listings" }}
           />
         ) : (
-          <ListingsTable listings={listings} />
+          <ListingsTable listings={listings} canDelete={canDelete} />
         )}
 
         {listings.length > 0 && totalPages > 1 && (

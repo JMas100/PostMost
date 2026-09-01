@@ -1,7 +1,7 @@
 "use server";
 
 import { prisma } from "@/lib/prisma";
-import { requireUserId } from "@/lib/auth-helpers";
+import { requireWorkspace } from "@/lib/auth-helpers";
 import { getPlatform } from "@/lib/marketplaces/platforms";
 import { RELIST_STALE_DAYS } from "@/lib/automation/rule-types";
 
@@ -89,7 +89,7 @@ function groupJobsByListingAndTime<T extends { listingId: string; completedAt: D
 }
 
 export async function getDashboardData(period: DashboardPeriod) {
-  const userId = await requireUserId();
+  const { workspaceUserId: userId } = await requireWorkspace();
   const now = new Date();
   const start30 = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
   const start60 = new Date(now.getTime() - 60 * 24 * 60 * 60 * 1000);

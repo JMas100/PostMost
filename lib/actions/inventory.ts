@@ -7,12 +7,12 @@ import { getAdapter } from "@/lib/marketplaces";
 import { getAccountData } from "@/lib/marketplaces/account-data";
 import { getEffectivePlan, PLAN_ASSIGNMENT_SELECT } from "@/lib/plans";
 import { DELIST_ON_SALE_RULE } from "@/lib/automation/rule-types";
-import { requireUserId } from "@/lib/auth-helpers";
+import { requireWorkspace } from "@/lib/auth-helpers";
 
 const PAGE_SIZE = 25;
 
 export async function markListingSold(listingId: string, soldPlatform?: string, sale?: { soldPrice?: number; soldFees?: number; soldShippingCost?: number }) {
-  const userId = await requireUserId();
+  const { workspaceUserId: userId } = await requireWorkspace();
 
   const listing = await prisma.listing.findFirst({
     where: { id: listingId, userId },
@@ -146,7 +146,7 @@ export async function markListingSold(listingId: string, soldPlatform?: string, 
 }
 
 export async function getInventory(filters: { q?: string; missingCostOnly?: boolean; page?: number } = {}) {
-  const userId = await requireUserId();
+  const { workspaceUserId: userId } = await requireWorkspace();
   const page = Math.max(1, filters.page ?? 1);
 
   const where: Prisma.ListingWhereInput = {

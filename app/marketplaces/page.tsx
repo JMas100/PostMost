@@ -2,6 +2,7 @@ import { getServerSession } from "next-auth";
 import { redirect } from "next/navigation";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { requireWorkspace } from "@/lib/auth-helpers";
 import { Shell } from "@/components/sidebar";
 import { getMarketplaceAccounts } from "@/lib/actions/accounts";
 import { PLATFORMS } from "@/lib/marketplaces/platforms";
@@ -38,8 +39,8 @@ function accountNeedsAttention(a: { isActive: boolean; tokenExpiresAt: Date | nu
 export default async function MarketplacesPage() {
   const session = await getServerSession(authOptions);
   if (!session?.user?.id) redirect("/login");
-
-  const userId = session.user.id;
+  const { workspaceUserId: userId, role } = await requireWorkspace();
+  const canManage = role !== "MEMBER";
 
   const [accounts, platformListings, soldPlatformListings] = await Promise.all([
     getMarketplaceAccounts(),
@@ -138,6 +139,7 @@ export default async function MarketplacesPage() {
                 platform={platform}
                 account={accountByPlatform.get(platform.id)}
                 stats={statsByPlatform.get(platform.id)}
+                canManage={canManage}
               />
             ))}
           </div>
@@ -159,6 +161,7 @@ export default async function MarketplacesPage() {
                 platform={platform}
                 account={accountByPlatform.get(platform.id)}
                 stats={statsByPlatform.get(platform.id)}
+                canManage={canManage}
               />
             ))}
           </div>
@@ -167,7 +170,7 @@ export default async function MarketplacesPage() {
             return tiles.length > 0 ? (
               <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
                 {tiles.map((platform) => (
-                  <MarketplaceConnectTile key={platform.id} platform={platform} />
+                  <MarketplaceConnectTile key={platform.id} platform={platform} canManage={canManage} />
                 ))}
               </div>
             ) : null;

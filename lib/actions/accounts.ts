@@ -7,7 +7,7 @@ import { getAdapter } from "@/lib/marketplaces";
 import { decrypt, encrypt } from "@/lib/crypto";
 import { getEffectivePlan, PLAN_ASSIGNMENT_SELECT } from "@/lib/plans";
 import crypto from "crypto";
-import { requireUserId } from "@/lib/auth-helpers";
+import { requireWorkspace, requireRole } from "@/lib/auth-helpers";
 
 /** Checks the per-plan connected-marketplace limit before letting a new platform be connected
  *  (existing platforms being reconnected/updated never count against it). */
@@ -46,9 +46,9 @@ export interface AccountConnectionInput {
 }
 
 export async function getMarketplaceAccounts() {
-  const userId = await requireUserId();
+  const { workspaceUserId } = await requireWorkspace();
   const accounts = await prisma.marketplaceAccount.findMany({
-    where: { userId, isActive: true },
+    where: { userId: workspaceUserId, isActive: true },
   });
   return accounts.map((account) => {
     const { accessToken: _a, refreshToken: _r, ...rest } = account;
@@ -57,7 +57,9 @@ export async function getMarketplaceAccounts() {
 }
 
 export async function connectMarketplaceAccount(input: AccountConnectionInput) {
-  const userId = await requireUserId();
+  const ctx = await requireWorkspace();
+  requireRole(ctx, ["OWNER", "ADMIN"]);
+  const userId = ctx.workspaceUserId;
 
   const existing = await prisma.marketplaceAccount.findFirst({
     where: { userId, platform: input.platform, isActive: true },
@@ -120,10 +122,11 @@ export async function connectMarketplaceAccount(input: AccountConnectionInput) {
 }
 
 export async function disconnectMarketplaceAccount(accountId: string) {
-  const userId = await requireUserId();
+  const ctx = await requireWorkspace();
+  requireRole(ctx, ["OWNER", "ADMIN"]);
 
   await prisma.marketplaceAccount.updateMany({
-    where: { id: accountId, userId },
+    where: { id: accountId, userId: ctx.workspaceUserId },
     data: { isActive: false },
   });
 
@@ -132,9 +135,9 @@ export async function disconnectMarketplaceAccount(accountId: string) {
 }
 
 export async function getAccountForPlatform(platform: string) {
-  const userId = await requireUserId();
+  const { workspaceUserId } = await requireWorkspace();
   const account = await prisma.marketplaceAccount.findFirst({
-    where: { userId, platform, isActive: true },
+    where: { userId: workspaceUserId, platform, isActive: true },
   });
   if (!account) return null;
   return {
@@ -146,7 +149,9 @@ export async function getAccountForPlatform(platform: string) {
 }
 
 export async function getOAuthUrl(platform: string) {
-  const userId = await requireUserId();
+  const ctx = await requireWorkspace();
+  requireRole(ctx, ["OWNER", "ADMIN"]);
+  const userId = ctx.workspaceUserId;
 
   const adapter = getAdapter(platform);
   if (!adapter || adapter.authType !== "oauth" || !adapter.getAuthUrl) {

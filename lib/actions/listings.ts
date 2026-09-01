@@ -5,53 +5,55 @@ import { prisma } from "@/lib/prisma";
 import { listingSchema, ListingFormData } from "@/lib/schemas/listing";
 import { canCreateListing, incrementListingUsage } from "@/lib/actions/usage";
 import { track } from "@/lib/analytics/track";
-import { requireUserId } from "@/lib/auth-helpers";
+import { requireWorkspace, requireRole } from "@/lib/auth-helpers";
 import { queueRepriceJobs } from "@/lib/actions/crosspost";
 import { previewBulkPrice, type BulkPriceRule, type BulkPriceResult } from "@/lib/pricing";
 
-async function trackListingCompleted(userId: string, listingId: string) {
-  await track("listing_completed", userId, { listingId });
-  const count = await prisma.listing.count({ where: { userId, isDraft: false } });
+/** `actingUserId` for the tracked event (who actually did it, for engagement signal);
+ *  `workspaceUserId` for the milestone count (the workspace's total, not just this person's). */
+async function trackListingCompleted(actingUserId: string, workspaceUserId: string, listingId: string) {
+  await track("listing_completed", actingUserId, { listingId });
+  const count = await prisma.listing.count({ where: { userId: workspaceUserId, isDraft: false } });
   if (count === 2) {
-    await track("second_listing_created", userId, { listingId });
+    await track("second_listing_created", actingUserId, { listingId });
   }
 }
 
 export async function getListings() {
-  const userId = await requireUserId();
+  const { workspaceUserId } = await requireWorkspace();
   return prisma.listing.findMany({
-    where: { userId, isDraft: false },
+    where: { userId: workspaceUserId, isDraft: false },
     include: { photos: true, platformListings: true },
     orderBy: { createdAt: "desc" },
   });
 }
 
 export async function getDrafts() {
-  const userId = await requireUserId();
+  const { workspaceUserId } = await requireWorkspace();
   return prisma.listing.findMany({
-    where: { userId, isDraft: true },
+    where: { userId: workspaceUserId, isDraft: true },
     include: { photos: true, platformListings: true },
     orderBy: { updatedAt: "desc" },
   });
 }
 
 export async function getListing(id: string) {
-  const userId = await requireUserId();
+  const { workspaceUserId } = await requireWorkspace();
   return prisma.listing.findFirst({
-    where: { id, userId },
+    where: { id, userId: workspaceUserId },
     include: { photos: true, platformListings: true, jobs: true },
   });
 }
 
 export async function createListing(data: ListingFormData) {
-  const userId = await requireUserId();
+  const { actingUserId, workspaceUserId } = await requireWorkspace();
   const parsed = listingSchema.safeParse(data);
   if (!parsed.success) {
     return { error: parsed.error.format() };
   }
   const { photos, tags, ...rest } = parsed.data;
 
-  const usage = await canCreateListing(userId);
+  const usage = await canCreateListing(workspaceUserId);
   if (!usage.allowed) {
     return { error: usage.reason };
   }
@@ -60,7 +62,7 @@ export async function createListing(data: ListingFormData) {
     data: {
       ...rest,
       tags: tags || null,
-      userId,
+      userId: workspaceUserId,
       status: "PUBLISHED",
       isDraft: false,
       photos: {
@@ -70,8 +72,8 @@ export async function createListing(data: ListingFormData) {
     include: { photos: true, platformListings: true },
   });
 
-  await incrementListingUsage(userId);
-  await trackListingCompleted(userId, listing.id);
+  await incrementListingUsage(workspaceUserId);
+  await trackListingCompleted(actingUserId, workspaceUserId, listing.id);
 
   revalidatePath("/listings");
   revalidatePath("/dashboard");
@@ -108,7 +110,7 @@ function normalizeDraft(data: Partial<ListingFormData>) {
 }
 
 export async function saveDraft(data: Partial<ListingFormData>, id?: string) {
-  const userId = await requireUserId();
+  const { workspaceUserId } = await requireWorkspace();
 
   const normalized = normalizeDraft(data);
   if ("error" in normalized) {
@@ -118,7 +120,7 @@ export async function saveDraft(data: Partial<ListingFormData>, id?: string) {
   const { photoUrls, ...draftData } = normalized;
 
   if (id) {
-    const existing = await prisma.listing.findFirst({ where: { id, userId, isDraft: true } });
+    const existing = await prisma.listing.findFirst({ where: { id, userId: workspaceUserId, isDraft: true } });
     if (!existing) return { error: "Draft not found" };
     const listing = await prisma.$transaction(async (tx) => {
       await tx.photo.deleteMany({ where: { listingId: id } });
@@ -143,7 +145,7 @@ export async function saveDraft(data: Partial<ListingFormData>, id?: string) {
   const listing = await prisma.listing.create({
     data: {
       ...draftData,
-      userId,
+      userId: workspaceUserId,
       isDraft: true,
       status: "DRAFT",
       photos: {
@@ -158,9 +160,9 @@ export async function saveDraft(data: Partial<ListingFormData>, id?: string) {
 }
 
 export async function publishDraft(id: string, data: ListingFormData) {
-  const userId = await requireUserId();
+  const { actingUserId, workspaceUserId } = await requireWorkspace();
 
-  const existing = await prisma.listing.findFirst({ where: { id, userId, isDraft: true } });
+  const existing = await prisma.listing.findFirst({ where: { id, userId: workspaceUserId, isDraft: true } });
   if (!existing) return { error: "Draft not found" };
 
   const parsed = listingSchema.safeParse(data);
@@ -169,7 +171,7 @@ export async function publishDraft(id: string, data: ListingFormData) {
   }
   const { photos, tags, ...rest } = parsed.data;
 
-  const usage = await canCreateListing(userId);
+  const usage = await canCreateListing(workspaceUserId);
   if (!usage.allowed) {
     return { error: usage.reason };
   }
@@ -191,8 +193,8 @@ export async function publishDraft(id: string, data: ListingFormData) {
     });
   });
 
-  await incrementListingUsage(userId);
-  await trackListingCompleted(userId, listing.id);
+  await incrementListingUsage(workspaceUserId);
+  await trackListingCompleted(actingUserId, workspaceUserId, listing.id);
 
   revalidatePath(`/listings/${id}`);
   revalidatePath("/listings");
@@ -202,8 +204,8 @@ export async function publishDraft(id: string, data: ListingFormData) {
 }
 
 export async function updateListing(id: string, data: Partial<ListingFormData>) {
-  const userId = await requireUserId();
-  const existing = await prisma.listing.findFirst({ where: { id, userId } });
+  const { workspaceUserId } = await requireWorkspace();
+  const existing = await prisma.listing.findFirst({ where: { id, userId: workspaceUserId } });
   if (!existing) return { error: "Listing not found" };
 
   const parsed = listingSchema.partial().safeParse(data);
@@ -231,8 +233,9 @@ export async function updateListing(id: string, data: Partial<ListingFormData>) 
 }
 
 export async function deleteListing(id: string) {
-  const userId = await requireUserId();
-  await prisma.listing.deleteMany({ where: { id, userId } });
+  const ctx = await requireWorkspace();
+  requireRole(ctx, ["OWNER", "ADMIN"]);
+  await prisma.listing.deleteMany({ where: { id, userId: ctx.workspaceUserId } });
   revalidatePath("/listings");
   revalidatePath("/listings/drafts");
   revalidatePath("/dashboard");
@@ -240,9 +243,10 @@ export async function deleteListing(id: string) {
 }
 
 export async function bulkDeleteListings(ids: string[]) {
-  const userId = await requireUserId();
+  const ctx = await requireWorkspace();
+  requireRole(ctx, ["OWNER", "ADMIN"]);
   if (ids.length === 0) return { success: true, count: 0 };
-  const result = await prisma.listing.deleteMany({ where: { id: { in: ids }, userId } });
+  const result = await prisma.listing.deleteMany({ where: { id: { in: ids }, userId: ctx.workspaceUserId } });
   revalidatePath("/listings");
   revalidatePath("/listings/drafts");
   revalidatePath("/dashboard");
@@ -253,11 +257,11 @@ export async function bulkDeleteListings(ids: string[]) {
  *  this never touches photos or re-validates the whole record, so it's cheap enough to fire on
  *  every Tab/blur without lag. */
 export async function setCost(id: string, cost: number) {
-  const userId = await requireUserId();
+  const { workspaceUserId } = await requireWorkspace();
   if (!Number.isFinite(cost) || cost < 0) {
     return { error: "Cost must be a non-negative number" };
   }
-  const result = await prisma.listing.updateMany({ where: { id, userId }, data: { cost } });
+  const result = await prisma.listing.updateMany({ where: { id, userId: workspaceUserId }, data: { cost } });
   if (result.count === 0) return { error: "Listing not found" };
   revalidatePath("/inventory");
   revalidatePath(`/listings/${id}`);
@@ -285,11 +289,11 @@ export async function bulkUpdatePrice(
 ): Promise<
   { success: true; results: BulkPriceResult[]; appliedCount: number; skippedCount: number; queuedRepriceJobs: number } | { error: string }
 > {
-  const userId = await requireUserId();
+  const { workspaceUserId } = await requireWorkspace();
   if (ids.length === 0) return { success: true, results: [], appliedCount: 0, skippedCount: 0, queuedRepriceJobs: 0 };
 
   const listings = await prisma.listing.findMany({
-    where: { id: { in: ids }, userId },
+    where: { id: { in: ids }, userId: workspaceUserId },
     select: { id: true, title: true, price: true, cost: true },
   });
 

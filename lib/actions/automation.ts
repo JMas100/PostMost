@@ -4,11 +4,11 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { getEffectivePlan, meetsMinimumTier, PLAN_ASSIGNMENT_SELECT } from "@/lib/plans";
 import { STOCK_SYNC_RULE, DELIST_ON_SALE_RULE, RELIST_STALE_RULE, RELIST_STALE_DAYS } from "@/lib/automation/rule-types";
-import { requireUserId } from "@/lib/auth-helpers";
+import { requireWorkspace } from "@/lib/auth-helpers";
 import { getPlatform } from "@/lib/marketplaces/platforms";
 
 export async function getAutomationOverview() {
-  const userId = await requireUserId();
+  const { workspaceUserId: userId } = await requireWorkspace();
 
   const staleBefore = new Date(Date.now() - RELIST_STALE_DAYS * 24 * 60 * 60 * 1000);
 
@@ -88,7 +88,7 @@ export async function getAutomationOverview() {
 }
 
 export async function setStockSyncEnabled(enabled: boolean) {
-  const userId = await requireUserId();
+  const { workspaceUserId: userId } = await requireWorkspace();
 
   const user = await prisma.user.findUnique({ where: { id: userId }, select: PLAN_ASSIGNMENT_SELECT });
   const plan = getEffectivePlan(user);
@@ -107,7 +107,7 @@ export async function setStockSyncEnabled(enabled: boolean) {
 }
 
 export async function setRelistEnabled(enabled: boolean) {
-  const userId = await requireUserId();
+  const { workspaceUserId: userId } = await requireWorkspace();
 
   const user = await prisma.user.findUnique({ where: { id: userId }, select: PLAN_ASSIGNMENT_SELECT });
   const plan = getEffectivePlan(user);

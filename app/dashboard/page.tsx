@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { format, formatDistanceToNow } from "date-fns";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { requireWorkspace } from "@/lib/auth-helpers";
 import { trackDashboardViewed } from "@/lib/actions/analytics";
 import { getActivationState } from "@/lib/actions/activation";
 import { getUsage } from "@/lib/actions/usage";
@@ -25,17 +26,18 @@ export default async function DashboardPage(props: { searchParams: Promise<{ per
   const searchParams = await props.searchParams;
   const session = await getServerSession(authOptions);
   if (!session?.user?.id) redirect("/login");
+  const { workspaceUserId } = await requireWorkspace();
 
   const period: DashboardPeriod = searchParams.period === "all" ? "all" : "30d";
 
   const [data, activationState, usage] = await Promise.all([
     getDashboardData(period),
-    getActivationState(session.user.id),
-    getUsage(session.user.id),
+    getActivationState(workspaceUserId),
+    getUsage(workspaceUserId),
   ]);
 
   const recentListings = await prisma.listing.findMany({
-    where: { userId: session.user.id, isDraft: false },
+    where: { userId: workspaceUserId, isDraft: false },
     include: { photos: true, platformListings: true },
     orderBy: { createdAt: "desc" },
     take: 5,

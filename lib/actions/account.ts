@@ -51,6 +51,25 @@ export async function deleteAccount(currentPassword: string) {
     if (!valid) return { error: "Current password is incorrect" };
   }
 
-  await prisma.user.delete({ where: { id: userId } });
+  // Every workspace table now cascades off User (onDelete: Cascade) and team members act on
+  // that data as their own -- deleting an owner with active team members would silently destroy
+  // everyone else's collaborative work with no warning (listings a member created, connections
+  // an admin set up, all of it).
+  const activeMemberCount = await prisma.teamMember.count({
+    where: { team: { ownerId: userId }, status: "ACTIVE" },
+  });
+  if (activeMemberCount > 0) {
+    return {
+      error: "Remove your team members before deleting your account -- they'd otherwise lose access to everything in the shared workspace.",
+    };
+  }
+
+  await prisma.$transaction([
+    // onDelete: SetNull already clears the FK when a *member* deletes their own account, but
+    // leaves a ghost ACTIVE row with userId: null sitting in the owner's team list forever --
+    // remove it outright instead.
+    prisma.teamMember.deleteMany({ where: { userId } }),
+    prisma.user.delete({ where: { id: userId } }),
+  ]);
   return { success: true };
 }

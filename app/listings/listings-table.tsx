@@ -33,7 +33,7 @@ export interface ListingRow {
   platformListings: { id: string; platform: string; status: string }[];
 }
 
-export function ListingsTable({ listings }: { listings: ListingRow[] }) {
+export function ListingsTable({ listings, canDelete = true }: { listings: ListingRow[]; canDelete?: boolean }) {
   const router = useRouter();
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [isPending, startTransition] = useTransition();
@@ -136,10 +136,12 @@ export function ListingsTable({ listings }: { listings: ListingRow[] }) {
               <Ban className="mr-1 h-4 w-4" />
               Delist
             </Button>
-            <Button variant="destructive" size="sm" onClick={handleBulkDelete} disabled={isPending}>
-              <Trash2 className="mr-1 h-4 w-4" />
-              {isPending ? "Deleting…" : "Delete"}
-            </Button>
+            {canDelete && (
+              <Button variant="destructive" size="sm" onClick={handleBulkDelete} disabled={isPending}>
+                <Trash2 className="mr-1 h-4 w-4" />
+                {isPending ? "Deleting…" : "Delete"}
+              </Button>
+            )}
           </div>
         </div>
       )}

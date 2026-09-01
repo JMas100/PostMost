@@ -22,6 +22,7 @@ import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { cn } from "@/lib/utils";
 import { Wordmark, LogoMark } from "@/components/logo";
 import { ThemeToggle } from "@/components/theme-toggle";
+import { WorkspaceBanner } from "@/components/workspace-banner";
 
 // Orders is deliberately excluded: it needs marketplace sync that doesn't exist yet. Sold items
 // surface via the "Sold" tab on Listings instead until real order sync lands.
@@ -107,10 +108,13 @@ function NavContent({ onClick }: { onClick?: () => void }) {
         ))}
       </nav>
 
-      <div className="border-t p-3">
-        <Button variant="ghost" className="w-full justify-start gap-2 text-muted-foreground hover:text-foreground" onClick={() => signOut({ callbackUrl: "/login" })}>
-          <LogOut className="h-4 w-4" /> Sign out
-        </Button>
+      <div className="border-t pt-3">
+        <WorkspaceBanner />
+        <div className="px-3 pb-3">
+          <Button variant="ghost" className="w-full justify-start gap-2 text-muted-foreground hover:text-foreground" onClick={() => signOut({ callbackUrl: "/login" })}>
+            <LogOut className="h-4 w-4" /> Sign out
+          </Button>
+        </div>
       </div>
     </div>
   );

@@ -1,4 +1,6 @@
 import Link from "next/link";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth";
 import { getBilling } from "@/lib/actions/billing";
 import { formatPrice, PLANS } from "@/lib/plans";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -41,8 +43,24 @@ function PctBadge({ pct }: { pct: number }) {
 
 export default async function BillingPage(props: { searchParams: Promise<{ success?: string; canceled?: string }> }) {
   const searchParams = await props.searchParams;
+  const session = await getServerSession(authOptions);
+  if (!session?.user?.id) redirect("/login");
+
   const billing = await getBilling();
-  if (!billing) redirect("/login");
+  if (!billing) {
+    // Signed in, but getBilling() only returns real data for the workspace owner -- a
+    // MEMBER/ADMIN gets this instead of their own (irrelevant) personal billing state.
+    return (
+      <main className="mx-auto max-w-4xl space-y-6">
+        <PageHeader title="Billing & usage" description="Manage your plan and track usage." />
+        <Card>
+          <CardContent className="py-6 text-sm text-muted-foreground">
+            Only the workspace owner can manage billing. Ask them to make changes here.
+          </CardContent>
+        </Card>
+      </main>
+    );
+  }
 
   const { plan, usage, stripeCustomerId, subscriptionStatus } = billing;
   const resetAt = usage?.resetAt ? new Date(usage.resetAt) : new Date();

@@ -2,6 +2,7 @@ import { getServerSession } from "next-auth";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { authOptions } from "@/lib/auth";
+import { requireWorkspace } from "@/lib/auth-helpers";
 import { Shell } from "@/components/sidebar";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -23,9 +24,10 @@ export default async function ListingDetailPage(props: { params: Promise<{ id: s
   const searchParams = await props.searchParams;
   const session = await getServerSession(authOptions);
   if (!session?.user?.id) redirect("/login");
+  const { workspaceUserId } = await requireWorkspace();
 
   const listing = await prisma.listing.findFirst({
-    where: { id: params.id, userId: session.user.id },
+    where: { id: params.id, userId: workspaceUserId },
     include: { photos: true, platformListings: true, shippingProfile: true, jobs: { orderBy: { createdAt: "desc" } } },
   });
 

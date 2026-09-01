@@ -2,27 +2,29 @@
 
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
+import { requireWorkspace, WorkspaceContext } from "@/lib/auth-helpers";
 import { getEffectivePlan, PlanId, PLANS } from "@/lib/plans";
 import { getStripePriceId, getStripe } from "@/lib/stripe";
 
-// Deliberately local and null-returning, unlike the shared throwing getUserId in
-// lib/auth-helpers.ts -- billing reads (getBilling, etc.) need to render a signed-out state
-// gracefully rather than reject, which the shared helper's throw-on-missing-session contract
-// doesn't fit.
-function getUserId(session: { user?: { id?: string } } | null) {
-  if (!session?.user?.id) return null;
-  return session.user.id;
+// Billing is never resolved through the shared workspace, and is owner-only -- not even ADMIN.
+// requireWorkspace() still throws for a signed-out visitor, which every function here needs to
+// handle gracefully (a null/error return, not a crash), so each call site wraps it instead of
+// using the shared helper directly.
+async function requireOwnerContext(): Promise<WorkspaceContext | null> {
+  try {
+    const ctx = await requireWorkspace();
+    return ctx.role === "OWNER" ? ctx : null;
+  } catch {
+    return null;
+  }
 }
 
 export async function getBilling() {
-  const session = await getServerSession(authOptions);
-  const userId = getUserId(session);
-  if (!userId) return null;
+  const ctx = await requireOwnerContext();
+  if (!ctx) return null;
 
   const user = await prisma.user.findUnique({
-    where: { id: userId },
+    where: { id: ctx.actingUserId },
     include: { usage: true },
   });
   if (!user) return null;
@@ -37,11 +39,11 @@ export async function getBilling() {
 }
 
 export async function createCheckoutSession(formData: FormData) {
-  const session = await getServerSession(authOptions);
-  const userId = getUserId(session);
-  if (!userId) {
-    return { error: "Unauthorized" };
+  const ctx = await requireOwnerContext();
+  if (!ctx) {
+    return { error: "Only the workspace owner can manage billing." };
   }
+  const userId = ctx.actingUserId;
 
   const planId = formData.get("plan") as PlanId;
   const interval = (formData.get("interval") as "month" | "year") || "month";
@@ -96,9 +98,9 @@ export async function createCheckoutSession(formData: FormData) {
 }
 
 export async function createBillingPortalSession() {
-  const session = await getServerSession(authOptions);
-  const userId = getUserId(session);
-  if (!userId) return { error: "Unauthorized" };
+  const ctx = await requireOwnerContext();
+  if (!ctx) return { error: "Only the workspace owner can manage billing." };
+  const userId = ctx.actingUserId;
 
   const user = await prisma.user.findUnique({ where: { id: userId } });
   if (!user?.stripeCustomerId) return { error: "No billing account" };
@@ -118,9 +120,9 @@ export async function createBillingPortalSession() {
 }
 
 export async function updatePlan(formData: FormData) {
-  const session = await getServerSession(authOptions);
-  const userId = getUserId(session);
-  if (!userId) return;
+  const ctx = await requireOwnerContext();
+  if (!ctx) return;
+  const userId = ctx.actingUserId;
 
   const planId = formData.get("plan") as PlanId;
   if (!PLANS.some((p) => p.id === planId)) return;

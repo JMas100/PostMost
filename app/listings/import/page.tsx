@@ -3,6 +3,7 @@ import Link from "next/link";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { requireWorkspace } from "@/lib/auth-helpers";
 import { getEffectivePlan, meetsMinimumTier, PLAN_ASSIGNMENT_SELECT } from "@/lib/plans";
 import { Shell } from "@/components/sidebar";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -12,9 +13,10 @@ import { CsvImporter } from "./csv-importer";
 export default async function ImportPage() {
   const session = await getServerSession(authOptions);
   if (!session?.user?.id) redirect("/login");
+  const { workspaceUserId } = await requireWorkspace();
 
   const user = await prisma.user.findUnique({
-    where: { id: session.user.id },
+    where: { id: workspaceUserId },
     select: PLAN_ASSIGNMENT_SELECT,
   });
   const plan = getEffectivePlan(user);

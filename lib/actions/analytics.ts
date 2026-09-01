@@ -5,6 +5,7 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { getUsage } from "@/lib/actions/usage";
 import { track } from "@/lib/analytics/track";
+import { requireWorkspace } from "@/lib/auth-helpers";
 
 export async function trackListingStarted() {
   const session = await getServerSession(authOptions);
@@ -19,9 +20,7 @@ export async function trackDashboardViewed() {
 }
 
 export async function getAnalytics(range: "7d" | "30d" = "30d") {
-  const session = await getServerSession(authOptions);
-  const userId = session?.user?.id;
-  if (!userId) throw new Error("Unauthorized");
+  const { workspaceUserId: userId } = await requireWorkspace();
 
   const days = range === "7d" ? 7 : 30;
   const since = new Date();

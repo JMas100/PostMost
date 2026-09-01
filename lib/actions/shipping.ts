@@ -2,10 +2,10 @@
 
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
-import { requireUserId } from "@/lib/auth-helpers";
+import { requireWorkspace } from "@/lib/auth-helpers";
 
 export async function getShippingProfiles() {
-  const userId = await requireUserId();
+  const { workspaceUserId: userId } = await requireWorkspace();
   return prisma.shippingProfile.findMany({
     where: { userId },
     // A profile is abstract until you know how many listings depend on it -- that's also what
@@ -16,12 +16,12 @@ export async function getShippingProfiles() {
 }
 
 export async function getDefaultShippingProfile(userId?: string) {
-  const id = userId || (await requireUserId());
+  const id = userId || (await requireWorkspace()).workspaceUserId;
   return prisma.shippingProfile.findFirst({ where: { userId: id, isDefault: true } });
 }
 
 export async function createShippingProfile(data: { name: string; carrier: string; service: string; cost: number; isDefault?: boolean }) {
-  const userId = await requireUserId();
+  const { workspaceUserId: userId } = await requireWorkspace();
 
   const isDefault = !!data.isDefault;
   if (isDefault) {
@@ -36,7 +36,7 @@ export async function createShippingProfile(data: { name: string; carrier: strin
 }
 
 export async function updateShippingProfile(id: string, data: { name: string; carrier: string; service: string; cost: number; isDefault?: boolean }) {
-  const userId = await requireUserId();
+  const { workspaceUserId: userId } = await requireWorkspace();
 
   const existing = await prisma.shippingProfile.findFirst({ where: { id, userId } });
   if (!existing) return { error: "Profile not found" };
@@ -55,7 +55,7 @@ export async function updateShippingProfile(id: string, data: { name: string; ca
 }
 
 export async function deleteShippingProfile(id: string) {
-  const userId = await requireUserId();
+  const { workspaceUserId: userId } = await requireWorkspace();
   await prisma.shippingProfile.deleteMany({ where: { id, userId } });
   revalidatePath("/settings/shipping");
   return { success: true };

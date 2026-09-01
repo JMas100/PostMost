@@ -1,6 +1,5 @@
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { requireWorkspace } from "@/lib/auth-helpers";
 import { getEffectivePlan, getPlan, PLAN_ASSIGNMENT_SELECT } from "@/lib/plans";
 import { MarketingNav } from "@/components/marketing/marketing-nav";
 import { MarketingFooter } from "@/components/marketing/marketing-footer";
@@ -11,14 +10,19 @@ import { EnterpriseContact } from "./enterprise-contact";
 import { PricingFaq } from "./pricing-faq";
 
 export default async function PricingPage() {
-  const session = await getServerSession(authOptions);
   let currentPlanId = getPlan(null).id;
-  if (session?.user?.id) {
+  try {
+    // A signed-in team member sees the workspace owner's real plan here too -- billing is
+    // shared, so "your current plan" means the workspace's, not whatever an empty personal
+    // account would otherwise default to.
+    const { workspaceUserId } = await requireWorkspace();
     const user = await prisma.user.findUnique({
-      where: { id: session.user.id },
+      where: { id: workspaceUserId },
       select: PLAN_ASSIGNMENT_SELECT,
     });
     currentPlanId = getEffectivePlan(user).id;
+  } catch {
+    // Signed-out visitor -- keep the free-tier default.
   }
 
   return (

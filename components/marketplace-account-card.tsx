@@ -60,9 +60,13 @@ interface MarketplaceAccountCardProps {
   platform: (typeof PLATFORMS)[number];
   account?: AccountView;
   stats?: PlatformStats;
+  /** MEMBER can't connect/disconnect marketplace accounts -- server-side enforced already
+   *  (connectMarketplaceAccount/disconnectMarketplaceAccount/getOAuthUrl all throw for that
+   *  role), this just avoids showing controls that would immediately fail. */
+  canManage?: boolean;
 }
 
-export function MarketplaceAccountCard({ platform, account, stats }: MarketplaceAccountCardProps) {
+export function MarketplaceAccountCard({ platform, account, stats, canManage = true }: MarketplaceAccountCardProps) {
   return (
     <div className="flex min-w-0 flex-col gap-3 rounded-lg border p-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -79,7 +83,11 @@ export function MarketplaceAccountCard({ platform, account, stats }: Marketplace
           <Badge variant={account ? "default" : "secondary"}>
             {account ? "Connected" : "Not connected"}
           </Badge>
-          <ConnectDialog platform={platform} account={account} />
+          {canManage ? (
+            <ConnectDialog platform={platform} account={account} />
+          ) : !account ? (
+            <span className="text-xs text-muted-foreground">Ask an admin to connect</span>
+          ) : null}
         </div>
       </div>
       {account && stats && (
