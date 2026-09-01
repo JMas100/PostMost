@@ -14,6 +14,13 @@ export const dynamic = "force-dynamic";
 // 300s is the actual maximum on Vercel's Hobby plan.
 export const maxDuration = 300;
 
+// Shared across every phase run in a single invocation (crosspost jobs, then stock-sync, then
+// relist-stale) so a big crosspost batch can't eat the whole ceiling and leave the later phases
+// no choice but to get killed mid-item too -- each phase just stops claiming new work once this
+// is reached, leaving the rest for the next invocation instead of getting hard-killed mid-flight.
+// 30s under the real 300s ceiling for response overhead.
+const REQUEST_BUDGET_MS = 270 * 1000;
+
 /** Constant-time string comparison -- a plain === leaks how many leading bytes matched via
  *  response timing, which matters for secrets checked on every request like these. */
 function timingSafeEqualString(a: string, b: string): boolean {
@@ -50,17 +57,19 @@ export async function POST(request: NextRequest) {
     // body is optional
   }
 
-  const summary = await processPendingCrossPostJobs(listingId);
+  const deadline = Date.now() + REQUEST_BUDGET_MS;
+  const summary = await processPendingCrossPostJobs(listingId, deadline);
   const automation = listingId
     ? undefined
-    : { stockSync: await runStockSyncRule(), relist: await runRelistStaleRule() };
+    : { stockSync: await runStockSyncRule(deadline), relist: await runRelistStaleRule(deadline) };
   return NextResponse.json({ success: true, ...summary, automation });
 }
 
 export async function GET(request: NextRequest) {
   if (!isAuthorizedForCron(request)) return unauthorized();
 
-  const summary = await processPendingCrossPostJobs();
-  const automation = { stockSync: await runStockSyncRule(), relist: await runRelistStaleRule() };
+  const deadline = Date.now() + REQUEST_BUDGET_MS;
+  const summary = await processPendingCrossPostJobs(undefined, deadline);
+  const automation = { stockSync: await runStockSyncRule(deadline), relist: await runRelistStaleRule(deadline) };
   return NextResponse.json({ success: true, ...summary, automation });
 }

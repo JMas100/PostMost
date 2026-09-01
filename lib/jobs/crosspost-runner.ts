@@ -11,6 +11,8 @@ import type { MarketplaceAdapter } from "@/lib/marketplaces/types";
 const STUCK_JOB_TIMEOUT_MS = 5 * 60 * 1000;
 /** Maximum time a single adapter.post call may take before the job is failed/retried. */
 const JOB_TIMEOUT_MS = 60 * 1000;
+/** Default per-call budget when no shared deadline is passed in (see processPendingCrossPostJobs). */
+const DEFAULT_BUDGET_MS = 270 * 1000;
 /** Backoff before attempt N+1, indexed by the attempt count that just failed. */
 const RETRY_BACKOFF_MS = [60 * 1000, 5 * 60 * 1000, 15 * 60 * 1000];
 
@@ -53,7 +55,10 @@ async function reclaimStuckJobs(listingId?: string) {
   return count;
 }
 
-export async function processPendingCrossPostJobs(listingId?: string): Promise<CrossPostRunSummary> {
+export async function processPendingCrossPostJobs(
+  listingId?: string,
+  deadline: number = Date.now() + DEFAULT_BUDGET_MS
+): Promise<CrossPostRunSummary> {
   const summary: CrossPostRunSummary = {
     processed: 0,
     succeeded: 0,
@@ -75,6 +80,12 @@ export async function processPendingCrossPostJobs(listingId?: string): Promise<C
 
   for (const job of candidates) {
     if (!job.listing) continue;
+
+    // Never claim a job we might not have time to finish -- a batch that runs past the
+    // function's real ceiling gets hard-killed mid-flight, leaving whatever job was RUNNING
+    // orphaned indefinitely (confirmed live in production). Leaving it PENDING instead means
+    // the next invocation (cron backstop, or the next real-time trigger) just picks it up.
+    if (Date.now() >= deadline) break;
 
     // Atomic claim: only one worker can flip a PENDING row to RUNNING.
     const claim = await prisma.crossPostJob.updateMany({

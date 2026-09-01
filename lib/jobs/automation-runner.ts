@@ -5,6 +5,9 @@ import { relistPlatformListing } from "@/lib/marketplaces/relist";
 import { STOCK_SYNC_RULE, RELIST_STALE_RULE, RELIST_STALE_DAYS } from "@/lib/automation/rule-types";
 import type { Photo } from "@prisma/client";
 
+/** Default per-call budget when no shared deadline is passed in. */
+const DEFAULT_BUDGET_MS = 270 * 1000;
+
 export interface AutomationRunSummary {
   usersChecked: number;
   listingsProcessed: number;
@@ -28,7 +31,9 @@ export interface RelistRunSummary {
  * rather than hooking every quantity-mutation call site (listing edits,
  * extension sync) individually.
  */
-export async function runStockSyncRule(): Promise<AutomationRunSummary> {
+export async function runStockSyncRule(
+  deadline: number = Date.now() + DEFAULT_BUDGET_MS
+): Promise<AutomationRunSummary> {
   const summary: AutomationRunSummary = { usersChecked: 0, listingsProcessed: 0, delisted: 0, failed: 0 };
 
   const enabledRules = await prisma.automationRule.findMany({
@@ -51,6 +56,9 @@ export async function runStockSyncRule(): Promise<AutomationRunSummary> {
   });
 
   for (const listing of listings) {
+    // Leftover candidates just get picked up by tomorrow's cron run -- nothing here is left
+    // half-done in a way that needs reclaiming, unlike the CrossPostJob RUNNING-lock case.
+    if (Date.now() >= deadline) break;
     summary.listingsProcessed += 1;
     for (const platformListing of listing.platformListings) {
       const adapter = getAdapter(platformListing.platform);
@@ -150,7 +158,9 @@ export async function runStockSyncRule(): Promise<AutomationRunSummary> {
  * that's tracked separately as "stranded" so it surfaces as something needing a person, not
  * folded into an ordinary retry-able failure.
  */
-export async function runRelistStaleRule(): Promise<RelistRunSummary> {
+export async function runRelistStaleRule(
+  deadline: number = Date.now() + DEFAULT_BUDGET_MS
+): Promise<RelistRunSummary> {
   const summary: RelistRunSummary = {
     usersChecked: 0,
     candidatesProcessed: 0,
@@ -179,6 +189,7 @@ export async function runRelistStaleRule(): Promise<RelistRunSummary> {
   });
 
   for (const platformListing of candidates) {
+    if (Date.now() >= deadline) break;
     const { listing } = platformListing;
     if (!listing) continue;
     summary.candidatesProcessed += 1;
