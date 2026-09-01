@@ -52,6 +52,7 @@ export async function getUsage(userId: string) {
     aiLimit: plan.aiCreditsPerMonth,
     bgRemovalsLimit: plan.bgRemovalsPerMonth,
     studioBgRemovalsLimit: plan.studioBgRemovalsPerMonth,
+    resetAt: usage.resetAt,
   };
 }
 

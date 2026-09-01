@@ -4,7 +4,11 @@ import { getPlatform } from "@/lib/marketplaces/platforms";
 const LOGO_ASSET_IDS = new Set(["ebay", "etsy", "vinted", "shopify", "mercari", "depop", "whatnot"]);
 // 4:1–5:1 wordmark SVGs — need an auto-width tile or they overflow a fixed square.
 const WORDMARK_IDS = new Set(["mercari", "whatnot", "depop"]);
-const NO_ASSET_LETTER: Record<string, string> = { poshmark: "P", grailed: "G" };
+// Every authType !== "none" platform without a real logo asset needs an entry here -- without
+// one, PlatformMark's text-name fallback gets truncated illegibly inside a small onDark tile
+// (confirmed live: Facebook Marketplace/Craigslist/OfferUp rendered as "Fa"/blank/clipped text
+// at a 22px tile before these were added).
+const NO_ASSET_LETTER: Record<string, string> = { poshmark: "P", grailed: "G", facebook: "F", craigslist: "C", offerup: "O" };
 
 export function PlatformMark({
   platformId,
