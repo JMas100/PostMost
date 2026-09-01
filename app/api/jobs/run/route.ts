@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import crypto from "crypto";
 import { processPendingCrossPostJobs } from "@/lib/jobs/crosspost-runner";
 import { runStockSyncRule, runRelistStaleRule } from "@/lib/jobs/automation-runner";
+import { createBrowserJobBudget } from "@/lib/jobs/browser-job-budget";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -58,10 +59,11 @@ export async function POST(request: NextRequest) {
   }
 
   const deadline = Date.now() + REQUEST_BUDGET_MS;
-  const summary = await processPendingCrossPostJobs(listingId, deadline);
+  const browserBudget = createBrowserJobBudget();
+  const summary = await processPendingCrossPostJobs(listingId, deadline, browserBudget);
   const automation = listingId
     ? undefined
-    : { stockSync: await runStockSyncRule(deadline), relist: await runRelistStaleRule(deadline) };
+    : { stockSync: await runStockSyncRule(deadline, browserBudget), relist: await runRelistStaleRule(deadline, browserBudget) };
   return NextResponse.json({ success: true, ...summary, automation });
 }
 
@@ -69,7 +71,8 @@ export async function GET(request: NextRequest) {
   if (!isAuthorizedForCron(request)) return unauthorized();
 
   const deadline = Date.now() + REQUEST_BUDGET_MS;
-  const summary = await processPendingCrossPostJobs(undefined, deadline);
-  const automation = { stockSync: await runStockSyncRule(deadline), relist: await runRelistStaleRule(deadline) };
+  const browserBudget = createBrowserJobBudget();
+  const summary = await processPendingCrossPostJobs(undefined, deadline, browserBudget);
+  const automation = { stockSync: await runStockSyncRule(deadline, browserBudget), relist: await runRelistStaleRule(deadline, browserBudget) };
   return NextResponse.json({ success: true, ...summary, automation });
 }
