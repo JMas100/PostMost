@@ -18,13 +18,15 @@ import { FailedCrossPostCard } from "@/components/publish-panel/failed-cross-pos
 import { PlatformLogo } from "@/components/platform-logo";
 import { getPlatform } from "@/lib/marketplaces/platforms";
 import { SoldButton } from "./sold-button";
+import { ListingDeleteButton } from "@/components/listing-delete-button";
 
 export default async function ListingDetailPage(props: { params: Promise<{ id: string }>; searchParams: Promise<{ published?: string }> }) {
   const params = await props.params;
   const searchParams = await props.searchParams;
   const session = await getServerSession(authOptions);
   if (!session?.user?.id) redirect("/login");
-  const { workspaceUserId } = await requireWorkspace();
+  const { workspaceUserId, role } = await requireWorkspace();
+  const canDelete = role !== "MEMBER";
 
   const listing = await prisma.listing.findFirst({
     where: { id: params.id, userId: workspaceUserId },
@@ -46,9 +48,12 @@ export default async function ListingDetailPage(props: { params: Promise<{ id: s
     return (
       <Shell>
         <div className="mx-auto max-w-2xl space-y-4">
-          <Link href="/listings?tab=drafts" className="inline-flex items-center text-sm text-muted-foreground hover:text-foreground">
-            <ArrowLeft className="mr-1 h-4 w-4" /> Back to drafts
-          </Link>
+          <div className="flex items-center justify-between">
+            <Link href="/listings?tab=drafts" className="inline-flex items-center text-sm text-muted-foreground hover:text-foreground">
+              <ArrowLeft className="mr-1 h-4 w-4" /> Back to drafts
+            </Link>
+            {canDelete && <ListingDeleteButton id={listing.id} title={listing.title || "Untitled draft"} redirectTo="/listings/drafts" />}
+          </div>
           <h1 className="text-3xl font-bold">Edit draft</h1>
           <ListingForm mode="draft" draftId={listing.id} initialData={initialData} templates={templates} shippingProfiles={shippingProfiles} accounts={accounts} />
         </div>
@@ -81,9 +86,12 @@ export default async function ListingDetailPage(props: { params: Promise<{ id: s
   return (
     <Shell>
       <div className="space-y-6">
-        <Link href="/listings" className="inline-flex items-center text-sm text-muted-foreground hover:text-foreground">
-          <ArrowLeft className="mr-1 h-4 w-4" /> Back to listings
-        </Link>
+        <div className="flex items-center justify-between">
+          <Link href="/listings" className="inline-flex items-center text-sm text-muted-foreground hover:text-foreground">
+            <ArrowLeft className="mr-1 h-4 w-4" /> Back to listings
+          </Link>
+          {canDelete && <ListingDeleteButton id={listing.id} title={listing.title} redirectTo="/listings" />}
+        </div>
 
         <div className="flex flex-col gap-4 lg:flex-row">
           <div className="flex-1 space-y-6">

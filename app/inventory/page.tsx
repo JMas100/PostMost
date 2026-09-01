@@ -2,6 +2,7 @@ import { getServerSession } from "next-auth";
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { authOptions } from "@/lib/auth";
+import { requireWorkspace } from "@/lib/auth-helpers";
 import { Shell } from "@/components/sidebar";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
@@ -12,6 +13,7 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { getInventory } from "@/lib/actions/inventory";
 import { InventoryFilters } from "./inventory-filters";
 import { InventoryCostCell } from "@/components/inventory-cost-cell";
+import { ListingDeleteButton } from "@/components/listing-delete-button";
 import { PageHeader } from "@/components/page-header";
 import { cn } from "@/lib/utils";
 import { ChevronLeft, ChevronRight } from "lucide-react";
@@ -32,6 +34,8 @@ export default async function InventoryPage(
   const searchParams = await props.searchParams;
   const session = await getServerSession(authOptions);
   if (!session?.user?.id) redirect("/login");
+  const { role } = await requireWorkspace();
+  const canDelete = role !== "MEMBER";
 
   const missingCostOnly = searchParams.filter === "missing-cost";
   const page = Math.max(1, parseInt(searchParams.page ?? "1", 10) || 1);
@@ -185,6 +189,7 @@ export default async function InventoryPage(
                         <TableHead>Margin</TableHead>
                         <TableHead>Value</TableHead>
                         <TableHead>Platforms</TableHead>
+                        {canDelete && <TableHead className="w-10"></TableHead>}
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -230,6 +235,11 @@ export default async function InventoryPage(
                                 ))}
                               </div>
                             </TableCell>
+                            {canDelete && (
+                              <TableCell>
+                                <ListingDeleteButton id={listing.id} title={listing.title} size="icon" variant="ghost" />
+                              </TableCell>
+                            )}
                           </TableRow>
                         );
                       })}
