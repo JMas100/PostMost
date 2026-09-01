@@ -221,10 +221,28 @@ model TeamMember {
   userId      String?
   user        User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
   status      String   @default("PENDING")
+  /// SHA-256 hash of the raw invite token emailed to the invitee -- like PasswordResetToken,
+  /// so a DB leak alone can't be used to accept an invite. Null once accepted or for members
+  /// added directly as ACTIVE (their email already had a PostMost account).
+  inviteTokenHash      String?   @unique
+  inviteTokenExpiresAt DateTime?
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
   @@unique([teamId, email])
+}
+
+/// Backs a simple Postgres fixed-window rate limiter (see lib/rate-limit.ts) for auth endpoints
+/// -- login, signup, password-reset-request. `identifier` is a scoped key like
+/// "login-email:x@y.com" or "login-ip:1.2.3.4", never a raw email/IP alone, so different limit
+/// kinds sharing the same underlying value (e.g. login vs signup from the same IP) don't leak
+/// into each other's counts.
+model LoginAttempt {
+  id         String   @id @default(cuid())
+  identifier String
+  createdAt  DateTime @default(now())
+
+  @@index([identifier, createdAt])
 }
 
 model PasswordResetToken {

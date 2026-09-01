@@ -3,6 +3,11 @@ import CredentialsProvider from "next-auth/providers/credentials";
 import bcrypt from "bcryptjs";
 import { prisma } from "./prisma";
 import { normalizeEmail } from "./email";
+import { checkRateLimit } from "./rate-limit";
+
+const LOGIN_WINDOW_MS = 15 * 60 * 1000;
+const LOGIN_MAX_PER_EMAIL = 10;
+const LOGIN_MAX_PER_IP = 20;
 
 export const authOptions: NextAuthOptions = {
   providers: [
@@ -12,11 +17,27 @@ export const authOptions: NextAuthOptions = {
         email: { label: "Email", type: "email" },
         password: { label: "Password", type: "password" },
       },
-      async authorize(credentials) {
+      async authorize(credentials, req) {
         if (!credentials?.email || !credentials?.password) return null;
-        const user = await prisma.user.findUnique({
-          where: { email: normalizeEmail(credentials.email) },
-        });
+
+        // This route runs through the Pages Router (pages/api/auth/[...nextauth].ts), so
+        // next/headers isn't available here -- the IP has to come from next-auth's own req.
+        const forwardedFor = req?.headers?.["x-forwarded-for"];
+        const ip = typeof forwardedFor === "string" ? forwardedFor.split(",")[0].trim() : undefined;
+
+        const email = normalizeEmail(credentials.email);
+        // Per-email stops sustained guessing against one target account; per-IP catches the
+        // same attacker spraying guesses across many different accounts. Checked independently
+        // so either one alone is enough to block. A block returns null -- the same generic
+        // failure as a wrong password, so it leaks no extra signal.
+        const emailCheck = await checkRateLimit(`login-email:${email}`, { windowMs: LOGIN_WINDOW_MS, max: LOGIN_MAX_PER_EMAIL });
+        if (!emailCheck.allowed) return null;
+        if (ip) {
+          const ipCheck = await checkRateLimit(`login-ip:${ip}`, { windowMs: LOGIN_WINDOW_MS, max: LOGIN_MAX_PER_IP });
+          if (!ipCheck.allowed) return null;
+        }
+
+        const user = await prisma.user.findUnique({ where: { email } });
         if (!user || !user.password) return null;
         const isValid = await bcrypt.compare(credentials.password, user.password);
         if (!isValid) return null;

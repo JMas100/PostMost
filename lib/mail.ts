@@ -1,6 +1,7 @@
 import { Resend } from "resend";
 import { render } from "@react-email/render";
 import { PasswordResetEmail } from "@/emails/password-reset";
+import { TeamInviteEmail } from "@/emails/team-invite";
 
 let _resend: Resend | null = null;
 
@@ -23,6 +24,17 @@ export async function sendPasswordResetEmail(to: string, resetUrl: string) {
     from: FROM,
     to,
     subject: "Reset your PostMost password",
+    react: email,
+    text: await render(email, { plainText: true }),
+  });
+}
+
+export async function sendTeamInviteEmail(to: string, inviteUrl: string, teamName: string) {
+  const email = TeamInviteEmail({ inviteUrl, teamName });
+  await getResend().emails.send({
+    from: FROM,
+    to,
+    subject: `You're invited to join ${teamName} on PostMost`,
     react: email,
     text: await render(email, { plainText: true }),
   });
