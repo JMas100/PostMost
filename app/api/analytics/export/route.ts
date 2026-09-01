@@ -21,6 +21,15 @@ const FIELDS = [
 ];
 const BATCH_SIZE = 500;
 
+// A listing's title/SKU/category are seller-supplied (and can even arrive via CSV/URL import
+// from a third party). Opening the export in Excel/Sheets treats any cell starting with
+// =, +, -, or @ as a formula -- a poisoned value like `=HYPERLINK(...)` would run on whoever
+// opens it. Prefixing with a single quote is the standard mitigation (OWASP's CSV Injection
+// guidance): Excel treats a leading `'` as "force text" rather than a formula trigger.
+function csvSafe(value: string): string {
+  return /^[=+\-@]/.test(value) ? `'${value}` : value;
+}
+
 export async function GET() {
   const session = await getServerSession(authOptions);
   if (!session?.user?.id) {
@@ -50,9 +59,9 @@ export async function GET() {
         const rows = batch.map((listing) => {
           const soldPlatform = listing.platformListings.find((pl) => pl.profit !== null);
           return [
-            listing.title,
-            listing.sku || "",
-            listing.category,
+            csvSafe(listing.title),
+            csvSafe(listing.sku || ""),
+            csvSafe(listing.category),
             listing.status,
             listing.price.toFixed(2),
             listing.cost !== null ? listing.cost.toFixed(2) : "",
