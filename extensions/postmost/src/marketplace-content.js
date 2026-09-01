@@ -74,6 +74,20 @@
     return el;
   }
 
+  // Overlay content is a mix of hardcoded markup (buttons/styles, written by this file) and
+  // dynamic values (platform name, fill results, error messages) that ultimately trace back to
+  // the current listing's own fields. Only self-XSS today (a user could only poison their own
+  // overlay via their own listing content), but escape dynamic values before they reach
+  // innerHTML anyway rather than relying on that staying true as this code evolves.
+  function escapeHtml(value) {
+    return String(value)
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&#39;");
+  }
+
   function updateOverlay(html) {
     const el = createOverlay();
     el.innerHTML = `<div style="font-weight:600;margin-bottom:6px;">PostMost</div>${html}`;
@@ -110,7 +124,7 @@
       return;
     }
     if (pendingPlatforms.length > 0 && !pendingPlatforms.includes(platform)) {
-      updateOverlay(`This marketplace (${platform}) is not in the selected platforms.`);
+      updateOverlay(`This marketplace (${escapeHtml(platform)}) is not in the selected platforms.`);
       return;
     }
     const event = {
@@ -171,19 +185,19 @@
       return { success: false, error: "Form filler not loaded" };
     }
     try {
-      updateOverlay(`Filling ${source}...`);
+      updateOverlay(`Filling ${escapeHtml(source)}...`);
       const result = await window.PostMostFillListing(listing);
       const status = result.submitted
         ? "Form filled. Please review and confirm."
         : "Form partially filled. Manual review needed.";
-      updateOverlay(
-        `${status}<br/><small>Filled: ${(result.filled || []).join(", ") || "none"}<br/>Missing: ${(result.missing || []).join(", ") || "none"}</small>`
-      );
+      const filled = escapeHtml((result.filled || []).join(", ") || "none");
+      const missing = escapeHtml((result.missing || []).join(", ") || "none");
+      updateOverlay(`${status}<br/><small>Filled: ${filled}<br/>Missing: ${missing}</small>`);
       await chrome.storage.local.set({ lastFillResult: result });
       return { success: result.submitted || result.filled.length > 0, result };
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
-      updateOverlay(`Fill failed: ${message}`);
+      updateOverlay(`Fill failed: ${escapeHtml(message)}`);
       return { success: false, error: message };
     }
   }
