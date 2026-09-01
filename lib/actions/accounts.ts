@@ -163,19 +163,27 @@ export async function getOAuthUrl(platform: string) {
     }
   }
 
+  // A random `state`, bound to this browser via an httpOnly cookie and required to match on
+  // callback, is what stops OAuth account-linking CSRF: without it, an attacker who starts their
+  // own authorization flow can hand a victim a link carrying the attacker's own `code`, and it
+  // gets silently linked to the victim's account instead of the attacker's. Generated for every
+  // provider, not just Etsy -- PKCE alone doesn't cover this for providers that don't use it.
+  const state = crypto.randomBytes(24).toString("base64url");
+
   let codeVerifier: string | undefined;
+  let challenge: string | undefined;
   if (platform === "etsy") {
     codeVerifier = generateCodeVerifier();
-    const challenge = getCodeChallenge(codeVerifier);
-    (await cookies()).set(
-      "postmost_oauth_verifier",
-      JSON.stringify({ platform, verifier: codeVerifier, expiresAt: Date.now() + 600_000 }),
-      { httpOnly: true, secure: process.env.NODE_ENV === "production", sameSite: "lax", maxAge: 600 }
-    );
-    return adapter.getAuthUrl({ codeVerifier: challenge });
+    challenge = getCodeChallenge(codeVerifier);
   }
 
-  return adapter.getAuthUrl();
+  (await cookies()).set(
+    "postmost_oauth",
+    JSON.stringify({ platform, state, verifier: codeVerifier, expiresAt: Date.now() + 600_000 }),
+    { httpOnly: true, secure: process.env.NODE_ENV === "production", sameSite: "lax", maxAge: 600 }
+  );
+
+  return adapter.getAuthUrl(challenge ? { codeVerifier: challenge, state } : { state });
 }
 
 function generateCodeVerifier() {

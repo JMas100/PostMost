@@ -93,7 +93,10 @@ export interface MarketplaceAdapter {
    *  a username/password pair -- confirms the cookies actually leave the browser authenticated
    *  before they're ever saved. */
   verifySession?(cookies: SessionCookie[]): Promise<CredentialCheckResult>;
-  getAuthUrl?(opts?: { codeVerifier?: string }): string;
+  /** `state` should be echoed back verbatim in the authorize URL for every provider -- it's
+   *  what the callback route checks against the cookie-bound value to stop OAuth account-linking
+   *  CSRF (an attacker handing a victim a link containing the attacker's own authorization code). */
+  getAuthUrl?(opts?: { codeVerifier?: string; state?: string }): string;
   exchangeCode?(code: string, ctx?: { codeVerifier?: string }): Promise<OAuthTokenResult>;
   /** Exchanges a stored refresh token for a new access token once the current one expires. */
   refreshAccessToken?(refreshToken: string): Promise<OAuthTokenResult>;

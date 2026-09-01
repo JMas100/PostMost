@@ -339,7 +339,7 @@ export const eBayAdapter: MarketplaceAdapter = {
     }
     return { success: true };
   },
-  getAuthUrl(_opts?: { codeVerifier?: string }) {
+  getAuthUrl(opts?: { codeVerifier?: string; state?: string }) {
     const { appId, ruName } = getClientCredentials();
     const params = new URLSearchParams({
       client_id: appId,
@@ -347,6 +347,7 @@ export const eBayAdapter: MarketplaceAdapter = {
       redirect_uri: ruName,
       scope: SCOPES.join(" "),
     });
+    if (opts?.state) params.set("state", opts.state);
     return `${EBAY_AUTH_URL}?${params.toString()}`;
   },
   async exchangeCode(code: string): Promise<OAuthTokenResult> {

@@ -218,14 +218,17 @@ export const etsyAdapter: MarketplaceAdapter = {
     }
     return { success: true };
   },
-  getAuthUrl(opts?: { codeVerifier?: string }) {
+  getAuthUrl(opts?: { codeVerifier?: string; state?: string }) {
     const { key, redirectUri } = getClientCredentials();
     const params = new URLSearchParams({
       response_type: "code",
       client_id: key,
       redirect_uri: redirectUri,
       scope: SCOPES,
-      state: crypto.randomUUID(),
+      // Falls back to an unchecked random value only if the caller doesn't track one -- real
+      // CSRF protection comes from the caller (getOAuthUrl) generating this and verifying it
+      // against a cookie-bound value on callback, not from Etsy merely echoing it back.
+      state: opts?.state || crypto.randomUUID(),
     });
     if (opts?.codeVerifier) {
       params.set("code_challenge", opts.codeVerifier);

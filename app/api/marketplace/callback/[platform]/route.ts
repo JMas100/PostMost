@@ -14,6 +14,7 @@ export async function GET(request: NextRequest, props: { params: Promise<{ platf
 
   const platform = params.platform;
   const code = request.nextUrl.searchParams.get("code");
+  const returnedState = request.nextUrl.searchParams.get("state");
   const error = request.nextUrl.searchParams.get("error");
   const errorDescription = request.nextUrl.searchParams.get("error_description");
 
@@ -36,24 +37,41 @@ export async function GET(request: NextRequest, props: { params: Promise<{ platf
     );
   }
 
+  // Required for every provider: without this, an attacker can hand a victim a callback link
+  // carrying the attacker's own authorization code, and it gets silently linked to the victim's
+  // account. See getOAuthUrl in lib/actions/accounts.ts for where this cookie is set.
   let codeVerifier: string | undefined;
-  if (platform === "etsy") {
-    const verifierCookie = (await cookies()).get("postmost_oauth_verifier")?.value;
-    if (verifierCookie) {
-      try {
-        const parsed = JSON.parse(verifierCookie) as {
-          platform: string;
-          verifier: string;
-          expiresAt: number;
-        };
-        if (parsed.platform === "etsy" && parsed.expiresAt > Date.now()) {
-          codeVerifier = parsed.verifier;
-        }
-      } catch {
-        // ignore malformed cookie
+  const oauthCookie = (await cookies()).get("postmost_oauth")?.value;
+  (await cookies()).delete("postmost_oauth");
+  let stateOk = false;
+  if (oauthCookie) {
+    try {
+      const parsed = JSON.parse(oauthCookie) as {
+        platform: string;
+        state: string;
+        verifier?: string;
+        expiresAt: number;
+      };
+      if (
+        parsed.platform === platform &&
+        parsed.expiresAt > Date.now() &&
+        returnedState &&
+        parsed.state === returnedState
+      ) {
+        stateOk = true;
+        codeVerifier = parsed.verifier;
       }
-      (await cookies()).delete("postmost_oauth_verifier");
+    } catch {
+      // ignore malformed cookie
     }
+  }
+  if (!stateOk) {
+    return NextResponse.redirect(
+      new URL(
+        `/settings?error=${encodeURIComponent("This authorization link is invalid or expired. Please try connecting again.")}`,
+        process.env.NEXTAUTH_URL
+      )
+    );
   }
 
   try {
