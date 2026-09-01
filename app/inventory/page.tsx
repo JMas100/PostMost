@@ -7,24 +7,14 @@ import { Shell } from "@/components/sidebar";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { buttonVariants } from "@/components/ui/button";
-import { PlatformBadge } from "@/components/platform-badge";
 import { Badge } from "@/components/ui/badge";
 import { EmptyState } from "@/components/ui/empty-state";
 import { getInventory } from "@/lib/actions/inventory";
 import { InventoryFilters } from "./inventory-filters";
-import { InventoryCostCell } from "@/components/inventory-cost-cell";
-import { ListingDeleteButton } from "@/components/listing-delete-button";
+import { InventoryTable } from "./inventory-table";
 import { PageHeader } from "@/components/page-header";
 import { cn } from "@/lib/utils";
 import { ChevronLeft, ChevronRight } from "lucide-react";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
 
 export default async function InventoryPage(
   props: {
@@ -175,78 +165,7 @@ export default async function InventoryPage(
               />
             ) : (
               <>
-              <Card>
-                <CardContent className="p-0">
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead></TableHead>
-                        <TableHead>Item</TableHead>
-                        <TableHead>SKU</TableHead>
-                        <TableHead>Quantity</TableHead>
-                        <TableHead>Price</TableHead>
-                        <TableHead>Cost</TableHead>
-                        <TableHead>Margin</TableHead>
-                        <TableHead>Value</TableHead>
-                        <TableHead>Platforms</TableHead>
-                        {canDelete && <TableHead className="w-10"></TableHead>}
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {listings.map((listing, index) => {
-                        const soldOut = listing.quantity === 0;
-                        const hasCost = listing.cost !== null;
-                        const margin = hasCost && listing.price > 0 ? ((listing.price - listing.cost!) / listing.price) * 100 : null;
-                        return (
-                          <TableRow key={listing.id}>
-                            <TableCell>
-                              {listing.photos[0] ? (
-                                // eslint-disable-next-line @next/next/no-img-element
-                                <img src={listing.photos[0].url} alt="" className="h-10 w-10 rounded-md object-cover" />
-                              ) : (
-                                <div className="h-10 w-10 rounded-md bg-muted" />
-                              )}
-                            </TableCell>
-                            <TableCell>
-                              <Link href={`/listings/${listing.id}`} className="font-medium hover:underline">
-                                {listing.title}
-                              </Link>
-                            </TableCell>
-                            <TableCell className="text-muted-foreground">{listing.sku || "—"}</TableCell>
-                            <TableCell>
-                              {soldOut ? (
-                                <span className="text-xs font-medium text-muted-foreground">Sold out</span>
-                              ) : (
-                                listing.quantity
-                              )}
-                            </TableCell>
-                            <TableCell>${listing.price.toFixed(2)}</TableCell>
-                            <TableCell>
-                              <InventoryCostCell id={listing.id} initialCost={listing.cost} rowIndex={index} />
-                            </TableCell>
-                            <TableCell className={hasCost ? undefined : "text-muted-foreground"}>
-                              {margin !== null ? `${margin.toFixed(0)}%` : "—"}
-                            </TableCell>
-                            <TableCell>${(listing.price * listing.quantity).toFixed(2)}</TableCell>
-                            <TableCell>
-                              <div className="flex flex-wrap gap-1">
-                                {listing.platformListings.slice(0, 3).map((pl) => (
-                                  <PlatformBadge key={pl.id} platform={pl.platform} status={pl.status} />
-                                ))}
-                              </div>
-                            </TableCell>
-                            {canDelete && (
-                              <TableCell>
-                                <ListingDeleteButton id={listing.id} title={listing.title} size="icon" variant="ghost" />
-                              </TableCell>
-                            )}
-                          </TableRow>
-                        );
-                      })}
-                    </TableBody>
-                  </Table>
-                </CardContent>
-              </Card>
+              <InventoryTable listings={listings} canDelete={canDelete} />
 
               {totalPages > 1 && (
                 <div className="flex items-center justify-between text-sm">
