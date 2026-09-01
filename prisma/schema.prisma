@@ -42,6 +42,7 @@ model User {
   automationRules   AutomationRule[]
   automationEvents  AutomationEvent[]
   passwordResetTokens PasswordResetToken[]
+  auditLogEntries   AuditLogEntry[]
 }
 
 model Listing {
@@ -230,6 +231,29 @@ model TeamMember {
   updatedAt   DateTime @updatedAt
 
   @@unique([teamId, email])
+}
+
+/// A record of who did what in a shared workspace -- every workspace-mutating action lands
+/// under `workspaceUserId` (the owner's id) with no other trace of which team member actually
+/// performed it, so this is the only place that answers "who did this." `actorUserId` is a
+/// plain field, not a relation, so a log entry survives the actor's account being deleted or
+/// removed from the team (their `actorEmail` is snapshotted at write time for the same reason --
+/// the log should stay readable even after the person who did it is long gone).
+model AuditLogEntry {
+  id              String   @id @default(cuid())
+  workspaceUserId String
+  workspace       User     @relation(fields: [workspaceUserId], references: [id], onDelete: Cascade)
+  actorUserId     String?
+  actorEmail      String
+  /// Dot-namespaced, e.g. "listing.created", "marketplace.disconnected", "team.role_changed" --
+  /// stable identifiers for future filtering, not the display text itself.
+  action          String
+  targetType      String?
+  targetId        String?
+  message         String
+  createdAt       DateTime @default(now())
+
+  @@index([workspaceUserId, createdAt])
 }
 
 /// Backs a simple Postgres fixed-window rate limiter (see lib/rate-limit.ts) for auth endpoints

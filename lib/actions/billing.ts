@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { requireWorkspace, WorkspaceContext } from "@/lib/auth-helpers";
 import { getEffectivePlan, PlanId, PLANS } from "@/lib/plans";
 import { getStripePriceId, getStripe } from "@/lib/stripe";
+import { logAudit } from "@/lib/audit";
 
 // Billing is never resolved through the shared workspace, and is owner-only -- not even ADMIN.
 // requireWorkspace() still throws for a signed-out visitor, which every function here needs to
@@ -129,6 +130,7 @@ export async function updatePlan(formData: FormData) {
 
   if (planId === "free") {
     await prisma.user.update({ where: { id: userId }, data: { plan: "free" } });
+    await logAudit({ workspaceUserId: userId, actingUserId: userId }, { action: "billing.plan_changed", message: "Downgraded to the Free plan" });
     revalidatePath("/settings/billing");
     revalidatePath("/pricing");
     return;

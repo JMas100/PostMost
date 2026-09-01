@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getStripe, getPlanIdFromPriceId } from "@/lib/stripe";
 import { prisma } from "@/lib/prisma";
+import { logAudit } from "@/lib/audit";
 import type Stripe from "stripe";
 
 const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
@@ -33,6 +34,13 @@ async function upsertSubscription(subscription: Stripe.Subscription, eventCreate
       stripeEventCreatedAt: eventCreatedAt,
     },
   });
+
+  if (user.plan !== newPlan) {
+    await logAudit(
+      { workspaceUserId: user.id, actingUserId: user.id },
+      { action: "billing.plan_changed", message: `Plan changed to ${newPlan} (Stripe subscription ${status})` }
+    );
+  }
 }
 
 export async function POST(req: NextRequest) {

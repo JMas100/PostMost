@@ -8,6 +8,7 @@ import { track } from "@/lib/analytics/track";
 import { requireWorkspace, requireRole } from "@/lib/auth-helpers";
 import { queueRepriceJobs } from "@/lib/actions/crosspost";
 import { previewBulkPrice, type BulkPriceRule, type BulkPriceResult } from "@/lib/pricing";
+import { logAudit } from "@/lib/audit";
 
 /** `actingUserId` for the tracked event (who actually did it, for engagement signal);
  *  `workspaceUserId` for the milestone count (the workspace's total, not just this person's). */
@@ -74,6 +75,10 @@ export async function createListing(data: ListingFormData) {
 
   await incrementListingUsage(workspaceUserId);
   await trackListingCompleted(actingUserId, workspaceUserId, listing.id);
+  await logAudit(
+    { workspaceUserId, actingUserId },
+    { action: "listing.created", targetType: "Listing", targetId: listing.id, message: `Created "${listing.title}"` }
+  );
 
   revalidatePath("/listings");
   revalidatePath("/dashboard");
@@ -195,6 +200,10 @@ export async function publishDraft(id: string, data: ListingFormData) {
 
   await incrementListingUsage(workspaceUserId);
   await trackListingCompleted(actingUserId, workspaceUserId, listing.id);
+  await logAudit(
+    { workspaceUserId, actingUserId },
+    { action: "listing.created", targetType: "Listing", targetId: listing.id, message: `Published draft "${listing.title}"` }
+  );
 
   revalidatePath(`/listings/${id}`);
   revalidatePath("/listings");
@@ -235,7 +244,11 @@ export async function updateListing(id: string, data: Partial<ListingFormData>) 
 export async function deleteListing(id: string) {
   const ctx = await requireWorkspace();
   requireRole(ctx, ["OWNER", "ADMIN"]);
-  await prisma.listing.deleteMany({ where: { id, userId: ctx.workspaceUserId } });
+  const listing = await prisma.listing.findFirst({ where: { id, userId: ctx.workspaceUserId }, select: { title: true } });
+  const result = await prisma.listing.deleteMany({ where: { id, userId: ctx.workspaceUserId } });
+  if (result.count > 0 && listing) {
+    await logAudit(ctx, { action: "listing.deleted", targetType: "Listing", targetId: id, message: `Deleted "${listing.title}"` });
+  }
   revalidatePath("/listings");
   revalidatePath("/listings/drafts");
   revalidatePath("/dashboard");
@@ -247,6 +260,13 @@ export async function bulkDeleteListings(ids: string[]) {
   requireRole(ctx, ["OWNER", "ADMIN"]);
   if (ids.length === 0) return { success: true, count: 0 };
   const result = await prisma.listing.deleteMany({ where: { id: { in: ids }, userId: ctx.workspaceUserId } });
+  if (result.count > 0) {
+    await logAudit(ctx, {
+      action: "listing.deleted",
+      targetType: "Listing",
+      message: `Deleted ${result.count} listing${result.count === 1 ? "" : "s"} in bulk`,
+    });
+  }
   revalidatePath("/listings");
   revalidatePath("/listings/drafts");
   revalidatePath("/dashboard");

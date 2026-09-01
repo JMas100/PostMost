@@ -27,15 +27,19 @@ export interface WorkspaceContext {
   role: WorkspaceRole;
 }
 
-/** Resolves the signed-in user into a workspace: their own data if they're not on anyone's
- *  team, or the team owner's data (with their role on that team) if they are. Role is always
- *  read fresh from TeamMember here, never trusted from the JWT session -- so a promotion,
- *  demotion, or removal takes effect on the very next action instead of waiting for a session
- *  refresh. `orderBy` is defense-in-depth: nothing currently prevents a user being an active
- *  member of more than one team, so this keeps the resolution deterministic if that ever
- *  happens rather than picking whichever row Postgres returns first. */
-export async function requireWorkspace(): Promise<WorkspaceContext> {
-  const actingUserId = await requireUserId();
+/** Resolves an already-known user id into a workspace: their own data if they're not on
+ *  anyone's team, or the team owner's data (with their role on that team) if they are. Role is
+ *  always read fresh from TeamMember here, never cached -- so a promotion, demotion, or removal
+ *  takes effect on the very next call instead of waiting for a session refresh. `orderBy` is
+ *  defense-in-depth: nothing currently prevents a user being an active member of more than one
+ *  team, so this keeps the resolution deterministic if that ever happens rather than picking
+ *  whichever row Postgres returns first.
+ *
+ *  Split out from requireWorkspace() so the external API (authenticated by an ApiKey bearer
+ *  token, not a session) can resolve the key owner's workspace the same way the app's own
+ *  session-based server actions do, instead of writing under the key owner's raw personal
+ *  account -- see app/api/v1/listings/route.ts. */
+export async function resolveWorkspaceForUser(actingUserId: string): Promise<WorkspaceContext> {
   const membership = await prisma.teamMember.findFirst({
     where: { userId: actingUserId, status: "ACTIVE" },
     orderBy: { createdAt: "asc" },
@@ -45,6 +49,13 @@ export async function requireWorkspace(): Promise<WorkspaceContext> {
     return { actingUserId, workspaceUserId: membership.team.ownerId, role: membership.role as "ADMIN" | "MEMBER" };
   }
   return { actingUserId, workspaceUserId: actingUserId, role: "OWNER" };
+}
+
+/** Resolves the signed-in user into a workspace -- see resolveWorkspaceForUser() for the
+ *  underlying logic. Throws the same way requireUserId does when signed out. */
+export async function requireWorkspace(): Promise<WorkspaceContext> {
+  const actingUserId = await requireUserId();
+  return resolveWorkspaceForUser(actingUserId);
 }
 
 /** Throws unless the workspace context's role is one of `allowed`. Use after requireWorkspace()

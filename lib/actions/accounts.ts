@@ -8,6 +8,7 @@ import { decrypt, encrypt } from "@/lib/crypto";
 import { getEffectivePlan, PLAN_ASSIGNMENT_SELECT } from "@/lib/plans";
 import crypto from "crypto";
 import { requireWorkspace, requireRole } from "@/lib/auth-helpers";
+import { logAudit } from "@/lib/audit";
 
 /** Checks the per-plan connected-marketplace limit before letting a new platform be connected
  *  (existing platforms being reconnected/updated never count against it). */
@@ -117,6 +118,13 @@ export async function connectMarketplaceAccount(input: AccountConnectionInput) {
         },
       });
 
+  await logAudit(ctx, {
+    action: existing ? "marketplace.reconnected" : "marketplace.connected",
+    targetType: "MarketplaceAccount",
+    targetId: account.id,
+    message: `${existing ? "Reconnected" : "Connected"} ${input.platform} (${input.displayName})`,
+  });
+
   revalidatePath("/settings");
   return { success: true, account: { ...account, accessToken: null, refreshToken: null } };
 }
@@ -125,10 +133,19 @@ export async function disconnectMarketplaceAccount(accountId: string) {
   const ctx = await requireWorkspace();
   requireRole(ctx, ["OWNER", "ADMIN"]);
 
-  await prisma.marketplaceAccount.updateMany({
+  const account = await prisma.marketplaceAccount.findFirst({ where: { id: accountId, userId: ctx.workspaceUserId } });
+  const result = await prisma.marketplaceAccount.updateMany({
     where: { id: accountId, userId: ctx.workspaceUserId },
     data: { isActive: false },
   });
+  if (result.count > 0 && account) {
+    await logAudit(ctx, {
+      action: "marketplace.disconnected",
+      targetType: "MarketplaceAccount",
+      targetId: accountId,
+      message: `Disconnected ${account.platform} (${account.displayName})`,
+    });
+  }
 
   revalidatePath("/settings");
   return { success: true };

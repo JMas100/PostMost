@@ -3,32 +3,34 @@ import crypto from "crypto";
 import { prisma } from "@/lib/prisma";
 import { listingSchema, ListingFormData } from "@/lib/schemas/listing";
 import { canCreateListing, incrementListingUsage } from "@/lib/actions/usage";
+import { resolveWorkspaceForUser, WorkspaceContext } from "@/lib/auth-helpers";
+import { logAudit } from "@/lib/audit";
 
-async function userFromKey(request: Request) {
+async function workspaceFromKey(request: Request): Promise<WorkspaceContext | null> {
   const auth = request.headers.get("authorization");
   if (!auth || !auth.startsWith("Bearer ")) return null;
   const key = auth.slice(7).trim();
   const keyHash = crypto.createHash("sha256").update(key).digest("hex");
-  const record = await prisma.apiKey.findUnique({
-    where: { keyHash },
-    include: { user: { include: { usage: true } } },
-  });
+  const record = await prisma.apiKey.findUnique({ where: { keyHash } });
   if (!record) return null;
   await prisma.apiKey.update({ where: { id: record.id }, data: { lastUsedAt: new Date() } });
-  return record.user;
+  // A team member's own personal API key still creates listings in the shared workspace they
+  // belong to, not a separate personal account -- matches how every other creation path
+  // (the app's own UI, CSV import) already resolves through requireWorkspace().
+  return resolveWorkspaceForUser(record.userId);
 }
 
-async function createFromFormData(userId: string, data: ListingFormData) {
-  const usage = await canCreateListing(userId);
+async function createFromFormData(ctx: WorkspaceContext, data: ListingFormData) {
+  const usage = await canCreateListing(ctx.workspaceUserId);
   if (!usage.allowed) {
     return { error: usage.reason || "Listing limit reached" };
   }
   const { photos, tags, ...rest } = data;
-  await prisma.listing.create({
+  const listing = await prisma.listing.create({
     data: {
       ...rest,
       tags: tags || null,
-      userId,
+      userId: ctx.workspaceUserId,
       status: "PUBLISHED",
       isDraft: false,
       photos: {
@@ -36,13 +38,14 @@ async function createFromFormData(userId: string, data: ListingFormData) {
       },
     },
   });
-  await incrementListingUsage(userId);
+  await incrementListingUsage(ctx.workspaceUserId);
+  await logAudit(ctx, { action: "listing.created", targetType: "Listing", targetId: listing.id, message: `Created "${listing.title}" via the API` });
   return { success: true };
 }
 
 export async function POST(request: Request) {
-  const user = await userFromKey(request);
-  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const ctx = await workspaceFromKey(request);
+  if (!ctx) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   let body: unknown;
   try {
@@ -61,7 +64,7 @@ export async function POST(request: Request) {
       errors.push({ index: i, message: parsed.error.flatten() });
       continue;
     }
-    const result = await createFromFormData(user.id, parsed.data);
+    const result = await createFromFormData(ctx, parsed.data);
     if ("error" in result) {
       errors.push({ index: i, message: result.error });
     } else {

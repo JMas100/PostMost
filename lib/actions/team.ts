@@ -8,6 +8,7 @@ import { requireUserId, requireWorkspace, requireRole } from "@/lib/auth-helpers
 import { normalizeEmail } from "@/lib/email";
 import { sendTeamInviteEmail } from "@/lib/mail";
 import { getEffectivePlan, PLAN_ASSIGNMENT_SELECT } from "@/lib/plans";
+import { logAudit } from "@/lib/audit";
 
 const INVITE_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 
@@ -124,6 +125,13 @@ export async function inviteTeamMember(email: string, role: "ADMIN" | "MEMBER" =
     console.error("Failed to send team invite email:", err);
   }
 
+  await logAudit(ctx, {
+    action: "team.invited",
+    targetType: "TeamMember",
+    targetId: member.id,
+    message: `Invited ${normalizedEmail} as ${role === "ADMIN" ? "an admin" : "a member"}`,
+  });
+
   revalidatePath("/settings/team");
   return { success: true, member: { id: member.id, email: member.email, role: member.role, status: member.status } };
 }
@@ -136,8 +144,16 @@ export async function updateMemberRole(memberId: string, role: "ADMIN" | "MEMBER
   requireRole(ctx, ["OWNER", "ADMIN"]);
   const team = await prisma.team.findFirst({ where: { ownerId: ctx.workspaceUserId } });
   if (!team) return { error: "No team found" };
+  const target = await prisma.teamMember.findFirst({ where: { id: memberId, teamId: team.id } });
+  if (!target) return { error: "Member not found" };
   const result = await prisma.teamMember.updateMany({ where: { id: memberId, teamId: team.id }, data: { role } });
   if (result.count === 0) return { error: "Member not found" };
+  await logAudit(ctx, {
+    action: "team.role_changed",
+    targetType: "TeamMember",
+    targetId: memberId,
+    message: `Changed ${target.email}'s role from ${target.role} to ${role}`,
+  });
   revalidatePath("/settings/team");
   return { success: true };
 }
@@ -158,6 +174,12 @@ export async function removeTeamMember(memberId: string) {
   }
 
   await prisma.teamMember.delete({ where: { id: target.id } });
+  await logAudit(ctx, {
+    action: "team.member_removed",
+    targetType: "TeamMember",
+    targetId: target.id,
+    message: isSelf ? `${target.email} left the workspace` : `Removed ${target.email} from the team`,
+  });
   revalidatePath("/settings/team");
   return { success: true };
 }
@@ -185,6 +207,7 @@ export async function acceptTeamInvite(token: string, password: string) {
 
   const member = await prisma.teamMember.findFirst({
     where: { inviteTokenHash: hashInviteToken(token), status: "PENDING" },
+    include: { team: true },
   });
   if (!member || !member.inviteTokenExpiresAt || member.inviteTokenExpiresAt < new Date()) {
     return { error: "This invite link is invalid or has expired." };
@@ -211,6 +234,11 @@ export async function acceptTeamInvite(token: string, password: string) {
     data: { userId: user.id, status: "ACTIVE", inviteTokenHash: null, inviteTokenExpiresAt: null },
   });
 
+  await logAudit(
+    { workspaceUserId: member.team.ownerId, actingUserId: user.id },
+    { action: "team.member_joined", targetType: "TeamMember", targetId: member.id, message: `${member.email} accepted the invite and joined` }
+  );
+
   return { success: true };
 }
 
@@ -222,6 +250,7 @@ export async function acceptExistingUserInvite(token: string) {
 
   const member = await prisma.teamMember.findFirst({
     where: { inviteTokenHash: hashInviteToken(token), status: "PENDING" },
+    include: { team: true },
   });
   if (!member || !member.inviteTokenExpiresAt || member.inviteTokenExpiresAt < new Date()) {
     return { error: "This invite link is invalid or has expired." };
@@ -241,6 +270,11 @@ export async function acceptExistingUserInvite(token: string) {
     where: { id: member.id },
     data: { status: "ACTIVE", inviteTokenHash: null, inviteTokenExpiresAt: null },
   });
+
+  await logAudit(
+    { workspaceUserId: member.team.ownerId, actingUserId },
+    { action: "team.member_joined", targetType: "TeamMember", targetId: member.id, message: `${member.email} accepted the invite and joined` }
+  );
 
   return { success: true };
 }
