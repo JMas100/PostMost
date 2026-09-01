@@ -5,7 +5,14 @@ import { runStockSyncRule, runRelistStaleRule } from "@/lib/jobs/automation-runn
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-export const maxDuration = 60;
+// This route processes up to 100 pending jobs sequentially, each with its own internal
+// JOB_TIMEOUT_MS (60s) budget in crosspost-runner.ts -- a batch of more than one slow job could
+// never finish inside a 60s function ceiling. Confirmed live in production: a job that was still
+// executing when the old 60s ceiling killed the function was left orphaned in RUNNING status
+// indefinitely (only ever reclaimed by the 5-minute stuck-job check, and then killed again on the
+// next run if the batch was still long), which is exactly what a real stuck listing looked like.
+// 300s is the actual maximum on Vercel's Hobby plan.
+export const maxDuration = 300;
 
 /** Constant-time string comparison -- a plain === leaks how many leading bytes matched via
  *  response timing, which matters for secrets checked on every request like these. */
