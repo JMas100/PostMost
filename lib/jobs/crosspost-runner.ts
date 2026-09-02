@@ -6,6 +6,8 @@ import { PlatformListingStatus } from "@/lib/marketplaces/listing-status";
 import { track } from "@/lib/analytics/track";
 import { Photo, Prisma } from "@prisma/client";
 import type { MarketplaceAdapter } from "@/lib/marketplaces/types";
+import { listingDescriptionFields } from "@/lib/marketplaces/listing-fields";
+import { delistPlatformListing } from "@/lib/marketplaces/delist-platform-listing";
 import { NotificationCollector, resolveCrossPostFailure } from "@/lib/notifications";
 
 /** A RUNNING job whose lock is older than this is considered abandoned and is reclaimed. */
@@ -123,17 +125,7 @@ export async function processPendingCrossPostJobs(
     }
 
     const listingData = {
-      title: job.listing.title,
-      description: job.listing.description,
-      price: job.listing.price,
-      quantity: job.listing.quantity,
-      condition: job.listing.condition,
-      category: job.listing.category,
-      brand: job.listing.brand,
-      size: job.listing.size,
-      color: job.listing.color,
-      material: job.listing.material,
-      sku: job.listing.sku,
+      ...listingDescriptionFields(job.listing),
       tags: job.listing.tags ? job.listing.tags.split(",").map((t) => t.trim()) : undefined,
       photos: job.listing.photos.map((p: Photo) => p.url),
     };
@@ -232,11 +224,9 @@ async function processDelistJob(
     return;
   }
 
-  const accountData = (await getAccountData(job.userId, job.platform)) ?? { accessToken: null };
-
   try {
     const result = await withTimeout(
-      adapter.delist(platformListing.externalId, accountData),
+      delistPlatformListing(adapter, job.userId, platformListing.externalId),
       JOB_TIMEOUT_MS,
       `Timed out after ${JOB_TIMEOUT_MS / 1000}s`
     );

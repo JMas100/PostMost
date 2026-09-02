@@ -4,7 +4,11 @@
   if (window.__postmostInjected) return;
   window.__postmostInjected = true;
 
-  const SYNC_ORIGIN = location.origin.includes("localhost") ? "http://localhost:3000" : "https://postmost.co";
+  // This script only ever runs on a domain manifest.json's content_scripts.matches allows it on
+  // (postmost.co, its Vercel preview deployments, or localhost for dev) -- whichever one that
+  // is, the extension/session/sync API it needs to call is always same-origin with the page
+  // itself, so there's nothing to hardcode or special-case here.
+  const SYNC_ORIGIN = location.origin;
 
   // Tell the PostMost page the extension is present.
   window.postMessage({ source: "postmost-extension", type: "READY" }, "*");

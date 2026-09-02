@@ -36,16 +36,25 @@ export function getStripePriceId(
   return map[interval]?.[planId];
 }
 
+let _priceIdToPlan: Record<string, string> | null = null;
+
+function priceIdToPlanMap(): Record<string, string> {
+  if (!_priceIdToPlan) {
+    const map: Record<string, string> = {};
+    if (process.env.STRIPE_PRICE_LAUNCH) map[process.env.STRIPE_PRICE_LAUNCH] = "launch";
+    if (process.env.STRIPE_PRICE_LAUNCH_ANNUAL) map[process.env.STRIPE_PRICE_LAUNCH_ANNUAL] = "launch";
+    if (process.env.STRIPE_PRICE_GROW) map[process.env.STRIPE_PRICE_GROW] = "grow";
+    if (process.env.STRIPE_PRICE_GROW_ANNUAL) map[process.env.STRIPE_PRICE_GROW_ANNUAL] = "grow";
+    if (process.env.STRIPE_PRICE_PRO) map[process.env.STRIPE_PRICE_PRO] = "pro";
+    if (process.env.STRIPE_PRICE_PRO_ANNUAL) map[process.env.STRIPE_PRICE_PRO_ANNUAL] = "pro";
+    if (process.env.STRIPE_PRICE_SCALE) map[process.env.STRIPE_PRICE_SCALE] = "scale";
+    if (process.env.STRIPE_PRICE_SCALE_ANNUAL) map[process.env.STRIPE_PRICE_SCALE_ANNUAL] = "scale";
+    if (process.env.STRIPE_PRICE_ENTERPRISE) map[process.env.STRIPE_PRICE_ENTERPRISE] = "enterprise";
+    _priceIdToPlan = map;
+  }
+  return _priceIdToPlan;
+}
+
 export function getPlanIdFromPriceId(priceId: string): string | null {
-  const map: Record<string, string> = {};
-  if (process.env.STRIPE_PRICE_LAUNCH) map[process.env.STRIPE_PRICE_LAUNCH] = "launch";
-  if (process.env.STRIPE_PRICE_LAUNCH_ANNUAL) map[process.env.STRIPE_PRICE_LAUNCH_ANNUAL] = "launch";
-  if (process.env.STRIPE_PRICE_GROW) map[process.env.STRIPE_PRICE_GROW] = "grow";
-  if (process.env.STRIPE_PRICE_GROW_ANNUAL) map[process.env.STRIPE_PRICE_GROW_ANNUAL] = "grow";
-  if (process.env.STRIPE_PRICE_PRO) map[process.env.STRIPE_PRICE_PRO] = "pro";
-  if (process.env.STRIPE_PRICE_PRO_ANNUAL) map[process.env.STRIPE_PRICE_PRO_ANNUAL] = "pro";
-  if (process.env.STRIPE_PRICE_SCALE) map[process.env.STRIPE_PRICE_SCALE] = "scale";
-  if (process.env.STRIPE_PRICE_SCALE_ANNUAL) map[process.env.STRIPE_PRICE_SCALE_ANNUAL] = "scale";
-  if (process.env.STRIPE_PRICE_ENTERPRISE) map[process.env.STRIPE_PRICE_ENTERPRISE] = "enterprise";
-  return map[priceId] || null;
+  return priceIdToPlanMap()[priceId] || null;
 }

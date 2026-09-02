@@ -11,6 +11,7 @@ import { useJobPolling } from "./use-job-polling";
 import { PlatformRow } from "./platform-row";
 import { PublishConfirmationDialog } from "./publish-confirmation-dialog";
 import { PublishPanelProps } from "./types";
+import { listingDescriptionFields } from "@/lib/marketplaces/listing-fields";
 
 export function PublishPanel({ listingId, accounts, extensionListing, hasActiveJobs, platformListings, initialPublishedPlatforms }: PublishPanelProps) {
   const router = useRouter();
@@ -132,17 +133,7 @@ export function PublishPanel({ listingId, accounts, extensionListing, hasActiveJ
 function sendToExtension(listing: PublishPanelProps["extensionListing"], platformIds: string[]) {
   const payload = {
     id: listing.id,
-    title: listing.title,
-    description: listing.description,
-    price: listing.price,
-    quantity: listing.quantity,
-    condition: listing.condition,
-    category: listing.category,
-    brand: listing.brand,
-    size: listing.size,
-    color: listing.color,
-    material: listing.material,
-    sku: listing.sku,
+    ...listingDescriptionFields(listing),
     photos: listing.photos.map((p) => p.url),
   };
 

@@ -1,7 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { getAdapter } from "@/lib/marketplaces";
-import { getAccountData } from "@/lib/marketplaces/account-data";
 import { relistPlatformListing } from "@/lib/marketplaces/relist";
+import { delistPlatformListing } from "@/lib/marketplaces/delist-platform-listing";
 import { STOCK_SYNC_RULE, RELIST_STALE_RULE, RELIST_STALE_DAYS } from "@/lib/automation/rule-types";
 import type { Photo } from "@prisma/client";
 import { upsertAutomationRanNotification } from "@/lib/notifications";
@@ -81,24 +81,8 @@ export async function runStockSyncRule(
         continue;
       }
 
-      const accountData = await getAccountData(listing.userId, platformListing.platform);
-      if (!accountData) {
-        summary.failed += 1;
-        await prisma.automationEvent.create({
-          data: {
-            userId: listing.userId,
-            ruleType: STOCK_SYNC_RULE,
-            listingId: listing.id,
-            platform: platformListing.platform,
-            message: `"${listing.title}" sold out, but no connected ${adapter.name} account was found to delist it`,
-            success: false,
-          },
-        });
-        continue;
-      }
-
       try {
-        const result = await adapter.delist(platformListing.externalId, accountData);
+        const result = await delistPlatformListing(adapter, listing.userId, platformListing.externalId);
 
         await prisma.platformListing.update({
           where: { id: platformListing.id },

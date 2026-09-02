@@ -281,7 +281,7 @@ export const eBayAdapter: MarketplaceAdapter = {
     if (devId) headers["X-EBAY-API-DEV-NAME"] = devId;
     if (certId) headers["X-EBAY-API-CERT-NAME"] = certId;
 
-    const res = await fetch(`${EBAY_API_ROOT.replace("https://api.ebay.com", "https://api.ebay.com")}/ws/api.dll?callname=EndItem&siteid=${siteId}&version=1225`, {
+    const res = await fetch(`${EBAY_API_ROOT}/ws/api.dll?callname=EndItem&siteid=${siteId}&version=1225`, {
       method: "POST",
       headers,
       body,

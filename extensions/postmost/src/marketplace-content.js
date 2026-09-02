@@ -2,16 +2,12 @@
   "use strict";
   const utils = window.PostMostUtils || {};
 
-  const PLATFORM_URLS = {
-    facebook: "https://www.facebook.com/marketplace/create/item/",
-    offerup: "https://offerup.com/item/new/",
-    poshmark: "https://poshmark.com/create-listing",
-    mercari: "https://www.mercari.com/sell/",
-    depop: "https://www.depop.com/products/create/",
-    vinted: "https://www.vinted.com/items/new",
-    grailed: "https://www.grailed.com/sell/new",
-    craigslist: "https://post.craigslist.org/",
-  };
+  // Same platform ids as PLATFORM_URLS in popup.js, but that file isn't loaded here (popup.html
+  // and this content-script group are separate execution contexts) -- platforms.js already is
+  // (see manifest.json's content_scripts order), and only the id list is actually needed below,
+  // not the create-listing URLs, so reusing window.PostMostPlatforms's keys avoids a second copy
+  // instead of duplicating a URL map this file never reads values from.
+  const PLATFORM_IDS = Object.keys(window.PostMostPlatforms || {});
 
   const LISTING_PATTERNS = {
     facebook: /\/marketplace\/item\//,
@@ -26,7 +22,7 @@
 
   function getPlatformFromHost() {
     const host = location.hostname;
-    for (const id of Object.keys(PLATFORM_URLS)) {
+    for (const id of PLATFORM_IDS) {
       if (host.includes(id)) return id;
     }
     return null;
