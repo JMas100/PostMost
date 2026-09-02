@@ -1,0 +1,13 @@
+# Only worker/Dockerfile builds from this repo, with its context set to the repo root (see
+# worker/README.md for why) -- this keeps that build fast by excluding everything the Dockerfile
+# doesn't explicitly COPY. Only the paths the Dockerfile actually needs (worker/, lib/marketplaces,
+# lib/storage) are relevant; everything else here is just noise the daemon would otherwise hash.
+node_modules
+worker/node_modules
+.next
+.git
+.vercel
+*.log
+.env
+.env.local
+coverage

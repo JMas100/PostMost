@@ -1,8 +1,36 @@
-import { MarketplaceAdapter, ListingData, PlatformAccount, PostResult } from "../types";
+import { MarketplaceAdapter, ListingData, PlatformAccount, PostResult, CredentialCheckResult } from "../types";
 import { runPlaywrightAutomation, runPlaywrightDelist, runPlaywrightUpdatePrice, genericVerifyRemoved, genericVerifyPriceUpdated, uploadPhotoOnPage, verifyLogin, verifySession } from "./playwright-runner";
 import type { SessionCookie } from "../types";
 import type { AutomationConfig, DelistConfig, PriceUpdateConfig } from "./playwright-runner";
 import type { Page } from "playwright-core";
+
+// Set in production only (see worker/README.md) -- when present, every manual-adapter method
+// below forwards to the dedicated browser-worker service over HTTP instead of launching
+// Chromium in this process. Unset (the default, including inside the worker itself, which never
+// needs to call itself), every method runs today's in-process Playwright automation unchanged --
+// this is what keeps local dev working with no worker required at all.
+const BROWSER_WORKER_URL = process.env.BROWSER_WORKER_URL;
+
+/** Deliberately no fallback to in-process automation if this fails -- see worker/README.md for
+ *  why: falling back to @sparticuz/chromium in an already-degraded scenario would silently
+ *  reintroduce the exact fragility the worker exists to remove. A thrown error here surfaces as
+ *  a normal job failure and gets picked up by the existing CrossPostJob retry/backoff. */
+async function callBrowserWorker<T>(body: Record<string, unknown>): Promise<T> {
+  const secret = process.env.BROWSER_WORKER_SECRET;
+  if (!secret) throw new Error("BROWSER_WORKER_SECRET is not configured");
+
+  const res = await fetch(`${BROWSER_WORKER_URL!.replace(/\/$/, "")}/execute`, {
+    method: "POST",
+    headers: { "content-type": "application/json", authorization: `Bearer ${secret}` },
+    body: JSON.stringify(body),
+  });
+  const data = await res.json().catch(() => null);
+  if (!res.ok) {
+    const message = (data as { error?: string } | null)?.error || `Browser worker returned ${res.status}`;
+    throw new Error(message);
+  }
+  return data as T;
+}
 
 export interface ManualAdapterConfig extends AutomationConfig {
   id: string;
@@ -115,6 +143,9 @@ export function createManualAdapter(config: ManualAdapterConfig): MarketplaceAda
       { key: "password", label: "Password", type: "password" },
     ],
     async post(listing: ListingData, account: PlatformAccount): Promise<PostResult> {
+      if (BROWSER_WORKER_URL) {
+        return callBrowserWorker<PostResult>({ platform: config.id, action: "post", listing, account });
+      }
       if (!account.accessToken) {
         return { success: false, error: `No password stored for ${config.name}.` };
       }
@@ -131,6 +162,9 @@ export function createManualAdapter(config: ManualAdapterConfig): MarketplaceAda
       return result;
     },
     async delist(externalId: string, account: PlatformAccount) {
+      if (BROWSER_WORKER_URL) {
+        return callBrowserWorker<{ success: boolean; error?: string }>({ platform: config.id, action: "delist", externalId, account });
+      }
       if (!externalId) {
         return { success: false, error: `No listing URL recorded for this ${config.name} listing.` };
       }
@@ -162,6 +196,15 @@ export function createManualAdapter(config: ManualAdapterConfig): MarketplaceAda
     ...(config.reprice
       ? {
           async updatePrice(externalId: string, newPrice: number, account: PlatformAccount) {
+            if (BROWSER_WORKER_URL) {
+              return callBrowserWorker<{ success: boolean; error?: string }>({
+                platform: config.id,
+                action: "updatePrice",
+                externalId,
+                newPrice,
+                account,
+              });
+            }
             // sku is eBay-specific (see MarketplaceAdapter.updatePrice) -- Playwright automation
             // navigates by listing URL and never needs it.
             if (!externalId) {
@@ -191,11 +234,29 @@ export function createManualAdapter(config: ManualAdapterConfig): MarketplaceAda
           },
         }
       : {}),
-    verifyLogin(username: string, password: string) {
+    async verifyLogin(username: string, password: string): Promise<CredentialCheckResult> {
+      if (BROWSER_WORKER_URL) return callVerifyOnWorker({ platform: config.id, action: "verifyLogin", username, password });
       return verifyLogin(config.id, config, username, password);
     },
-    verifySession(cookies: SessionCookie[]) {
+    async verifySession(cookies: SessionCookie[]): Promise<CredentialCheckResult> {
+      if (BROWSER_WORKER_URL) return callVerifyOnWorker({ platform: config.id, action: "verifySession", cookies });
       return verifySession(config.id, { loginUrl: config.loginUrl, listingUrl: config.listingUrl, passwordSelector: config.passwordSelector }, cookies);
     },
   };
+}
+
+/** verifyLogin/verifySession are the one exception to callBrowserWorker's throw-on-failure
+ *  contract: their own CredentialCheckResult type already has an "unknown" status specifically
+ *  for "couldn't reach a verdict" (Playwright unavailable, bot detection, a timeout) -- a
+ *  deliberate design choice (see types.ts) so an infrastructure problem never blocks a user from
+ *  saving real credentials. The worker being unreachable is exactly that kind of infrastructure
+ *  problem, so it degrades to "unknown" here instead of throwing and surfacing as an unhandled
+ *  action error to someone just trying to connect an account. */
+async function callVerifyOnWorker(body: Record<string, unknown>): Promise<CredentialCheckResult> {
+  try {
+    return await callBrowserWorker<CredentialCheckResult>(body);
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "Browser worker unreachable";
+    return { status: "unknown", error: message };
+  }
 }

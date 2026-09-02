@@ -28,7 +28,6 @@
     "@prisma/client": "^5.22.0",
     "@react-email/components": "^1.0.12",
     "@react-email/render": "^2.1.0",
-    "@sparticuz/chromium": "^149.0.0",
     "@types/papaparse": "^5.5.2",
     "bcryptjs": "^3.0.3",
     "class-variance-authority": "^0.7.1",

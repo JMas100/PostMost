@@ -4,7 +4,6 @@ import { getAccountData } from "@/lib/marketplaces/account-data";
 import { relistPlatformListing } from "@/lib/marketplaces/relist";
 import { STOCK_SYNC_RULE, RELIST_STALE_RULE, RELIST_STALE_DAYS } from "@/lib/automation/rule-types";
 import type { Photo } from "@prisma/client";
-import { createBrowserJobBudget, type BrowserJobBudget } from "@/lib/jobs/browser-job-budget";
 import { upsertAutomationRanNotification } from "@/lib/notifications";
 
 /** Default per-call budget when no shared deadline is passed in. */
@@ -34,8 +33,7 @@ export interface RelistRunSummary {
  * extension sync) individually.
  */
 export async function runStockSyncRule(
-  deadline: number = Date.now() + DEFAULT_BUDGET_MS,
-  browserBudget: BrowserJobBudget = createBrowserJobBudget()
+  deadline: number = Date.now() + DEFAULT_BUDGET_MS
 ): Promise<AutomationRunSummary> {
   const summary: AutomationRunSummary = { usersChecked: 0, listingsProcessed: 0, delisted: 0, failed: 0 };
 
@@ -99,13 +97,7 @@ export async function runStockSyncRule(
         continue;
       }
 
-      // See browser-job-budget.ts -- a manual-adapter delist launches a real Chromium instance;
-      // once the shared per-invocation budget is spent, leave this one for tomorrow's cron
-      // rather than risk exhausting the function's memory.
-      if (adapter.authType === "manual" && browserBudget.remaining <= 0) continue;
-
       try {
-        if (adapter.authType === "manual") browserBudget.remaining -= 1;
         const result = await adapter.delist(platformListing.externalId, accountData);
 
         await prisma.platformListing.update({
@@ -178,8 +170,7 @@ export async function runStockSyncRule(
  * folded into an ordinary retry-able failure.
  */
 export async function runRelistStaleRule(
-  deadline: number = Date.now() + DEFAULT_BUDGET_MS,
-  browserBudget: BrowserJobBudget = createBrowserJobBudget()
+  deadline: number = Date.now() + DEFAULT_BUDGET_MS
 ): Promise<RelistRunSummary> {
   const summary: RelistRunSummary = {
     usersChecked: 0,
@@ -216,13 +207,6 @@ export async function runRelistStaleRule(
     const { listing } = platformListing;
     if (!listing) continue;
     const adapter = getAdapter(platformListing.platform);
-    // A manual-adapter relist delists then reposts -- two browser launches internally for one
-    // candidate -- so it's charged double against the shared per-invocation budget (see
-    // browser-job-budget.ts). Left for the next invocation once spent, same as elsewhere.
-    if (adapter?.authType === "manual") {
-      if (browserBudget.remaining <= 0) continue;
-      browserBudget.remaining -= 2;
-    }
     summary.candidatesProcessed += 1;
     const platformName = adapter?.name || platformListing.platform;
 

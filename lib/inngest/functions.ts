@@ -1,7 +1,6 @@
 import { inngest } from "@/lib/inngest/client";
 import { processPendingCrossPostJobs } from "@/lib/jobs/crosspost-runner";
 import { runStockSyncRule, runRelistStaleRule } from "@/lib/jobs/automation-runner";
-import { createBrowserJobBudget } from "@/lib/jobs/browser-job-budget";
 import { prisma } from "@/lib/prisma";
 import { sendNotificationDigestEmail } from "@/lib/mail";
 
@@ -12,10 +11,10 @@ import { sendNotificationDigestEmail } from "@/lib/mail";
  *
  *  concurrency: 3 lets up to three invocations run in parallel across different pending jobs --
  *  this is the actual fix for "one slow job starves the batch": a slow job only blocks its own
- *  invocation's loop, not the other concurrent invocations working through different jobs.
- *  browser-job-budget.ts's per-invocation cap of 1 manual-adapter job stays underneath this
- *  unchanged, so the two together bound total concurrent Chromium processes app-wide to 3 --
- *  something the old single-invocation model had no way to express at all. */
+ *  invocation's loop, not the other concurrent invocations working through different jobs. Also
+ *  now the real ceiling on concurrent browser-worker calls (see worker/README.md) -- manual-
+ *  adapter jobs no longer launch Chromium in this process at all, so this is the only limiter
+ *  left that matters; browser-job-budget.ts's old per-invocation counter is gone. */
 export const processCrossPostJobs = inngest.createFunction(
   {
     id: "process-crosspost-jobs",
@@ -27,20 +26,20 @@ export const processCrossPostJobs = inngest.createFunction(
     // means "process the whole pending queue," which is exactly what the backstop sweep wants.
     const data = event?.data as { listingId?: string } | undefined;
     const listingId = data?.listingId;
-    return step.run("process-batch", () => processPendingCrossPostJobs(listingId, undefined, createBrowserJobBudget()));
+    return step.run("process-batch", () => processPendingCrossPostJobs(listingId));
   }
 );
 
 /** Stock-sync and relist-stale used to share the crosspost cron's invocation and browser budget
- *  (both ran inside the same /api/jobs/run call). They're their own Inngest function now, so
- *  each phase gets its own fresh budget rather than fighting the crosspost batch for the same
- *  one-browser-job-per-invocation allowance. Internal execution (still an inline per-listing
- *  loop, not queued CrossPostJob rows) is unchanged from before -- only the trigger moved. */
+ *  (both ran inside the same /api/jobs/run call). They're their own Inngest function now.
+ *  Internal execution (still an inline per-listing loop, not queued CrossPostJob rows) is
+ *  unchanged from before -- only the trigger moved, and manual-adapter delist/relist calls now
+ *  go to the browser worker over HTTP instead of launching Chromium here. */
 export const runAutomationRules = inngest.createFunction(
   { id: "run-automation-rules", triggers: [{ cron: "13 4 * * *" }] },
   async ({ step }) => {
-    const stockSync = await step.run("stock-sync", () => runStockSyncRule(undefined, createBrowserJobBudget()));
-    const relist = await step.run("relist-stale", () => runRelistStaleRule(undefined, createBrowserJobBudget()));
+    const stockSync = await step.run("stock-sync", () => runStockSyncRule());
+    const relist = await step.run("relist-stale", () => runRelistStaleRule());
     return { stockSync, relist };
   }
 );

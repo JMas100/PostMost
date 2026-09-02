@@ -6,7 +6,6 @@ import { PlatformListingStatus } from "@/lib/marketplaces/listing-status";
 import { track } from "@/lib/analytics/track";
 import { Photo, Prisma } from "@prisma/client";
 import type { MarketplaceAdapter } from "@/lib/marketplaces/types";
-import { createBrowserJobBudget, type BrowserJobBudget } from "@/lib/jobs/browser-job-budget";
 import { NotificationCollector, resolveCrossPostFailure } from "@/lib/notifications";
 
 /** A RUNNING job whose lock is older than this is considered abandoned and is reclaimed. */
@@ -59,8 +58,7 @@ async function reclaimStuckJobs(listingId?: string) {
 
 export async function processPendingCrossPostJobs(
   listingId?: string,
-  deadline: number = Date.now() + DEFAULT_BUDGET_MS,
-  browserBudget: BrowserJobBudget = createBrowserJobBudget()
+  deadline: number = Date.now() + DEFAULT_BUDGET_MS
 ): Promise<CrossPostRunSummary> {
   const summary: CrossPostRunSummary = {
     processed: 0,
@@ -95,7 +93,6 @@ export async function processPendingCrossPostJobs(
     if (Date.now() >= deadline) break;
 
     const adapter = getAdapter(job.platform);
-    if (adapter?.authType === "manual" && browserBudget.remaining <= 0) continue;
 
     // Atomic claim: only one worker can flip a PENDING row to RUNNING.
     const claim = await prisma.crossPostJob.updateMany({
@@ -103,7 +100,6 @@ export async function processPendingCrossPostJobs(
       data: { status: "RUNNING", lockedAt: new Date(), startedAt: new Date() },
     });
     if (claim.count === 0) continue;
-    if (adapter?.authType === "manual") browserBudget.remaining -= 1;
 
     summary.processed += 1;
     const attempts = job.attempts + 1;

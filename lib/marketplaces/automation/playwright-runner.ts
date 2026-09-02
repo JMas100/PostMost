@@ -1,30 +1,29 @@
 import type { ListingData, PlatformAccount, PostResult, CredentialCheckResult, SessionCookie } from "../types";
 
 /**
- * On Vercel, the full `playwright` package's browser binary lives in a separate download cache
- * that the serverless function bundle doesn't include (it's not part of a traceable
- * require()/import() graph), so `playwright-core` alone can't find a browser to launch there —
- * confirmed live in production via a "Cannot find module '.../playwright-core/browsers.json'"
- * failure on every single post/delist job. `@sparticuz/chromium` ships its Chromium binary as an
- * actual file inside its own package directory, which does get traced and included, so it's used
- * as the executable on Vercel specifically. Locally, `playwright-core` finds the browser
- * downloaded via `npx playwright install` the normal way, so no override is needed there — and
- * `@sparticuz/chromium`'s binary is Linux-only and wouldn't run on a macOS/Windows dev machine
- * anyway.
+ * This file now only ever runs somewhere with a normally-installed Playwright browser: locally
+ * in dev (via `npx playwright install`, sharing the same on-disk browser cache regardless of
+ * which of playwright/playwright-core downloaded it), or inside worker/ (a Docker image that
+ * runs the same install step -- see worker/Dockerfile). It's never invoked inside a Vercel
+ * function anymore -- createManualAdapter (create-adapter.ts) forwards every manual-adapter call
+ * to that worker over HTTP in production instead. This used to also special-case
+ * `@sparticuz/chromium` for a direct-in-Vercel-function launch; that branch is gone along with
+ * the dependency now that nothing launches a browser inside Vercel at all.
  */
 async function launchBrowser(headless: boolean) {
   const { chromium } = await import("playwright-core");
-  if (process.env.VERCEL) {
-    const chromiumBinary = (await import("@sparticuz/chromium")).default;
-    return chromium.launch({
-      args: chromiumBinary.args,
-      executablePath: await chromiumBinary.executablePath(),
-      headless: true,
-    });
-  }
   return chromium.launch({
     headless,
-    args: ["--no-sandbox", "--disable-setuid-sandbox"],
+    args: [
+      "--no-sandbox",
+      "--disable-setuid-sandbox",
+      // Docker's default /dev/shm is 64MB, which Chromium reliably exhausts (observed as a hang,
+      // not a clean crash, under --no-sandbox) -- this makes it use /tmp instead. Configuring a
+      // larger --shm-size per container is the other fix, but that's a deploy-target setting
+      // that'd need to be replicated correctly everywhere this runs; a launch arg travels with
+      // the code instead. Harmless outside Docker.
+      "--disable-dev-shm-usage",
+    ],
   });
 }
 
@@ -412,7 +411,9 @@ async function captureFailureScreenshot(
   platformId: string
 ): Promise<string | undefined> {
   try {
-    const { isStorageConfigured, getStorage } = await import("@/lib/storage");
+    // Relative, not the "@/" alias -- this file also runs inside worker/ (a standalone service,
+    // see worker/README.md), which doesn't have Next.js's path-alias resolution configured.
+    const { isStorageConfigured, getStorage } = await import("../../storage");
     if (!isStorageConfigured()) return undefined;
     const bytes = await page.screenshot({ fullPage: true, type: "png" });
     const key = `automation-debug/${platformId}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.png`;

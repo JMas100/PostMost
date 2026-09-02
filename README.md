@@ -47,6 +47,7 @@ Copy `.env.example` to `.env` and set at least:
 | `MASTER_KEY` | 64-char hex used only to encrypt marketplace tokens at rest |
 | `INNGEST_DEV` | Set to `1` for local dev, so the SDK talks to `npx inngest-cli@latest dev` instead of Inngest's cloud |
 | `INNGEST_EVENT_KEY` / `INNGEST_SIGNING_KEY` | Production only -- from an app at [app.inngest.com](https://app.inngest.com) |
+| `BROWSER_WORKER_URL` / `BROWSER_WORKER_SECRET` | Production only -- see [`worker/README.md`](worker/README.md). Unset locally: manual-adapter platforms run in-process instead |
 | `STORAGE_PROVIDER` | Storage adapter to use (default `r2`) |
 | `R2_ACCOUNT_ID` | Cloudflare account ID (used to build the R2 S3 endpoint) |
 | `R2_ACCESS_KEY_ID` / `R2_SECRET_ACCESS_KEY` | R2 API token credentials with object read/write on the bucket |
@@ -186,16 +187,24 @@ function run, and the cron schedules. In production, functions run on Inngest's 
 create an app at [app.inngest.com](https://app.inngest.com) and set
 `INNGEST_EVENT_KEY`/`INNGEST_SIGNING_KEY` (and unset `INNGEST_DEV`).
 
+## Browser worker
+
+The manual-adapter platforms below run real Playwright automation on a separate, persistent
+service (`worker/`) instead of inside a Vercel function -- `@sparticuz/chromium` in a serverless
+function was fragile at scale (cold starts, memory/size limits, a real production incident from
+more than one browser launch in a single invocation). `createManualAdapter`
+(`lib/marketplaces/automation/create-adapter.ts`) forwards every manual-adapter call to it over
+HTTP when `BROWSER_WORKER_URL` is set (production); unset (local dev, the default), those calls
+run in-process instead, no worker needed. Full details, local dev, and deploy steps:
+[`worker/README.md`](worker/README.md).
+
 ## Marketplace integrations
 
 - **API-enabled**: eBay, Etsy (scaffolded, needs OAuth credentials)
-- **Automation-ready**: Poshmark, Mercari, Depop, Facebook Marketplace, Craigslist, OfferUp, Vinted, Grailed (Playwright stubs)
+- **Automation-ready**: Poshmark, Mercari, Depop, Facebook Marketplace, Craigslist, OfferUp,
+  Vinted, Grailed (Playwright automation, see "Browser worker" above)
 
 ## Roadmap
 
 - eBay/Etsy OAuth is implemented; go-live is waiting on developer account approval from each marketplace
-- Dedicated browser-worker service for automation platforms -- Playwright/`@sparticuz/chromium`
-  still runs inline inside the Inngest-triggered function today, which is fragile at scale (cold
-  starts, memory, per-function size limits). The queue/scheduling problem is solved; this is the
-  next layer down.
 - Mobile app
