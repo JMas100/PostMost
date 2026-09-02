@@ -116,6 +116,11 @@ model MarketplaceAccount {
   authMethod    String   @default("password")
   isActive      Boolean  @default(true)
   settings      String?  // JSON string for platform-specific settings
+  /// Random per-account secret for verifying inbound inventory-sale webhooks (see
+  /// app/api/webhooks/inventory/[platform]/[accountId]/route.ts) -- deliberately one secret per
+  /// connected account, not one shared secret for the whole app, so a single leaked secret can
+  /// only forge sale events for that one account's own listings, not every user's.
+  webhookSecret String   @default(cuid())
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 

@@ -13,9 +13,12 @@ interface InventorySyncResult {
   error?: string;
 }
 
-export async function syncInventorySale(platform: string, externalId: string): Promise<InventorySyncResult[]> {
+/** `userId` is the owner of the MarketplaceAccount whose webhook secret verified this request
+ *  (see the route handler) -- scoping the lookup to it means a compromised per-account webhook
+ *  secret can only ever mark that one account owner's own listings sold, not any user's. */
+export async function syncInventorySale(platform: string, externalId: string, userId: string): Promise<InventorySyncResult[]> {
   const soldListing = await prisma.platformListing.findFirst({
-    where: { platform, externalId, status: { not: PlatformListingStatus.SOLD } },
+    where: { platform, externalId, status: { not: PlatformListingStatus.SOLD }, listing: { userId } },
     include: { listing: true },
   });
 

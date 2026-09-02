@@ -6,6 +6,12 @@ import { canCreateListing, incrementListingUsage } from "@/lib/actions/usage";
 import { resolveWorkspaceForUser, WorkspaceContext } from "@/lib/auth-helpers";
 import { logAudit } from "@/lib/audit";
 
+// Matches /api/upload's MAX_FILES_PER_REQUEST -- without a cap, a single authenticated request
+// with an oversized array forces a full schema-parse + quota-check + DB write per item before
+// canCreateListing ever has a chance to reject it, independent of whether the batch ever
+// exceeds the caller's actual plan quota.
+const MAX_ITEMS_PER_REQUEST = 100;
+
 async function workspaceFromKey(request: Request): Promise<WorkspaceContext | null> {
   const auth = request.headers.get("authorization");
   if (!auth || !auth.startsWith("Bearer ")) return null;
@@ -55,6 +61,9 @@ export async function POST(request: Request) {
   }
 
   const items = Array.isArray(body) ? body : [body];
+  if (items.length > MAX_ITEMS_PER_REQUEST) {
+    return NextResponse.json({ error: `Send at most ${MAX_ITEMS_PER_REQUEST} listings per request` }, { status: 400 });
+  }
   const created = [];
   const errors = [];
 

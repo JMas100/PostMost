@@ -115,6 +115,11 @@ export async function connectMarketplaceAccount(input: AccountConnectionInput) {
         data: {
           userId,
           platform: input.platform,
+          // Stronger than the schema's @default(cuid()) fallback, and generated explicitly so
+          // a reconnect (the `existing` branch above) never touches it -- the inventory webhook
+          // URL/secret a seller has already configured on a marketplace's end should stay valid
+          // across a reconnect, not silently break.
+          webhookSecret: crypto.randomBytes(32).toString("hex"),
           ...data,
         },
       });
@@ -167,6 +172,24 @@ export async function getAccountForPlatform(platform: string) {
     accessToken: account.accessToken ? decrypt(account.accessToken) : null,
     refreshToken: account.refreshToken ? decrypt(account.refreshToken) : null,
     settings: account.settings ? JSON.parse(account.settings) : {},
+  };
+}
+
+/** URL + secret for configuring this account's inventory-sale webhook on the marketplace's own
+ *  end (see app/api/webhooks/inventory/[platform]/[accountId]/route.ts). Scoped to the caller's
+ *  own workspace account, same as every other read here. */
+export async function getInventoryWebhookConfig(accountId: string) {
+  const { workspaceUserId } = await requireWorkspace();
+  const account = await prisma.marketplaceAccount.findFirst({
+    where: { id: accountId, userId: workspaceUserId },
+    select: { id: true, platform: true, webhookSecret: true },
+  });
+  if (!account) return null;
+
+  const origin = process.env.NEXTAUTH_URL || "https://postmost.co";
+  return {
+    url: `${origin}/api/webhooks/inventory/${account.platform}/${account.id}`,
+    secret: account.webhookSecret,
   };
 }
 

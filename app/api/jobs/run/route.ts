@@ -31,9 +31,12 @@ function timingSafeEqualString(a: string, b: string): boolean {
   return crypto.timingSafeEqual(bufA, bufB);
 }
 
+// Deliberately separate from MASTER_KEY (see lib/crypto.ts) -- that secret decrypts every
+// stored marketplace password, so a leak of the much-more-widely-passed-around job-trigger
+// secret must not also compromise it.
 function isAuthorizedForTrigger(request: NextRequest) {
-  const masterKey = request.headers.get("x-master-key");
-  return !!(masterKey && process.env.MASTER_KEY && timingSafeEqualString(masterKey, process.env.MASTER_KEY));
+  const triggerSecret = request.headers.get("x-job-trigger-secret");
+  return !!(triggerSecret && process.env.JOB_TRIGGER_SECRET && timingSafeEqualString(triggerSecret, process.env.JOB_TRIGGER_SECRET));
 }
 
 function isAuthorizedForCron(request: NextRequest) {
