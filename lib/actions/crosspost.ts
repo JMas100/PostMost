@@ -7,9 +7,23 @@ import { PlatformListingStatus } from "@/lib/marketplaces/listing-status";
 import { track } from "@/lib/analytics/track";
 import { requireWorkspace } from "@/lib/auth-helpers";
 import { triggerJobWorker } from "@/lib/jobs/trigger";
+import { checkRateLimit } from "@/lib/rate-limit";
+
+const CROSSPOST_WINDOW_MS = 5 * 60 * 1000;
+const CROSSPOST_MAX_PER_WINDOW = 30;
+const BULK_ACTION_WINDOW_MS = 5 * 60 * 1000;
+const BULK_ACTION_MAX_PER_WINDOW = 20;
+// Matches /api/v1/listings' MAX_ITEMS_PER_REQUEST -- an unbounded array here would let one call
+// create an unbounded number of CrossPostJob rows in a single write.
+const BULK_ACTION_MAX_LISTINGS = 100;
 
 export async function crossPost(listingId: string, platformIds: string[]) {
   const { actingUserId, workspaceUserId: userId } = await requireWorkspace();
+
+  const rateCheck = await checkRateLimit(`crosspost:${userId}`, { windowMs: CROSSPOST_WINDOW_MS, max: CROSSPOST_MAX_PER_WINDOW });
+  if (!rateCheck.allowed) {
+    return { error: "You're publishing too quickly. Please wait a bit and try again." };
+  }
 
   const listing = await prisma.listing.findFirst({
     where: { id: listingId, userId },
@@ -82,6 +96,14 @@ async function queueBulkJob(listingIds: string[], type: "DELIST" | "RELIST") {
   const { workspaceUserId: userId } = await requireWorkspace();
 
   if (listingIds.length === 0) return { success: true, queued: 0 };
+  if (listingIds.length > BULK_ACTION_MAX_LISTINGS) {
+    return { error: `Select at most ${BULK_ACTION_MAX_LISTINGS} listings at a time` };
+  }
+
+  const rateCheck = await checkRateLimit(`bulk-crosspost:${userId}`, { windowMs: BULK_ACTION_WINDOW_MS, max: BULK_ACTION_MAX_PER_WINDOW });
+  if (!rateCheck.allowed) {
+    return { error: "You're doing that too quickly. Please wait a bit and try again." };
+  }
 
   const listings = await prisma.listing.findMany({
     where: { id: { in: listingIds }, userId },
@@ -120,9 +142,17 @@ export async function bulkRelist(listingIds: string[]) {
  *  (b) whose adapter actually supports automated price updates. Called after a base-price change
  *  lands in the DB (see bulkUpdatePrice in lib/actions/listings.ts) to push it out live. Ids not
  *  owned by the caller simply contribute zero jobs, same as queueBulkJob. */
-export async function queueRepriceJobs(listingIds: string[]) {
+export async function queueRepriceJobs(listingIds: string[]): Promise<{ success: true; queued: number } | { error: string }> {
   const { workspaceUserId: userId } = await requireWorkspace();
   if (listingIds.length === 0) return { success: true, queued: 0 };
+  if (listingIds.length > BULK_ACTION_MAX_LISTINGS) {
+    return { error: `Select at most ${BULK_ACTION_MAX_LISTINGS} listings at a time` };
+  }
+
+  const rateCheck = await checkRateLimit(`bulk-crosspost:${userId}`, { windowMs: BULK_ACTION_WINDOW_MS, max: BULK_ACTION_MAX_PER_WINDOW });
+  if (!rateCheck.allowed) {
+    return { error: "You're doing that too quickly. Please wait a bit and try again." };
+  }
 
   const listings = await prisma.listing.findMany({
     where: { id: { in: listingIds }, userId },

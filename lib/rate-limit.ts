@@ -16,19 +16,20 @@ const CLEANUP_PROBABILITY = 0.01;
  * called before the sensitive operation runs, so both failed and successful attempts count
  * toward the limit) and reports whether the identifier is currently over its allowance.
  *
- * Not built for high-QPS API limiting -- this is sized for auth endpoints (login, signup,
- * password-reset-request), which see at most a handful of legitimate attempts per window.
+ * Not built for high-QPS API limiting -- a DB round-trip (a count + a write) per call is fine for
+ * auth endpoints and the per-user action limits below, which top out at tens of legitimate calls
+ * per window, not the volume a dedicated in-memory/Redis limiter would be sized for.
  */
 export async function checkRateLimit(identifier: string, { windowMs, max }: RateLimitOptions): Promise<{ allowed: boolean; retryAfterMs?: number }> {
   const windowStart = new Date(Date.now() - windowMs);
 
   if (Math.random() < CLEANUP_PROBABILITY) {
-    void prisma.loginAttempt.deleteMany({ where: { createdAt: { lt: new Date(Date.now() - CLEANUP_RETENTION_MS) } } }).catch(() => {});
+    void prisma.rateLimitHit.deleteMany({ where: { createdAt: { lt: new Date(Date.now() - CLEANUP_RETENTION_MS) } } }).catch(() => {});
   }
 
-  const count = await prisma.loginAttempt.count({ where: { identifier, createdAt: { gte: windowStart } } });
+  const count = await prisma.rateLimitHit.count({ where: { identifier, createdAt: { gte: windowStart } } });
   if (count >= max) {
-    const oldest = await prisma.loginAttempt.findFirst({
+    const oldest = await prisma.rateLimitHit.findFirst({
       where: { identifier, createdAt: { gte: windowStart } },
       orderBy: { createdAt: "asc" },
       select: { createdAt: true },
@@ -37,7 +38,7 @@ export async function checkRateLimit(identifier: string, { windowMs, max }: Rate
     return { allowed: false, retryAfterMs };
   }
 
-  await prisma.loginAttempt.create({ data: { identifier } });
+  await prisma.rateLimitHit.create({ data: { identifier } });
   return { allowed: true };
 }
 

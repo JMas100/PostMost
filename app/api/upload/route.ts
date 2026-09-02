@@ -3,11 +3,14 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { getStorage, isStorageConfigured } from "@/lib/storage";
 import { isAllowedImageType, listingPhotoKey, MAX_IMAGE_BYTES } from "@/lib/storage/keys";
+import { checkRateLimit } from "@/lib/rate-limit";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 const MAX_FILES_PER_REQUEST = 20;
+const UPLOAD_WINDOW_MS = 10 * 60 * 1000;
+const UPLOAD_MAX_REQUESTS_PER_WINDOW = 60;
 
 interface RequestedFile {
   contentType: string;
@@ -56,6 +59,11 @@ export async function POST(req: NextRequest) {
 
   if (!isStorageConfigured()) {
     return NextResponse.json({ error: "Image storage is not configured" }, { status: 503 });
+  }
+
+  const rateCheck = await checkRateLimit(`upload:${userId}`, { windowMs: UPLOAD_WINDOW_MS, max: UPLOAD_MAX_REQUESTS_PER_WINDOW });
+  if (!rateCheck.allowed) {
+    return NextResponse.json({ error: "Too many upload requests. Please wait a bit and try again." }, { status: 429 });
   }
 
   let body: unknown;

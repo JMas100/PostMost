@@ -10,6 +10,13 @@ import crypto from "crypto";
 import { requireWorkspace, requireRole } from "@/lib/auth-helpers";
 import { logAudit } from "@/lib/audit";
 import { resolveNotificationGroup } from "@/lib/notifications";
+import { checkRateLimit } from "@/lib/rate-limit";
+
+// Password-based connects on a manual-adapter platform trigger a real verifyLogin round-trip (a
+// real browser session in production, via the browser worker) -- this is the shared choke point
+// for both the regular Settings connect flow and /api/extension/session's own connect call.
+const CONNECT_WINDOW_MS = 10 * 60 * 1000;
+const CONNECT_MAX_PER_WINDOW = 15;
 
 /** Checks the per-plan connected-marketplace limit before letting a new platform be connected
  *  (existing platforms being reconnected/updated never count against it). */
@@ -62,6 +69,11 @@ export async function connectMarketplaceAccount(input: AccountConnectionInput) {
   const ctx = await requireWorkspace();
   requireRole(ctx, ["OWNER", "ADMIN"]);
   const userId = ctx.workspaceUserId;
+
+  const rateCheck = await checkRateLimit(`connect-marketplace:${userId}`, { windowMs: CONNECT_WINDOW_MS, max: CONNECT_MAX_PER_WINDOW });
+  if (!rateCheck.allowed) {
+    throw new Error("Too many connection attempts. Please wait a bit and try again.");
+  }
 
   const existing = await prisma.marketplaceAccount.findFirst({
     where: { userId, platform: input.platform, isActive: true },

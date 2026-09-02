@@ -334,7 +334,10 @@ model NotificationPreference {
 /// "login-email:x@y.com" or "login-ip:1.2.3.4", never a raw email/IP alone, so different limit
 /// kinds sharing the same underlying value (e.g. login vs signup from the same IP) don't leak
 /// into each other's counts.
-model LoginAttempt {
+/// Backs checkRateLimit (lib/rate-limit.ts) -- was LoginAttempt, renamed once this also started
+/// covering non-auth endpoints (AI generation, uploads, crossPost). `identifier` is whatever
+/// scope a caller chooses (userId, IP, email), not tied to any one kind of action.
+model RateLimitHit {
   id         String   @id @default(cuid())
   identifier String
   createdAt  DateTime @default(now())

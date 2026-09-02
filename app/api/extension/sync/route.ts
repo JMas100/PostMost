@@ -3,12 +3,21 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { markListingSold } from "@/lib/actions/inventory";
+import { checkRateLimit } from "@/lib/rate-limit";
+
+const SYNC_WINDOW_MS = 10 * 60 * 1000;
+const SYNC_MAX_PER_WINDOW = 120;
 
 export async function POST(req: NextRequest) {
   const session = await getServerSession(authOptions);
   const userId = session?.user?.id;
   if (!userId) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  const rateCheck = await checkRateLimit(`extension-sync:${userId}`, { windowMs: SYNC_WINDOW_MS, max: SYNC_MAX_PER_WINDOW });
+  if (!rateCheck.allowed) {
+    return NextResponse.json({ error: "Too many sync requests. Please wait a bit and try again." }, { status: 429 });
   }
 
   let body: Record<string, unknown>;

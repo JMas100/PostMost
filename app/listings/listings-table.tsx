@@ -89,7 +89,7 @@ export function ListingsTable({ listings, canDelete = true }: { listings: Listin
         setSelected(new Set());
         router.refresh();
       } else {
-        toast.error("Couldn't queue delisting. Try again.");
+        toast.error(result.error || "Couldn't queue delisting. Try again.");
       }
     });
   }
@@ -110,7 +110,7 @@ export function ListingsTable({ listings, canDelete = true }: { listings: Listin
         setSelected(new Set());
         router.refresh();
       } else {
-        toast.error("Couldn't queue refresh. Try again.");
+        toast.error(result.error || "Couldn't queue refresh. Try again.");
       }
     });
   }

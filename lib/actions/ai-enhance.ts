@@ -23,6 +23,14 @@ import {
   PlatformCaption,
 } from "@/lib/ai/optimize";
 import { DEFAULT_PHOTO_PRESET, isFormattingRequested } from "@/lib/images/presets";
+import { checkRateLimit } from "@/lib/rate-limit";
+
+// Separate from the monthly plan quotas (canUseAI/canRemoveBackground below) -- those cap total
+// spend, these cap how fast it can be spent.
+const AI_TEXT_WINDOW_MS = 10 * 60 * 1000;
+const AI_TEXT_MAX_PER_WINDOW = 30;
+const BG_REMOVAL_WINDOW_MS = 10 * 60 * 1000;
+const BG_REMOVAL_MAX_PER_WINDOW = 20;
 
 async function withAiUsage<T>(fn: () => Promise<T>): Promise<{ success: true; result: T } | { success: false; error: string }> {
   let userId: string;
@@ -30,6 +38,11 @@ async function withAiUsage<T>(fn: () => Promise<T>): Promise<{ success: true; re
     ({ workspaceUserId: userId } = await requireWorkspace());
   } catch {
     return { success: false, error: "You must be logged in." };
+  }
+
+  const rateCheck = await checkRateLimit(`ai-text:${userId}`, { windowMs: AI_TEXT_WINDOW_MS, max: AI_TEXT_MAX_PER_WINDOW });
+  if (!rateCheck.allowed) {
+    return { success: false, error: "You're doing that too quickly. Please wait a bit and try again." };
   }
 
   const usage = await canUseAI(userId);
@@ -123,6 +136,11 @@ export async function enhancePhoto(
     ({ workspaceUserId: userId } = await requireWorkspace());
   } catch {
     return { success: false, error: "You must be logged in.", code: "auth" };
+  }
+
+  const rateCheck = await checkRateLimit(`bg-removal:${userId}`, { windowMs: BG_REMOVAL_WINDOW_MS, max: BG_REMOVAL_MAX_PER_WINDOW });
+  if (!rateCheck.allowed) {
+    return { success: false, error: "You're removing backgrounds too quickly. Please wait a bit and try again." };
   }
 
   // Studio is a best-effort upgrade: an unconfigured or failing premium provider (missing key,

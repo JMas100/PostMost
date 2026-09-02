@@ -4,9 +4,16 @@ import { authOptions } from "@/lib/auth";
 import { getAdapter } from "@/lib/marketplaces";
 import { connectMarketplaceAccount } from "@/lib/actions/accounts";
 import type { SessionCookie } from "@/lib/marketplaces/types";
+import { checkRateLimit } from "@/lib/rate-limit";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
+
+// Each call here does a real verifySession round-trip (a real browser session check in
+// production, via the browser worker -- see worker/README.md), not just a DB write, so this
+// gets a tighter window than /api/extension/sync's.
+const SESSION_WINDOW_MS = 10 * 60 * 1000;
+const SESSION_MAX_PER_WINDOW = 10;
 
 // Phase 1 (Poshmark) proved the whole chain end-to-end against a real account. Phase 2 platforms
 // get added here once there's a real reason to believe browser-session connect helps them --
@@ -38,6 +45,11 @@ export async function POST(req: NextRequest) {
   const session = await getServerSession(authOptions);
   if (!session?.user?.id) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  const rateCheck = await checkRateLimit(`extension-session:${session.user.id}`, { windowMs: SESSION_WINDOW_MS, max: SESSION_MAX_PER_WINDOW });
+  if (!rateCheck.allowed) {
+    return NextResponse.json({ error: "Too many connection attempts. Please wait a bit and try again." }, { status: 429 });
   }
 
   const rawBody = await req.text();
