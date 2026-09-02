@@ -3,7 +3,8 @@ import crypto from "crypto";
 import { prisma } from "@/lib/prisma";
 import { syncInventorySale } from "@/lib/jobs/inventory-sync";
 
-/** Constant-time string comparison -- matches the pattern in app/api/jobs/run/route.ts. */
+/** Constant-time string comparison -- a plain === leaks how many leading bytes matched via
+ *  response timing, which matters for secrets checked on every request like this one. */
 function timingSafeEqualString(a: string, b: string): boolean {
   const bufA = Buffer.from(a);
   const bufB = Buffer.from(b);

@@ -43,8 +43,8 @@ export function SoldButton({
       } else {
         setMessage(
           postedPlatforms.length > 1
-            ? "Marked as sold. Auto-delisting attempted on the rest."
-            : "Marked as sold. Auto-delisting attempted for connected platforms."
+            ? "Marked as sold. Delisting from the rest is queued."
+            : "Marked as sold. Delisting from connected platforms is queued."
         );
         router.refresh();
       }

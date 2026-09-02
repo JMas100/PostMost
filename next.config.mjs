@@ -55,7 +55,7 @@ const nextConfig = {
     remotePatterns: imageHosts().map((hostname) => ({ protocol: "https", hostname })),
   },
   outputFileTracingIncludes: {
-    "/api/jobs/run": playwrightTracing,
+    "/api/inngest": playwrightTracing,
     "/api/extension/session": playwrightTracing,
     "/settings": playwrightTracing,
     "/settings/**": playwrightTracing,

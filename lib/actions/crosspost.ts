@@ -66,8 +66,8 @@ export async function crossPost(listingId: string, platformIds: string[]) {
     })
   );
 
-  // Kick the worker in a separate invocation so this request returns immediately.
-  // The Vercel cron on /api/jobs/run is the durable backstop if this trigger fails.
+  // Kicks the Inngest-triggered worker so this request returns immediately -- see
+  // lib/jobs/trigger.ts for the durable-backstop cron this falls back on if the event send fails.
   triggerJobWorker(listingId);
 
   revalidatePath(`/listings/${listingId}`);

@@ -44,9 +44,9 @@ Copy `.env.example` to `.env` and set at least:
 | --- | --- |
 | `DATABASE_URL` / `DIRECT_URL` | Pooled and direct Postgres connection strings |
 | `NEXTAUTH_URL`, `NEXTAUTH_SECRET` | NextAuth base URL and signing secret |
-| `APP_URL` | Absolute base URL used to trigger the job worker (falls back to `NEXTAUTH_URL`) |
-| `MASTER_KEY` | 64-char hex for OAuth token encryption; also authorizes `/api/jobs/run` via `x-master-key` |
-| `CRON_SECRET` | Secret Vercel Cron sends as `Authorization: Bearer <CRON_SECRET>` to `/api/jobs/run` |
+| `MASTER_KEY` | 64-char hex used only to encrypt marketplace tokens at rest |
+| `INNGEST_DEV` | Set to `1` for local dev, so the SDK talks to `npx inngest-cli@latest dev` instead of Inngest's cloud |
+| `INNGEST_EVENT_KEY` / `INNGEST_SIGNING_KEY` | Production only -- from an app at [app.inngest.com](https://app.inngest.com) |
 | `STORAGE_PROVIDER` | Storage adapter to use (default `r2`) |
 | `R2_ACCOUNT_ID` | Cloudflare account ID (used to build the R2 S3 endpoint) |
 | `R2_ACCESS_KEY_ID` / `R2_SECRET_ACCESS_KEY` | R2 API token credentials with object read/write on the bucket |
@@ -159,30 +159,32 @@ Re-running only picks up rows that are still base64.
 ## Cross-post job worker
 
 Cross-posting is queued, never executed inside the request. `crossPost()` writes `CrossPostJob`
-rows and fires a non-blocking POST to `/api/jobs/run`; the durable backstop is the Vercel cron in
-`vercel.json`, which drains the queue once a day. The inline trigger handles the common case
-immediately, so the daily cron only matters for jobs that trigger failed to fire for (a
-transient network error, a cold start that outlived the request) — see the note below on
-upgrading to a tighter schedule.
+rows and sends an Inngest event (`lib/jobs/trigger.ts`); `processCrossPostJobs`
+(`lib/inngest/functions.ts`) picks it up immediately. The durable backstop is that same
+function's own 5-minute cron trigger — not gated by Vercel's plan tier, unlike the Vercel cron
+this replaced.
 
-- Jobs are claimed atomically (`PENDING` -> `RUNNING` with `lockedAt`), so the cron and the inline
-  trigger can safely overlap.
+- Jobs are claimed atomically (`PENDING` -> `RUNNING` with `lockedAt`), so overlapping
+  invocations (the event trigger and the cron backstop firing close together) can't double-claim
+  the same job.
 - Each `adapter.post` call is bounded by a 60s timeout.
 - Failures retry with exponential backoff (1m, 5m, 15m) until `maxAttempts` (default 3), then the
   job and its `PlatformListing` are marked `FAILED`.
 - A `RUNNING` job whose `lockedAt` is older than 5 minutes is reclaimed as `PENDING`.
+- `processCrossPostJobs` runs with `concurrency: 3` in Inngest, so up to three invocations work
+  through different pending jobs in parallel — a slow job only blocks its own invocation, not the
+  whole queue.
 
-Run the worker manually:
+Run the worker locally alongside `npm run dev` (with `INNGEST_DEV=1` set, see Environment below):
 
 ```bash
-curl -X POST http://localhost:3000/api/jobs/run -H "x-master-key: $MASTER_KEY"
+npx inngest-cli@latest dev -u http://localhost:3000/api/inngest
 ```
 
-Note: Vercel Hobby plans only run crons once per day -- a sub-daily schedule (e.g. `* * * * *`)
-doesn't just get silently throttled, it makes every deployment fail outright until the schedule
-is fixed, so don't set one without confirming the project is on Pro first. If you upgrade to Pro,
-tighten `vercel.json`'s schedule (e.g. every 5 minutes) for faster retries; on Hobby, keep the
-inline trigger enabled (or call the endpoint from an external scheduler) as the fast path.
+This starts Inngest's local dev server with a UI at `http://localhost:8288` showing every event,
+function run, and the cron schedules. In production, functions run on Inngest's infrastructure --
+create an app at [app.inngest.com](https://app.inngest.com) and set
+`INNGEST_EVENT_KEY`/`INNGEST_SIGNING_KEY` (and unset `INNGEST_DEV`).
 
 ## Marketplace integrations
 
@@ -192,5 +194,8 @@ inline trigger enabled (or call the endpoint from an external scheduler) as the 
 ## Roadmap
 
 - eBay/Etsy OAuth is implemented; go-live is waiting on developer account approval from each marketplace
-- Playwright worker service for automation platforms
+- Dedicated browser-worker service for automation platforms -- Playwright/`@sparticuz/chromium`
+  still runs inline inside the Inngest-triggered function today, which is fragile at scale (cold
+  starts, memory, per-function size limits). The queue/scheduling problem is solved; this is the
+  next layer down.
 - Mobile app

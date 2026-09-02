@@ -1,16 +1,14 @@
-/** Kicks the job worker in a separate invocation so the caller can return immediately.
- *  The Vercel cron on /api/jobs/run is the durable backstop if this trigger fails. */
-export function triggerJobWorker(listingId?: string) {
-  const baseUrl = process.env.APP_URL || process.env.NEXTAUTH_URL;
-  const triggerSecret = process.env.JOB_TRIGGER_SECRET;
-  if (!baseUrl || !triggerSecret) return;
+import { inngest } from "@/lib/inngest/client";
 
-  void fetch(`${baseUrl.replace(/\/$/, "")}/api/jobs/run`, {
-    method: "POST",
-    headers: { "content-type": "application/json", "x-job-trigger-secret": triggerSecret },
-    body: JSON.stringify(listingId ? { listingId } : {}),
-    cache: "no-store",
-  }).catch(() => {
-    // Best-effort trigger; the cron will pick the jobs up regardless.
+/** Sends the event that kicks off processCrossPostJobs (see lib/inngest/functions.ts) so the
+ *  caller can return immediately. Unlike the old fire-and-forget fetch this replaced, a
+ *  successfully-sent Inngest event is durable -- Inngest guarantees the function actually runs,
+ *  it doesn't just best-effort attempt an HTTP call and silently drop on failure. The function's
+ *  own 5-minute cron trigger is still the backstop for the rare case the send itself fails (a
+ *  real network error at send time, not "the invocation died after accepting the request" --
+ *  the old failure mode this was built to close). */
+export function triggerJobWorker(listingId?: string) {
+  void inngest.send({ name: "crosspost/trigger", data: listingId ? { listingId } : {} }).catch(() => {
+    // Best-effort; the function's own cron trigger picks up any job this missed within 5 minutes.
   });
 }

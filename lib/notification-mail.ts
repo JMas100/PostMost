@@ -31,7 +31,7 @@ const DEFAULT_EMAIL_ENABLED: Record<NotificationKind, boolean> = {
 // Sold and the two needs-you kinds are time-sensitive enough that batching them into an 8am
 // digest would defeat the point -- they always send immediately, ignoring digestMode entirely.
 // The other three only send immediately when digestMode is off; when it's on, the daily digest
-// cron picks them up instead (see app/api/notifications/digest/route.ts).
+// cron picks them up instead (see sendNotificationDigest in lib/inngest/functions.ts).
 const ALWAYS_IMMEDIATE: NotificationKind[] = ["item_sold", "cross_post_failed", "marketplace_signed_out"];
 
 /** Called right after a notification write. Resolves the right *Email preference for `kind`,
