@@ -5,9 +5,10 @@
   window.__postmostInjected = true;
 
   // This script only ever runs on a domain manifest.json's content_scripts.matches allows it on
-  // (postmost.co, its Vercel preview deployments, or localhost for dev) -- whichever one that
-  // is, the extension/session/sync API it needs to call is always same-origin with the page
-  // itself, so there's nothing to hardcode or special-case here.
+  // (*.postmost.co -- production, or staging.postmost.co which tracks the `staging` git branch's
+  // Vercel deployments -- or localhost for dev). Whichever one that is, the extension/session/
+  // sync API it needs to call is always same-origin with the page itself, so there's nothing to
+  // hardcode or special-case here.
   const SYNC_ORIGIN = location.origin;
 
   // Tell the PostMost page the extension is present.

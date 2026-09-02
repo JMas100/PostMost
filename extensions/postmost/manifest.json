@@ -5,7 +5,7 @@
   "description": "Post one listing to Facebook Marketplace, OfferUp, Poshmark, Mercari, Depop, Vinted, Grailed, and Craigslist from PostMost.",
   "permissions": ["storage", "cookies"],
   "host_permissions": [
-    "https://postmost.co/*",
+    "https://*.postmost.co/*",
     "http://localhost:3000/*",
     "https://*.facebook.com/*",
     "https://*.offerup.com/*",
@@ -22,7 +22,7 @@
   "content_scripts": [
     {
       "matches": [
-        "https://postmost.co/*",
+        "https://*.postmost.co/*",
         "http://localhost:3000/*"
       ],
       "js": ["src/postmost-content.js"],
