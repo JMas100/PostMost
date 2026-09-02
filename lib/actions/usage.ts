@@ -2,6 +2,7 @@
 
 import { prisma } from "@/lib/prisma";
 import { BgRemovalTier, getEffectivePlan, meetsMinimumTier, PLAN_ASSIGNMENT_SELECT } from "@/lib/plans";
+import { nearPlanLimitGroupKey, resolveNotificationGroup, upsertNearPlanLimitNotification } from "@/lib/notifications";
 
 function getMonthWindow(now = new Date()): { start: Date; end: Date } {
   const start = new Date(now.getFullYear(), now.getMonth(), 1);
@@ -23,6 +24,7 @@ async function resetIfNeeded(userId: string) {
   const usage = await getOrCreateUsage(userId);
   const { start } = getMonthWindow();
   if (usage.resetAt < start) {
+    const elapsedMonth = usage.resetAt.toISOString().slice(0, 7);
     await prisma.userUsage.update({
       where: { userId },
       data: {
@@ -33,6 +35,9 @@ async function resetIfNeeded(userId: string) {
         resetAt: new Date(),
       },
     });
+    // A new billing month is a clean slate -- any plan-limit warning from the month that just
+    // elapsed no longer applies.
+    await resolveNotificationGroup(userId, nearPlanLimitGroupKey(userId, elapsedMonth));
   }
 }
 
@@ -66,10 +71,29 @@ export async function canCreateListing(userId: string): Promise<{ allowed: boole
 
 export async function incrementListingUsage(userId: string) {
   await resetIfNeeded(userId);
+  const before = await getOrCreateUsage(userId);
   await prisma.userUsage.update({
     where: { userId },
     data: { listingsThisMonth: { increment: 1 } },
   });
+
+  const plan = getEffectivePlan(
+    await prisma.user.findUnique({ where: { id: userId }, select: PLAN_ASSIGNMENT_SELECT })
+  );
+  const limit = plan.listingsPerMonth;
+  if (limit !== -1) {
+    const beforeCount = before.listingsThisMonth;
+    const afterCount = beforeCount + 1;
+    const warnAt = Math.ceil(limit * 0.8);
+    // Only fires on the increment that newly crosses 80% or 100% -- not on every listing created
+    // after the limit is already reached, or this would rewrite the same notification row every
+    // time (see upsertNearPlanLimitNotification).
+    const crossedWarn = beforeCount < warnAt && afterCount >= warnAt;
+    const crossedLimit = beforeCount < limit && afterCount >= limit;
+    if (crossedWarn || crossedLimit) {
+      await upsertNearPlanLimitNotification(userId, afterCount, limit);
+    }
+  }
 }
 
 export async function canUseAI(userId: string): Promise<{ allowed: boolean; reason?: string }> {

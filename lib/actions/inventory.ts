@@ -8,6 +8,7 @@ import { getAccountData } from "@/lib/marketplaces/account-data";
 import { getEffectivePlan, PLAN_ASSIGNMENT_SELECT } from "@/lib/plans";
 import { DELIST_ON_SALE_RULE } from "@/lib/automation/rule-types";
 import { requireWorkspace } from "@/lib/auth-helpers";
+import { writeItemSoldNotification } from "@/lib/notifications";
 
 const PAGE_SIZE = 25;
 
@@ -34,8 +35,9 @@ export async function markListingSold(listingId: string, soldPlatform?: string, 
   const localWrites: Prisma.PrismaPromise<unknown>[] = [
     prisma.listing.update({ where: { id: listingId }, data: { status: "SOLD" } }),
   ];
+  let soldPrice: number | undefined;
   if (profitPlatformListing) {
-    const soldPrice = sale?.soldPrice ?? profitPlatformListing.price ?? listing.price;
+    soldPrice = sale?.soldPrice ?? profitPlatformListing.price ?? listing.price;
     const soldFees = sale?.soldFees ?? profitPlatformListing.fees ?? 0;
     const soldShippingCost = sale?.soldShippingCost ?? listing.shippingProfile?.cost ?? 0;
     const profit = soldPrice - cost - soldFees - soldShippingCost;
@@ -47,6 +49,13 @@ export async function markListingSold(listingId: string, soldPlatform?: string, 
     );
   }
   await prisma.$transaction(localWrites);
+  await writeItemSoldNotification({
+    userId,
+    listingId,
+    listingTitle: listing.title,
+    platform: platformToProfit,
+    soldPrice,
+  });
 
   const results = [];
   for (const platformListing of listing.platformListings) {

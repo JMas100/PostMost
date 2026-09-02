@@ -43,6 +43,8 @@ model User {
   automationEvents  AutomationEvent[]
   passwordResetTokens PasswordResetToken[]
   auditLogEntries   AuditLogEntry[]
+  notifications     Notification[]
+  notificationPreference NotificationPreference?
 }
 
 model Listing {
@@ -254,6 +256,72 @@ model AuditLogEntry {
   createdAt       DateTime @default(now())
 
   @@index([workspaceUserId, createdAt])
+}
+
+/// Cross-posts, relists, and stock syncs all run in a background cron batch the seller never
+/// watches -- this is what tells them when something needs attention. See lib/notifications.ts.
+model Notification {
+  id     String @id @default(cuid())
+  userId String // workspace owner id -- notifications live at the workspace level
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  /// "needs_you" | "sales" | "activity" -- only needs_you ever reaches the bell's badge count.
+  category String
+  /// "cross_post_failed" | "cross_post_succeeded" | "marketplace_signed_out" | "item_sold" |
+  /// "automation_ran" | "near_plan_limit"
+  kind String
+  /// What makes repeated writes for the same underlying cause become one row instead of a new
+  /// insert -- e.g. "cpf:{userId}:{platform}:{errorText}" for failures, "cps:{userId}:{listingId}"
+  /// for a listing's publish, "auto:{userId}:{ruleType}:{yyyy-mm-dd}" for an automation run.
+  /// Eight failures with the same cause become one notification via upsert on this, not eight.
+  groupKey    String
+  title       String
+  body        String
+  actionLabel String?
+  actionHref  String?
+  secondaryActionLabel String?
+  secondaryActionHref  String?
+  platform    String?
+  /// Affected listing/platformListing ids -- lets a "needs you" entry shrink and self-resolve as
+  /// each one individually clears, and keeps a count-in-title (e.g. "8 listings need...")
+  /// accurate via array length rather than a separate counter that could drift out of sync.
+  targetIds String[] @default([])
+  readAt    DateTime?
+  /// Only meaningful for category="needs_you": an actionable entry is a view of live state ("8
+  /// listings still need a size"), so it resolves itself when that state clears -- when
+  /// targetIds empties out -- not via a user dismiss action. Sales/activity are events, not
+  /// state, so this stays null for them forever.
+  resolvedAt DateTime?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@unique([userId, groupKey])
+  @@index([userId, category, resolvedAt, createdAt])
+}
+
+/// One row per workspace owner. cross_post_failed and marketplace_signed_out have no app-toggle
+/// field at all -- their in-app notification is always created, not user-configurable, since the
+/// app is the only place a seller can actually fix them. Only their email toggle is stored.
+model NotificationPreference {
+  id     String @id @default(cuid())
+  userId String @unique
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  soldApp                   Boolean @default(true)
+  soldEmail                 Boolean @default(true)
+  crossPostFailedEmail      Boolean @default(true)
+  marketplaceSignedOutEmail Boolean @default(true)
+  automationRanApp          Boolean @default(true)
+  automationRanEmail        Boolean @default(false)
+  crossPostSucceededApp     Boolean @default(true)
+  crossPostSucceededEmail   Boolean @default(false)
+  nearPlanLimitApp          Boolean @default(true)
+  nearPlanLimitEmail        Boolean @default(false)
+  /// One 8am email covering the previous day instead of individual emails. Sold and needs-you
+  /// (failed/signed-out) still send immediately regardless of this -- delay on those costs money.
+  digestMode Boolean @default(false)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 /// Backs a simple Postgres fixed-window rate limiter (see lib/rate-limit.ts) for auth endpoints

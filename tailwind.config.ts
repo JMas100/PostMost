@@ -92,7 +92,36 @@ const config: Config = {
       },
     },
   },
-  plugins: [require("tailwindcss-animate")],
+  plugins: [
+    require("tailwindcss-animate"),
+    // Base UI (components/ui/*.tsx) marks state with bare boolean data attributes
+    // (data-checked, data-open, ...) and expects a bare `data-checked:` variant to mean
+    // "&[data-checked]" -- that shorthand is Tailwind v4 behavior, not v3 (this project pins
+    // v3.4.1), so unregistered these silently compiled to nothing: every checkbox, switch,
+    // dialog, dropdown, select, tabs, accordion, and tooltip rendered with zero state styling
+    // (e.g. a Switch's thumb never moved and its track never filled, checked or not). Registered
+    // here instead of rewriting every class list to the bracket form (`data-[checked]:`), since
+    // that would touch nine files for the same fix.
+    require("tailwindcss/plugin")(({ addVariant }: { addVariant: (name: string, selector: string) => void }) => {
+      for (const name of [
+        "active",
+        "checked",
+        "unchecked",
+        "open",
+        "closed",
+        "disabled",
+        "inset",
+        "placeholder",
+        "popup-open",
+        "horizontal",
+        "vertical",
+        "starting-style",
+        "ending-style",
+      ]) {
+        addVariant(`data-${name}`, `&[data-${name}]`);
+      }
+    }),
+  ],
 };
 
 export default config;

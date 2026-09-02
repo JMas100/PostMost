@@ -7,6 +7,7 @@ import { track } from "@/lib/analytics/track";
 import { Photo, Prisma } from "@prisma/client";
 import type { MarketplaceAdapter } from "@/lib/marketplaces/types";
 import { createBrowserJobBudget, type BrowserJobBudget } from "@/lib/jobs/browser-job-budget";
+import { NotificationCollector, resolveCrossPostFailure } from "@/lib/notifications";
 
 /** A RUNNING job whose lock is older than this is considered abandoned and is reclaimed. */
 const STUCK_JOB_TIMEOUT_MS = 5 * 60 * 1000;
@@ -79,6 +80,10 @@ export async function processPendingCrossPostJobs(
     orderBy: { createdAt: "asc" },
     take: 100,
   });
+
+  // Collected during the loop, written once at the end -- notifying per job would tell a seller
+  // about a failure at the exact moment a retry might still have fixed it (see lib/notifications.ts).
+  const notifications = new NotificationCollector();
 
   for (const job of candidates) {
     if (!job.listing) continue;
@@ -156,7 +161,8 @@ export async function processPendingCrossPostJobs(
           job.maxAttempts,
           result.error || "Unknown error",
           summary,
-          JSON.stringify(result)
+          JSON.stringify(result),
+          notifications
         );
         continue;
       }
@@ -187,6 +193,8 @@ export async function processPendingCrossPostJobs(
         data: { status: "ACTIVE" },
       });
       summary.succeeded += 1;
+      notifications.recordSuccess(job.userId, job.listingId, job.listing.title, job.platform);
+      await resolveCrossPostFailure(job.userId, job.listingId, job.platform);
 
       await track("publish_platform_succeeded", job.userId, { listingId: job.listingId, platform: job.platform });
       const claim = await prisma.user.updateMany({
@@ -198,9 +206,11 @@ export async function processPendingCrossPostJobs(
       }
     } catch (err) {
       const message = err instanceof Error ? err.message : "Unknown error";
-      await handleFailure(job.id, job.userId, job.listingId, job.platform, attempts, job.maxAttempts, message, summary);
+      await handleFailure(job.id, job.userId, job.listingId, job.platform, attempts, job.maxAttempts, message, summary, undefined, notifications);
     }
   }
+
+  await notifications.flush();
 
   return summary;
 }
@@ -410,7 +420,12 @@ async function handleFailure(
   maxAttempts: number,
   message: string,
   summary: CrossPostRunSummary,
-  result?: string
+  result?: string,
+  // Only passed by the POST-job call sites -- DELIST/REPRICE terminal failures aren't wired to
+  // notifications this pass (not in the spec's six event kinds, and not "needs you" in the same
+  // actionable sense as a publish failing). Collecting here (not per-attempt) also means a
+  // still-retrying failure never notifies -- only one that's truly exhausted its attempts does.
+  notifications?: NotificationCollector
 ) {
   if (attempts < maxAttempts) {
     await prisma.crossPostJob.update({
@@ -444,5 +459,6 @@ async function handleFailure(
     data: { status: PlatformListingStatus.FAILED, errorMessage: message },
   });
   summary.failed += 1;
+  notifications?.recordFailure(userId, listingId, platform, message);
   await track("publish_platform_failed", userId, { listingId, platform, error: message });
 }

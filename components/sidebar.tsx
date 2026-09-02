@@ -23,6 +23,7 @@ import { cn } from "@/lib/utils";
 import { Wordmark, LogoMark } from "@/components/logo";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { WorkspaceBanner } from "@/components/workspace-banner";
+import { NotificationBell } from "@/components/notification-bell";
 
 // Orders is deliberately excluded: it needs marketplace sync that doesn't exist yet. Sold items
 // surface via the "Sold" tab on Listings instead until real order sync lands.
@@ -56,7 +57,10 @@ function NavContent({ onClick }: { onClick?: () => void }) {
           <LogoMark className="h-8 w-8" />
           <Wordmark className="text-xl" />
         </Link>
-        <ThemeToggle />
+        <div className="flex items-center gap-0.5">
+          <NotificationBell />
+          <ThemeToggle />
+        </div>
       </div>
 
       <div className="px-4 pb-2">
@@ -131,6 +135,9 @@ function MobileTopBar() {
           <LogoMark className="h-6 w-6" />
           <Wordmark className="text-lg" />
         </Link>
+        <div className="ml-auto">
+          <NotificationBell />
+        </div>
       </div>
       <SheetContent side="left" className="w-64 border-r bg-sidebar p-0">
         <NavContent />

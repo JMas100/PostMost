@@ -5,6 +5,7 @@ import { relistPlatformListing } from "@/lib/marketplaces/relist";
 import { STOCK_SYNC_RULE, RELIST_STALE_RULE, RELIST_STALE_DAYS } from "@/lib/automation/rule-types";
 import type { Photo } from "@prisma/client";
 import { createBrowserJobBudget, type BrowserJobBudget } from "@/lib/jobs/browser-job-budget";
+import { upsertAutomationRanNotification } from "@/lib/notifications";
 
 /** Default per-call budget when no shared deadline is passed in. */
 const DEFAULT_BUDGET_MS = 270 * 1000;
@@ -56,6 +57,9 @@ export async function runStockSyncRule(
     },
     include: { platformListings: { where: { status: "POSTED" } } },
   });
+
+  // Collected during the loop, written once per user after it ends -- see lib/notifications.ts.
+  const delistedByUser = new Map<string, string[]>();
 
   for (const listing of listings) {
     // Leftover candidates just get picked up by tomorrow's cron run -- nothing here is left
@@ -114,6 +118,9 @@ export async function runStockSyncRule(
 
         if (result.success) {
           summary.delisted += 1;
+          const tokens = delistedByUser.get(listing.userId) ?? [];
+          tokens.push(`${platformListing.platform}::${platformListing.id}`);
+          delistedByUser.set(listing.userId, tokens);
           await prisma.automationEvent.create({
             data: {
               userId: listing.userId,
@@ -152,6 +159,10 @@ export async function runStockSyncRule(
         });
       }
     }
+  }
+
+  for (const [userId, tokens] of delistedByUser) {
+    await upsertAutomationRanNotification(userId, STOCK_SYNC_RULE, tokens);
   }
 
   return summary;
@@ -196,6 +207,9 @@ export async function runRelistStaleRule(
     },
     include: { listing: { include: { photos: true } } },
   });
+
+  // Collected during the loop, written once per user after it ends -- see lib/notifications.ts.
+  const relistedByUser = new Map<string, string[]>();
 
   for (const platformListing of candidates) {
     if (Date.now() >= deadline) break;
@@ -245,6 +259,9 @@ export async function runRelistStaleRule(
         },
       });
       summary.relisted += 1;
+      const tokens = relistedByUser.get(listing.userId) ?? [];
+      tokens.push(`${platformListing.platform}::${platformListing.id}`);
+      relistedByUser.set(listing.userId, tokens);
       await prisma.automationEvent.create({
         data: {
           userId: listing.userId,
@@ -291,6 +308,10 @@ export async function runRelistStaleRule(
         },
       });
     }
+  }
+
+  for (const [userId, tokens] of relistedByUser) {
+    await upsertAutomationRanNotification(userId, RELIST_STALE_RULE, tokens);
   }
 
   return summary;
