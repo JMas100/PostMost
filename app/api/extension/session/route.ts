@@ -15,13 +15,16 @@ export const maxDuration = 60;
 const SESSION_WINDOW_MS = 10 * 60 * 1000;
 const SESSION_MAX_PER_WINDOW = 10;
 
-// Phase 1 (Poshmark) proved the whole chain end-to-end against a real account. Phase 2 platforms
-// get added here once there's a real reason to believe browser-session connect helps them --
-// Mercari's password-based login was confirmed blocked by reCAPTCHA Enterprise (2026-08-26),
-// which is exactly the failure mode this mechanism sidesteps (the user's own browser passes the
-// CAPTCHA naturally; only the resulting session gets captured, no automated login attempt ever
-// happens).
-const SESSION_AUTH_PLATFORMS = new Set(["poshmark", "mercari"]);
+// Phase 1 (Poshmark) proved the whole chain end-to-end against a real account. Mercari was tried
+// here too (2026-08-26 password login found blocked by reCAPTCHA Enterprise) but a live test
+// (2026-09-03) found the deeper problem: Mercari runs Cloudflare Bot Management, which fingerprints
+// and 403s the headless-Playwright verification request itself -- valid captured cookies included
+// -- so this mechanism can't work there regardless of session validity. Not attempting to defeat
+// that detection; Mercari stays on the extension's tab-fill mechanism (runs in the seller's own
+// real browser, not a datacenter-hosted headless one, so it never trips this in the first place).
+// Only add a platform here once there's a real reason to believe browser-session connect can
+// actually clear its bot detection, not just its login form.
+const SESSION_AUTH_PLATFORMS = new Set(["poshmark"]);
 
 const MAX_COOKIES = 200;
 const MAX_BODY_BYTES = 200_000;
@@ -83,6 +86,7 @@ export async function POST(req: NextRequest) {
   // immediately, not silently connect and only be discovered the next time a job runs.
   const check = await adapter.verifySession(cookies as SessionCookie[]);
   if (check.status === "rejected") {
+    if (check.screenshotUrl) console.error(`[extension/session] ${platform} rejected -- screenshot: ${check.screenshotUrl}`);
     return NextResponse.json({ error: check.error }, { status: 422 });
   }
 

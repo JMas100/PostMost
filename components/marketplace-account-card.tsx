@@ -40,13 +40,13 @@ export type AccountView = {
 };
 
 // Must match SESSION_AUTH_PLATFORMS in app/api/extension/session/route.ts. Poshmark proved the
-// whole chain end-to-end; Mercari was added after confirming its password login is blocked by
-// reCAPTCHA Enterprise (2026-08-26) -- exactly the case this mechanism exists for.
-const SESSION_AUTH_PLATFORMS = new Set(["poshmark", "mercari"]);
+// whole chain end-to-end. Mercari was tried and removed (2026-09-03): it runs Cloudflare Bot
+// Management, which 403s the headless-Playwright verification request itself regardless of
+// cookie validity -- see that file's comment for the full finding.
+const SESSION_AUTH_PLATFORMS = new Set(["poshmark"]);
 
 const LOGIN_URLS: Record<string, string> = {
   poshmark: "https://poshmark.com/login",
-  mercari: "https://www.mercari.com/login/",
 };
 
 export interface PlatformStats {

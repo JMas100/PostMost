@@ -46,6 +46,7 @@ const CREDENTIAL_ERROR_PHRASES = [
 export interface LoginAttemptResult {
   success: boolean;
   error?: string;
+  screenshotUrl?: string;
 }
 
 /**
@@ -120,9 +121,27 @@ export async function authenticateWithSession(
   context: import("playwright-core").BrowserContext,
   page: import("playwright-core").Page,
   config: { loginUrl: string; listingUrl?: string; passwordSelector?: string },
-  cookies: SessionCookie[]
+  cookies: SessionCookie[],
+  platformId = "session-check"
 ): Promise<LoginAttemptResult> {
   await context.addCookies(cookies);
+  if (process.env.NODE_ENV !== "production") {
+    const landed = await context.cookies();
+    console.error(
+      `[automation-debug] ${platformId}: sent ${cookies.length} cookies, context now holds ${landed.length}: ${landed
+        .map((c) => `${c.name}@${c.domain}`)
+        .join(", ")}`
+    );
+  }
+  if (process.env.NODE_ENV !== "production") {
+    page.on("response", (res) => {
+      if (res.status() >= 400) console.error(`[automation-debug] ${platformId}: ${res.status()} ${res.request().method()} ${res.url()}`);
+    });
+    page.on("console", (msg) => {
+      if (msg.type() === "error") console.error(`[automation-debug] ${platformId} console error: ${msg.text()}`);
+    });
+  }
+
   // "networkidle" is too strict here -- confirmed live against Mercari, whose login page never
   // fully quiets down (persistent analytics/polling), so page.goto() with that wait condition
   // just times out and throws before the page state is ever inspected, regardless of whether
@@ -135,7 +154,8 @@ export async function authenticateWithSession(
 
   const loggedOut = (await page.locator(config.passwordSelector).count().catch(() => 0)) > 0;
   if (loggedOut) {
-    return { success: false, error: "The saved session has expired or was rejected — reconnect via the browser extension." };
+    const screenshotUrl = await captureFailureScreenshot(page, platformId);
+    return { success: false, error: "The saved session has expired or was rejected — reconnect via the browser extension.", screenshotUrl };
   }
   return { success: true };
 }
@@ -226,9 +246,9 @@ export async function verifySession(
     const page = await context.newPage();
     page.setDefaultTimeout(15_000);
     page.setDefaultNavigationTimeout(15_000);
-    const result = await authenticateWithSession(context, page, config, cookies);
+    const result = await authenticateWithSession(context, page, config, cookies, platformId);
     if (result.success) return { status: "verified" };
-    return { status: "rejected", error: result.error || "The saved session didn't leave the browser logged in" };
+    return { status: "rejected", error: result.error || "The saved session didn't leave the browser logged in", screenshotUrl: result.screenshotUrl };
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     if (message.includes("Timeout")) {
@@ -411,14 +431,28 @@ async function captureFailureScreenshot(
   platformId: string
 ): Promise<string | undefined> {
   try {
+    const bytes = await page.screenshot({ fullPage: true, type: "png" });
+    const key = `automation-debug/${platformId}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.png`;
+
     // Relative, not the "@/" alias -- this file also runs inside worker/ (a standalone service,
     // see worker/README.md), which doesn't have Next.js's path-alias resolution configured.
     const { isStorageConfigured, getStorage } = await import("../../storage");
-    if (!isStorageConfigured()) return undefined;
-    const bytes = await page.screenshot({ fullPage: true, type: "png" });
-    const key = `automation-debug/${platformId}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.png`;
-    const { url } = await getStorage().upload(key, bytes, "image/png");
-    return url;
+    if (isStorageConfigured()) {
+      const { url } = await getStorage().upload(key, bytes, "image/png");
+      return url;
+    }
+
+    // No object storage configured (typically local dev) -- write to disk instead of silently
+    // dropping the screenshot, since this is exactly when a human is most likely watching the
+    // logs trying to diagnose an unverified-selector failure in real time.
+    const fs = await import("fs/promises");
+    const os = await import("os");
+    const path = await import("path");
+    const filePath = path.join(os.tmpdir(), "postmost-automation-debug", key);
+    await fs.mkdir(path.dirname(filePath), { recursive: true });
+    await fs.writeFile(filePath, bytes);
+    console.error(`[automation-debug] ${platformId} failure screenshot: ${filePath}`);
+    return filePath;
   } catch {
     // Screenshot capture is best-effort — never let it mask the real failure reason.
     return undefined;

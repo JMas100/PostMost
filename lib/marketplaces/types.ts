@@ -59,8 +59,10 @@ export interface OAuthTokenResult {
 export type CredentialCheckResult =
   /** The login actually worked. */
   | { status: "verified" }
-  /** The login form ran and rejected these credentials -- safe to block saving on this. */
-  | { status: "rejected"; error: string }
+  /** The login form ran and rejected these credentials -- safe to block saving on this.
+   *  screenshotUrl (best-effort, may be absent) is a full-page capture at the point of
+   *  rejection -- an R2 URL in production, a local temp-file path in dev. */
+  | { status: "rejected"; error: string; screenshotUrl?: string }
   /** Couldn't reach a verdict either way (Playwright unavailable, a crash, a timeout, likely
    *  bot-detection). This is NOT evidence the credentials are wrong -- callers should let the
    *  user save anyway rather than block them on an infrastructure problem. */
