@@ -70,38 +70,59 @@ export async function processPendingCrossPostJobs(
     reclaimed: await reclaimStuckJobs(listingId),
   };
 
-  const candidates = await prisma.crossPostJob.findMany({
-    where: {
-      status: "PENDING",
-      nextRunAt: { lte: new Date() },
-      ...(listingId ? { listingId } : {}),
-    },
-    include: { listing: { include: { photos: true } } },
-    orderBy: { createdAt: "asc" },
-    take: 100,
-  });
+  // Claim up to 100 eligible jobs in one atomic statement using FOR UPDATE SKIP LOCKED, instead
+  // of selecting a batch and then racing separate updateMany calls per row -- with
+  // concurrency: 3 (see lib/inngest/functions.ts), the old approach had all 3 invocations select
+  // the same top-100 PENDING rows and fight over claiming each one (two of three always losing,
+  // claim.count === 0). SKIP LOCKED makes each invocation skip rows another one already has
+  // locked, so every invocation gets a disjoint batch from the start -- no wasted claims.
+  const claimed = await prisma.$queryRaw<{ id: string }[]>(Prisma.sql`
+    UPDATE "CrossPostJob"
+    SET status = 'RUNNING', "lockedAt" = now(), "startedAt" = now()
+    WHERE id IN (
+      SELECT id FROM "CrossPostJob"
+      WHERE status = 'PENDING' AND "nextRunAt" <= now()
+      ${listingId ? Prisma.sql`AND "listingId" = ${listingId}` : Prisma.empty}
+      ORDER BY "createdAt" ASC
+      LIMIT 100
+      FOR UPDATE SKIP LOCKED
+    )
+    RETURNING id
+  `);
+
+  const candidates = claimed.length
+    ? await prisma.crossPostJob.findMany({
+        where: { id: { in: claimed.map((c) => c.id) } },
+        include: { listing: { include: { photos: true } } },
+        orderBy: { createdAt: "asc" },
+      })
+    : [];
 
   // Collected during the loop, written once at the end -- notifying per job would tell a seller
   // about a failure at the exact moment a retry might still have fixed it (see lib/notifications.ts).
   const notifications = new NotificationCollector();
 
-  for (const job of candidates) {
+  for (let i = 0; i < candidates.length; i++) {
+    const job = candidates[i];
     if (!job.listing) continue;
 
-    // Never claim a job we might not have time to finish -- a batch that runs past the
+    // Never process a job we might not have time to finish -- a batch that runs past the
     // function's real ceiling gets hard-killed mid-flight, leaving whatever job was RUNNING
-    // orphaned indefinitely (confirmed live in production). Leaving it PENDING instead means
-    // the next invocation (cron backstop, or the next real-time trigger) just picks it up.
-    if (Date.now() >= deadline) break;
+    // orphaned indefinitely (confirmed live in production). Every remaining job here was already
+    // claimed (RUNNING) by the atomic claim above, so release the untouched tail back to PENDING
+    // instead of leaving it to the 5-minute stuck-job reclaim -- the next invocation (cron
+    // backstop, or the next real-time trigger) picks it up immediately this way, same as before
+    // this batch-claim change.
+    if (Date.now() >= deadline) {
+      const remainingIds = candidates.slice(i).map((c) => c.id);
+      await prisma.crossPostJob.updateMany({
+        where: { id: { in: remainingIds } },
+        data: { status: "PENDING", lockedAt: null, startedAt: null },
+      });
+      break;
+    }
 
     const adapter = getAdapter(job.platform);
-
-    // Atomic claim: only one worker can flip a PENDING row to RUNNING.
-    const claim = await prisma.crossPostJob.updateMany({
-      where: { id: job.id, status: "PENDING" },
-      data: { status: "RUNNING", lockedAt: new Date(), startedAt: new Date() },
-    });
-    if (claim.count === 0) continue;
 
     summary.processed += 1;
     const attempts = job.attempts + 1;
