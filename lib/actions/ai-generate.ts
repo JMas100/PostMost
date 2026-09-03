@@ -2,10 +2,10 @@
 
 import { generateListingFromImage, GeneratedListing } from "@/lib/ai/generate-listing";
 import { requireWorkspace } from "@/lib/auth-helpers";
-import { canUseAI, incrementAIUsage } from "@/lib/actions/usage";
+import { reserveAICredit, releaseAICredit } from "@/lib/actions/usage";
 import { checkRateLimit } from "@/lib/rate-limit";
 
-// Separate from the monthly plan quota (canUseAI/incrementAIUsage below) -- that caps total
+// Separate from the monthly plan quota (reserveAICredit/releaseAICredit below) -- that caps total
 // spend, this caps how fast it can be spent, so a script hammering this action can't burn a
 // whole month's OpenAI budget in seconds before the quota check even has a chance to matter
 // for the *next* billing cycle's experience.
@@ -30,15 +30,18 @@ export async function generateListingFromPhoto(imageBase64: string): Promise<{
       return { success: false, error: "You're generating too quickly. Please wait a bit and try again." };
     }
 
-    const usage = await canUseAI(userId);
-    if (!usage.allowed) {
-      return { success: false, error: usage.reason };
+    const reserved = await reserveAICredit(userId);
+    if (!reserved.allowed) {
+      return { success: false, error: reserved.reason };
     }
 
-    const listing = await generateListingFromImage(imageBase64);
-    await incrementAIUsage(userId);
-
-    return { success: true, listing };
+    try {
+      const listing = await generateListingFromImage(imageBase64);
+      return { success: true, listing };
+    } catch (err) {
+      await releaseAICredit(userId);
+      throw err;
+    }
   } catch (err) {
     const message = err instanceof Error ? err.message : "Failed to analyze image";
     return { success: false, error: message };

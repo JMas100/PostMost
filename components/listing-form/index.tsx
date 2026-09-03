@@ -150,6 +150,11 @@ export function ListingForm({ mode = "create", draftId, initialData, templates =
   }
 
   async function analyzeWithAI() {
+    // The button's own `disabled={analyzing}` doesn't close this by itself -- a real double-click
+    // can fire both native click events before React re-renders the disabled attribute, sending
+    // two concurrent (billed) OpenAI calls for the same photo. This synchronous check doesn't
+    // wait on a render.
+    if (analyzing) return;
     const firstImage = photoUrls.find(
       (u) => u.trim().startsWith("http") || u.trim().startsWith("data:")
     );

@@ -5,8 +5,8 @@ import { authOptions } from "@/lib/auth";
 import { requireWorkspace } from "@/lib/auth-helpers";
 import {
   canRemoveBackground,
-  canUseAI,
-  incrementAIUsage,
+  reserveAICredit,
+  releaseAICredit,
   incrementBgRemovalUsage,
 } from "@/lib/actions/usage";
 import { BgRemovalTier } from "@/lib/plans";
@@ -45,14 +45,14 @@ async function withAiUsage<T>(fn: () => Promise<T>): Promise<{ success: true; re
     return { success: false, error: "You're doing that too quickly. Please wait a bit and try again." };
   }
 
-  const usage = await canUseAI(userId);
-  if (!usage.allowed) return { success: false, error: usage.reason || "AI usage limit reached" };
+  const reserved = await reserveAICredit(userId);
+  if (!reserved.allowed) return { success: false, error: reserved.reason || "AI usage limit reached" };
 
   try {
     const result = await fn();
-    await incrementAIUsage(userId);
     return { success: true, result };
   } catch (err) {
+    await releaseAICredit(userId);
     const message = err instanceof Error ? err.message : "AI request failed";
     return { success: false, error: message };
   }

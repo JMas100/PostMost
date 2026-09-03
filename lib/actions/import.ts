@@ -4,8 +4,8 @@ import { revalidatePath } from "next/cache";
 import { parse } from "papaparse";
 import { prisma } from "@/lib/prisma";
 import { listingSchema, ListingFormData } from "@/lib/schemas/listing";
-import { canAddActiveInventory, canImportCSV } from "@/lib/actions/usage";
-import { safeFetchText, SafeFetchError } from "@/lib/safe-fetch";
+import { getActiveInventoryStatus, canImportCSV } from "@/lib/actions/usage";
+import { safeFetchText, SafeFetchError, MAX_RESPONSE_BYTES } from "@/lib/safe-fetch";
 import { requireWorkspace } from "@/lib/auth-helpers";
 
 function normalizeKey(key: string): string {
@@ -116,6 +116,94 @@ export interface ImportResult {
   errors: { row: number; message: string }[];
 }
 
+async function runPublishImport(rows: Record<string, string>[], userId: string, aliases: FieldAliasMap): Promise<ImportResult> {
+  const result: ImportResult = { created: 0, drafted: 0, errors: [] };
+
+  // Fetched once instead of re-querying (and re-fetching the plan) before every single row --
+  // quantity is always >= 1 for a validated row (listingSchema.quantity has .min(1).default(1)),
+  // so every successful create below counts as exactly one more active listing against the same
+  // running total, no per-row DB round trip needed to know that.
+  const inventory = await getActiveInventoryStatus(userId);
+  let activeCount = inventory.count;
+
+  for (let i = 0; i < rows.length; i++) {
+    const rowNumber = i + 2; // header is row 1
+    const data = rowToListingFormData(rows[i], aliases);
+    const { photos, tags, ...rest } = data;
+    const photoUrls = photos && photos.length > 0 ? photos : [];
+
+    const parsedData = listingSchema.safeParse({ ...rest, photos: photoUrls, tags } as ListingFormData);
+    if (!parsedData.success) {
+      result.errors.push({ row: rowNumber, message: "Missing or invalid required fields" });
+      continue;
+    }
+
+    if (inventory.limit !== -1 && activeCount >= inventory.limit) {
+      result.errors.push({
+        row: rowNumber,
+        message: `You've reached your ${inventory.limit}-item active inventory limit on the ${inventory.planName} plan.`,
+      });
+      continue;
+    }
+
+    await prisma.listing.create({
+      data: {
+        ...parsedData.data,
+        tags: parsedData.data.tags || null,
+        userId,
+        status: "PUBLISHED",
+        isDraft: false,
+        photos: {
+          create: parsedData.data.photos.map((url, index) => ({ url, order: index })),
+        },
+      },
+    });
+    activeCount += 1;
+    result.created += 1;
+  }
+
+  return result;
+}
+
+async function runDraftImport(rows: Record<string, string>[], userId: string, aliases: FieldAliasMap): Promise<ImportResult> {
+  // Batched instead of one create() per row: createManyAndReturn for the listings themselves
+  // (no nested-relation support, so photos can't ride along in the same call), then a single
+  // createMany for every row's photos at once, using the ids just returned -- two round trips
+  // total instead of up to N, N being the row count.
+  const rowsData = rows.map((row) => rowToListingFormData(row, aliases));
+
+  const created = await prisma.listing.createManyAndReturn({
+    data: rowsData.map((data) => ({
+      title: data.title || "Untitled draft",
+      description: data.description || "",
+      condition: data.condition || "",
+      category: data.category || "",
+      brand: data.brand || null,
+      size: data.size || null,
+      color: data.color || null,
+      material: data.material || null,
+      price: typeof data.price === "number" ? data.price : 0,
+      cost: typeof data.cost === "number" ? data.cost : null,
+      quantity: typeof data.quantity === "number" ? data.quantity : 1,
+      sku: data.sku || null,
+      tags: data.tags || null,
+      userId,
+      status: "DRAFT",
+      isDraft: true,
+    })),
+    select: { id: true },
+  });
+
+  const photoRows = created.flatMap((listing, i) =>
+    (rowsData[i].photos || []).map((url, order) => ({ listingId: listing.id, url, order }))
+  );
+  if (photoRows.length > 0) {
+    await prisma.photo.createMany({ data: photoRows });
+  }
+
+  return { created: 0, drafted: created.length, errors: [] };
+}
+
 async function runImport(
   csvText: string,
   userId: string,
@@ -133,70 +221,9 @@ async function runImport(
     return { created: 0, drafted: 0, errors: [{ row: 0, message: "Failed to parse CSV." }] };
   }
 
-  const result: ImportResult = { created: 0, drafted: 0, errors: [] };
-
-  for (let i = 0; i < parsed.data.length; i++) {
-    const row = parsed.data[i];
-    const rowNumber = i + 2; // header is row 1
-    const data = rowToListingFormData(row, aliases);
-
-    const { photos, tags, ...rest } = data;
-    const photoUrls = photos && photos.length > 0 ? photos : [];
-
-    if (options.publish) {
-      const parsedData = listingSchema.safeParse({ ...rest, photos: photoUrls, tags } as ListingFormData);
-      if (!parsedData.success) {
-        result.errors.push({ row: rowNumber, message: "Missing or invalid required fields" });
-        continue;
-      }
-
-      const inventory = await canAddActiveInventory(userId);
-      if (!inventory.allowed) {
-        result.errors.push({ row: rowNumber, message: inventory.reason || "Active inventory limit reached" });
-        continue;
-      }
-
-      await prisma.listing.create({
-        data: {
-          ...parsedData.data,
-          tags: parsedData.data.tags || null,
-          userId,
-          status: "PUBLISHED",
-          isDraft: false,
-          photos: {
-            create: parsedData.data.photos.map((url, index) => ({ url, order: index })),
-          },
-        },
-      });
-      result.created += 1;
-    } else {
-      const title = data.title || "Untitled draft";
-      await prisma.listing.create({
-        data: {
-          title,
-          description: data.description || "",
-          condition: data.condition || "",
-          category: data.category || "",
-          brand: data.brand || null,
-          size: data.size || null,
-          color: data.color || null,
-          material: data.material || null,
-          price: typeof data.price === "number" ? data.price : 0,
-          cost: typeof data.cost === "number" ? data.cost : null,
-          quantity: typeof data.quantity === "number" ? data.quantity : 1,
-          sku: data.sku || null,
-          tags: data.tags || null,
-          userId,
-          status: "DRAFT",
-          isDraft: true,
-          photos: {
-            create: photoUrls.map((url, index) => ({ url, order: index })),
-          },
-        },
-      });
-      result.drafted += 1;
-    }
-  }
+  const result = options.publish
+    ? await runPublishImport(parsed.data, userId, aliases)
+    : await runDraftImport(parsed.data, userId, aliases);
 
   revalidatePath("/listings");
   revalidatePath("/listings/drafts");
@@ -210,6 +237,13 @@ export async function importCSV(
   options: { publish?: boolean; source?: ImportSource } = {}
 ): Promise<ImportResult> {
   const { workspaceUserId: userId } = await requireWorkspace();
+
+  // The URL path (importFromUrl below) already caps at this size via safeFetchText -- this path
+  // (pasted/uploaded text handed straight to a server action) had no bound at all, so a large
+  // paste got parsed in full with no limit.
+  if (Buffer.byteLength(csvText, "utf8") > MAX_RESPONSE_BYTES) {
+    return { created: 0, drafted: 0, errors: [{ row: 0, message: `CSV is too large (max ${MAX_RESPONSE_BYTES / (1024 * 1024)}MB).` }] };
+  }
 
   const gate = await canImportCSV(userId);
   if (!gate.allowed) {

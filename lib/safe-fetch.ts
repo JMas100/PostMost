@@ -2,7 +2,7 @@ import dns from "node:dns/promises";
 import net from "node:net";
 import { Agent, fetch as undiciFetch } from "undici";
 
-const MAX_RESPONSE_BYTES = 5 * 1024 * 1024; // 5MB
+export const MAX_RESPONSE_BYTES = 5 * 1024 * 1024; // 5MB
 const FETCH_TIMEOUT_MS = 10_000;
 
 export class SafeFetchError extends Error {}

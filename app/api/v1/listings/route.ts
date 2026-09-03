@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import crypto from "crypto";
 import { prisma } from "@/lib/prisma";
 import { listingSchema, ListingFormData } from "@/lib/schemas/listing";
-import { canCreateListing, incrementListingUsage } from "@/lib/actions/usage";
+import { reserveListingUsage, releaseListingUsage } from "@/lib/actions/usage";
 import { resolveWorkspaceForUser, WorkspaceContext } from "@/lib/auth-helpers";
 import { logAudit } from "@/lib/audit";
 
@@ -27,24 +27,29 @@ async function workspaceFromKey(request: Request): Promise<WorkspaceContext | nu
 }
 
 async function createFromFormData(ctx: WorkspaceContext, data: ListingFormData) {
-  const usage = await canCreateListing(ctx.workspaceUserId);
-  if (!usage.allowed) {
-    return { error: usage.reason || "Listing limit reached" };
+  const reserved = await reserveListingUsage(ctx.workspaceUserId);
+  if (!reserved.allowed) {
+    return { error: reserved.reason || "Listing limit reached" };
   }
   const { photos, tags, ...rest } = data;
-  const listing = await prisma.listing.create({
-    data: {
-      ...rest,
-      tags: tags || null,
-      userId: ctx.workspaceUserId,
-      status: "PUBLISHED",
-      isDraft: false,
-      photos: {
-        create: photos.map((url, index) => ({ url, order: index })),
+  let listing;
+  try {
+    listing = await prisma.listing.create({
+      data: {
+        ...rest,
+        tags: tags || null,
+        userId: ctx.workspaceUserId,
+        status: "PUBLISHED",
+        isDraft: false,
+        photos: {
+          create: photos.map((url, index) => ({ url, order: index })),
+        },
       },
-    },
-  });
-  await incrementListingUsage(ctx.workspaceUserId);
+    });
+  } catch (err) {
+    await releaseListingUsage(ctx.workspaceUserId);
+    throw err;
+  }
   await logAudit(ctx, { action: "listing.created", targetType: "Listing", targetId: listing.id, message: `Created "${listing.title}" via the API` });
   return { success: true };
 }

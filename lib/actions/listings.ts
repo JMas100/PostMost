@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { listingSchema, ListingFormData } from "@/lib/schemas/listing";
-import { canCreateListing, incrementListingUsage } from "@/lib/actions/usage";
+import { reserveListingUsage, releaseListingUsage } from "@/lib/actions/usage";
 import { track } from "@/lib/analytics/track";
 import { requireWorkspace, requireRole } from "@/lib/auth-helpers";
 import { queueRepriceJobs } from "@/lib/actions/crosspost";
@@ -54,26 +54,31 @@ export async function createListing(data: ListingFormData) {
   }
   const { photos, tags, ...rest } = parsed.data;
 
-  const usage = await canCreateListing(workspaceUserId);
-  if (!usage.allowed) {
-    return { error: usage.reason };
+  const reserved = await reserveListingUsage(workspaceUserId);
+  if (!reserved.allowed) {
+    return { error: reserved.reason };
   }
 
-  const listing = await prisma.listing.create({
-    data: {
-      ...rest,
-      tags: tags || null,
-      userId: workspaceUserId,
-      status: "PUBLISHED",
-      isDraft: false,
-      photos: {
-        create: photos.map((url, index) => ({ url, order: index })),
+  let listing;
+  try {
+    listing = await prisma.listing.create({
+      data: {
+        ...rest,
+        tags: tags || null,
+        userId: workspaceUserId,
+        status: "PUBLISHED",
+        isDraft: false,
+        photos: {
+          create: photos.map((url, index) => ({ url, order: index })),
+        },
       },
-    },
-    include: { photos: true, platformListings: true },
-  });
+      include: { photos: true, platformListings: true },
+    });
+  } catch (err) {
+    await releaseListingUsage(workspaceUserId);
+    throw err;
+  }
 
-  await incrementListingUsage(workspaceUserId);
   await trackListingCompleted(actingUserId, workspaceUserId, listing.id);
   await logAudit(
     { workspaceUserId, actingUserId },
@@ -176,29 +181,34 @@ export async function publishDraft(id: string, data: ListingFormData) {
   }
   const { photos, tags, ...rest } = parsed.data;
 
-  const usage = await canCreateListing(workspaceUserId);
-  if (!usage.allowed) {
-    return { error: usage.reason };
+  const reserved = await reserveListingUsage(workspaceUserId);
+  if (!reserved.allowed) {
+    return { error: reserved.reason };
   }
 
-  const listing = await prisma.$transaction(async (tx) => {
-    await tx.photo.deleteMany({ where: { listingId: id } });
-    return tx.listing.update({
-      where: { id },
-      data: {
-        ...rest,
-        tags: tags || null,
-        isDraft: false,
-        status: "PUBLISHED",
-        photos: {
-          create: photos.map((url, index) => ({ url, order: index })),
+  let listing;
+  try {
+    listing = await prisma.$transaction(async (tx) => {
+      await tx.photo.deleteMany({ where: { listingId: id } });
+      return tx.listing.update({
+        where: { id },
+        data: {
+          ...rest,
+          tags: tags || null,
+          isDraft: false,
+          status: "PUBLISHED",
+          photos: {
+            create: photos.map((url, index) => ({ url, order: index })),
+          },
         },
-      },
-      include: { photos: true, platformListings: true },
+        include: { photos: true, platformListings: true },
+      });
     });
-  });
+  } catch (err) {
+    await releaseListingUsage(workspaceUserId);
+    throw err;
+  }
 
-  await incrementListingUsage(workspaceUserId);
   await trackListingCompleted(actingUserId, workspaceUserId, listing.id);
   await logAudit(
     { workspaceUserId, actingUserId },
