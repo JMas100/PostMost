@@ -23,7 +23,7 @@ export async function registerUser(email: string, password: string, name?: strin
   if (existing) {
     return { error: "User already exists" };
   }
-  const hashed = await bcrypt.hash(password, 10);
+  const hashed = await bcrypt.hash(password, 12);
   const user = await prisma.user.create({
     data: { email: normalizedEmail, password: hashed, name: name || null },
   });

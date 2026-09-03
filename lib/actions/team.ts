@@ -220,7 +220,7 @@ export async function acceptTeamInvite(token: string, password: string) {
     return { error: "An account for this email already exists. Log in and accept the invite from there instead." };
   }
 
-  const hashed = await bcrypt.hash(password, 10);
+  const hashed = await bcrypt.hash(password, 12);
   const user = await prisma.user.create({
     data: {
       email: member.email,

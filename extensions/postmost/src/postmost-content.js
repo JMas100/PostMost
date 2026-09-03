@@ -15,7 +15,11 @@
   window.postMessage({ source: "postmost-extension", type: "READY" }, "*");
 
   window.addEventListener("message", async (event) => {
-    if (event.source !== window) return;
+    // event.source === window already means this was posted by code running in this same page
+    // (not a cross-frame message) -- checking event.origin too is redundant defense-in-depth,
+    // not a stronger guarantee, since this content script only ever runs on origins matching
+    // manifest.json's content_scripts.matches in the first place.
+    if (event.source !== window || event.origin !== location.origin) return;
     const data = event.data;
     if (!data || data.source !== "postmost") return;
 

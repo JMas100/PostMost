@@ -11,6 +11,11 @@ const TOKEN_TTL_MS = 60 * 60 * 1000; // 1 hour
 const RESET_WINDOW_MS = 60 * 60 * 1000;
 const RESET_MAX_PER_EMAIL = 5;
 const RESET_MAX_PER_IP = 10;
+// resetPassword (the token-redemption step) isn't guessable in practice -- tokens are 256-bit --
+// but it had no limiter at all before, unlike the request step above. This is defense-in-depth,
+// not closing a practically exploitable hole.
+const RESET_SUBMIT_WINDOW_MS = 60 * 60 * 1000;
+const RESET_SUBMIT_MAX_PER_IP = 20;
 
 function hashToken(token: string): string {
   return crypto.createHash("sha256").update(token).digest("hex");
@@ -56,12 +61,20 @@ export async function resetPassword(token: string, newPassword: string) {
     return { error: "Password must be at least 8 characters" };
   }
 
+  const ip = await getClientIp();
+  if (ip) {
+    const ipCheck = await checkRateLimit(`reset-submit-ip:${ip}`, { windowMs: RESET_SUBMIT_WINDOW_MS, max: RESET_SUBMIT_MAX_PER_IP });
+    if (!ipCheck.allowed) {
+      return { error: "Too many attempts. Please wait a bit and try again." };
+    }
+  }
+
   const record = await prisma.passwordResetToken.findUnique({ where: { tokenHash: hashToken(token) } });
   if (!record || record.usedAt || record.expiresAt < new Date()) {
     return { error: "This reset link is invalid or has expired. Request a new one." };
   }
 
-  const hashed = await bcrypt.hash(newPassword, 10);
+  const hashed = await bcrypt.hash(newPassword, 12);
   await prisma.$transaction([
     prisma.user.update({ where: { id: record.userId }, data: { password: hashed } }),
     prisma.passwordResetToken.update({ where: { id: record.id }, data: { usedAt: new Date() } }),

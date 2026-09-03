@@ -8,6 +8,17 @@ import { checkRateLimit } from "@/lib/rate-limit";
 const SYNC_WINDOW_MS = 10 * 60 * 1000;
 const SYNC_MAX_PER_WINDOW = 120;
 
+// soldPrice/soldFees/soldShippingCost are inherently client-observed (scraped off the marketplace
+// page, no ground-truth API to check them against for most platforms) and only ever affect the
+// reporting user's own analytics -- ownership scoping (the listing lookup below) already prevents
+// this from touching anyone else's data. This is just a sanity bound against garbage/hostile
+// values (negative, NaN/Infinity, or absurd) corrupting one's own profit numbers, not an attempt
+// at real verification.
+const MAX_SANE_PRICE = 1_000_000;
+function sanePrice(value: unknown): number | undefined {
+  return typeof value === "number" && Number.isFinite(value) && value >= 0 && value <= MAX_SANE_PRICE ? value : undefined;
+}
+
 export async function POST(req: NextRequest) {
   const session = await getServerSession(authOptions);
   const userId = session?.user?.id;
@@ -44,9 +55,9 @@ export async function POST(req: NextRequest) {
   }
 
   if (type === "sold") {
-    const soldPrice = typeof body.soldPrice === "number" ? body.soldPrice : undefined;
-    const soldFees = typeof body.soldFees === "number" ? body.soldFees : undefined;
-    const soldShippingCost = typeof body.soldShippingCost === "number" ? body.soldShippingCost : undefined;
+    const soldPrice = sanePrice(body.soldPrice);
+    const soldFees = sanePrice(body.soldFees);
+    const soldShippingCost = sanePrice(body.soldShippingCost);
     const sale = soldPrice !== undefined ? { soldPrice, soldFees, soldShippingCost } : undefined;
     await markListingSold(listingId, platform, sale);
     return NextResponse.json({ success: true, type: "sold" });
