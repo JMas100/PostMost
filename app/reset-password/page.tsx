@@ -26,14 +26,21 @@ function ResetPasswordForm() {
       return;
     }
     setLoading(true);
-    const result = await resetPassword(token, password);
-    setLoading(false);
-    if (result.error) {
-      toast.error(result.error);
-      return;
+    try {
+      const result = await resetPassword(token, password);
+      if (result.error) {
+        toast.error(result.error);
+        return;
+      }
+      toast.success("Password updated. Sign in with your new password.");
+      router.push("/login");
+    } catch {
+      // An unhandled rejection here previously left the button stuck on "Updating..." forever,
+      // with no error and no way to retry -- exactly what surfaced a real server-side bug live.
+      toast.error("Something went wrong. Please try again.");
+    } finally {
+      setLoading(false);
     }
-    toast.success("Password updated. Sign in with your new password.");
-    router.push("/login");
   }
 
   if (!token) {

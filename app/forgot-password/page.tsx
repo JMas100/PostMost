@@ -17,9 +17,12 @@ export default function ForgotPasswordPage() {
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setLoading(true);
-    await requestPasswordReset(email);
-    setLoading(false);
-    setSent(true);
+    try {
+      await requestPasswordReset(email);
+      setSent(true);
+    } finally {
+      setLoading(false);
+    }
   }
 
   return (
