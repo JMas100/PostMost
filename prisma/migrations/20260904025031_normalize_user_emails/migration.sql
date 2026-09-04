@@ -1,0 +1,12 @@
+-- Backfill: normalizeEmail() (lib/email.ts -- lowercase + trim) was added 2026-08-24 and applied
+-- going forward to every login/signup lookup, but no migration ever backfilled rows created
+-- before that date. Any such account with case/whitespace variation in its stored email became
+-- silently unreachable via login (the normalized lookup no longer matches the stored row) --
+-- confirmed live on one real account (JMas100@yahoo.com, fixed by hand on 2026-09-03).
+--
+-- This is a plain UPDATE, not an upsert/merge: if two existing rows would collide once both are
+-- normalized to the same value, this fails outright on the "User_email_key" unique constraint
+-- instead of silently merging or dropping one -- exactly the desired behavior, since a real
+-- collision needs a human decision about which account is the intended one, not an automatic
+-- pick made by a migration.
+UPDATE "User" SET email = lower(trim(email)) WHERE email <> lower(trim(email));
