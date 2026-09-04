@@ -21,6 +21,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { PlatformLogo } from "@/components/platform-logo";
+import { AutoDelistToggle } from "@/components/automation/auto-delist-toggle";
 import { toast } from "sonner";
 import { ExternalLink, Link2, Unlink, ShieldCheck } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -37,6 +38,7 @@ export type AccountView = {
   updatedAt: Date;
   hasCredentials: boolean;
   authMethod: string;
+  autoDelistEnabled: boolean;
 };
 
 // Must match SESSION_AUTH_PLATFORMS in app/api/extension/session/route.ts. Poshmark proved the
@@ -90,6 +92,15 @@ export function MarketplaceAccountCard({ platform, account, stats, canManage = t
           ) : null}
         </div>
       </div>
+      {account && canManage && (
+        <div className="flex items-center justify-between border-t pt-3 text-sm">
+          <span className="text-muted-foreground">Auto-delist</span>
+          <div className="flex items-center gap-2">
+            <span className="text-xs font-medium text-muted-foreground">{account.autoDelistEnabled ? "On" : "Off"}</span>
+            <AutoDelistToggle accountId={account.id} initialEnabled={account.autoDelistEnabled} />
+          </div>
+        </div>
+      )}
       {account && stats && (
         <div className="grid grid-cols-4 gap-2 border-t pt-3 text-center text-sm">
           <div>

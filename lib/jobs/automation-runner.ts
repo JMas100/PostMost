@@ -56,6 +56,17 @@ export async function runStockSyncRule(
     include: { platformListings: { where: { status: "POSTED" } } },
   });
 
+  // Fetched once for every user in this run, not per listing/platform -- this loop can span many
+  // users at once, unlike the single-listing callers in inventory.ts/inventory-sync.ts.
+  const autoDelistDisabled = new Set(
+    (
+      await prisma.marketplaceAccount.findMany({
+        where: { userId: { in: userIds }, autoDelistEnabled: false },
+        select: { userId: true, platform: true },
+      })
+    ).map((a) => `${a.userId}:${a.platform}`)
+  );
+
   // Collected during the loop, written once per user after it ends -- see lib/notifications.ts.
   const delistedByUser = new Map<string, string[]>();
 
@@ -65,6 +76,10 @@ export async function runStockSyncRule(
     if (Date.now() >= deadline) break;
     summary.listingsProcessed += 1;
     for (const platformListing of listing.platformListings) {
+      // The seller explicitly opted this platform out of auto-delist (Marketplaces page toggle)
+      // -- leave it exactly as-is, not a failure, nothing to log or retry.
+      if (autoDelistDisabled.has(`${listing.userId}:${platformListing.platform}`)) continue;
+
       const adapter = getAdapter(platformListing.platform);
       if (!adapter?.delist || !platformListing.externalId) {
         summary.failed += 1;

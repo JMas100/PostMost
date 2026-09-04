@@ -69,6 +69,15 @@ export async function markListingSold(listingId: string, soldPlatform?: string, 
   const results = [];
   const jobsToQueue: { userId: string; listingId: string; platform: string; type: "DELIST"; status: "PENDING" }[] = [];
 
+  const autoDelistDisabled = new Set(
+    (
+      await prisma.marketplaceAccount.findMany({
+        where: { userId, platform: { in: listing.platformListings.map((p) => p.platform) }, autoDelistEnabled: false },
+        select: { platform: true },
+      })
+    ).map((a) => a.platform)
+  );
+
   for (const platformListing of listing.platformListings) {
     if (platformListing.id === profitPlatformListing?.id) continue;
 
@@ -78,6 +87,10 @@ export async function markListingSold(listingId: string, soldPlatform?: string, 
     // still live and sellable, risking a double-sale. FAILED keeps it visible in "Needs
     // attention" and eligible for retry, exactly like a failed cross-post.
     if (platformListing.status !== "POSTED") continue;
+
+    // The seller explicitly opted this platform out of auto-delist (Marketplaces page toggle) --
+    // leave it exactly as-is, not a failure, nothing to log or retry.
+    if (autoDelistDisabled.has(platformListing.platform)) continue;
 
     const adapter = getAdapter(platformListing.platform);
     const accountData = platformListing.externalId ? await getAccountData(userId, platformListing.platform) : null;

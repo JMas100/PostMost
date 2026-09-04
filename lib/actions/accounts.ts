@@ -173,6 +173,36 @@ export async function disconnectMarketplaceAccount(accountId: string) {
   return { success: true };
 }
 
+/** Per-account override for whether auto-delist triggers (a sale on another platform, or
+ *  stock-sync hitting quantity 0) touch this platform's listings at all -- see the loops in
+ *  lib/actions/inventory.ts, lib/jobs/inventory-sync.ts, and lib/jobs/automation-runner.ts, all
+ *  of which skip a platform entirely (no status change, no FAILED, no automation-log entry) when
+ *  this is false, rather than treating it as a failure. */
+export async function setAutoDelistEnabled(accountId: string, enabled: boolean) {
+  const ctx = await requireWorkspace();
+  requireRole(ctx, ["OWNER", "ADMIN"]);
+
+  const account = await prisma.marketplaceAccount.findFirst({ where: { id: accountId, userId: ctx.workspaceUserId } });
+  const result = await prisma.marketplaceAccount.updateMany({
+    where: { id: accountId, userId: ctx.workspaceUserId },
+    data: { autoDelistEnabled: enabled },
+  });
+  if (result.count === 0) {
+    return { error: "Account not found" };
+  }
+  if (account) {
+    await logAudit(ctx, {
+      action: "marketplace.auto_delist_toggled",
+      targetType: "MarketplaceAccount",
+      targetId: accountId,
+      message: `${enabled ? "Enabled" : "Disabled"} auto-delist for ${account.platform} (${account.displayName})`,
+    });
+  }
+
+  revalidatePath("/marketplaces");
+  return { success: true };
+}
+
 export async function getAccountForPlatform(platform: string) {
   const { workspaceUserId } = await requireWorkspace();
   const account = await prisma.marketplaceAccount.findFirst({

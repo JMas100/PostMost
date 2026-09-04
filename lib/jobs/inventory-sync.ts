@@ -55,7 +55,24 @@ export async function syncInventorySale(platform: string, externalId: string, us
   const results: InventorySyncResult[] = [];
   const jobsToQueue: { userId: string; listingId: string; platform: string; type: "DELIST"; status: "PENDING" }[] = [];
 
+  const autoDelistDisabled = new Set(
+    (
+      await prisma.marketplaceAccount.findMany({
+        where: {
+          userId: soldListing.listing.userId,
+          platform: { in: otherListings.map((p) => p.platform) },
+          autoDelistEnabled: false,
+        },
+        select: { platform: true },
+      })
+    ).map((a) => a.platform)
+  );
+
   for (const platformListing of otherListings) {
+    // The seller explicitly opted this platform out of auto-delist (Marketplaces page toggle) --
+    // leave it exactly as-is, not a failure, nothing to log or retry.
+    if (autoDelistDisabled.has(platformListing.platform)) continue;
+
     const adapter = getAdapter(platformListing.platform);
     if (!adapter || !adapter.delist) {
       results.push({

@@ -119,6 +119,11 @@ model MarketplaceAccount {
   /// connected account, not one shared secret for the whole app, so a single leaked secret can
   /// only forge sale events for that one account's own listings, not every user's.
   webhookSecret String   @default(cuid())
+  /// When false, this account's listings are skipped by every auto-delist trigger (a sale on
+  /// another platform, or stock-sync hitting quantity 0) -- left exactly as-is, not marked
+  /// FAILED. Defaults true so existing accounts keep today's always-on behavior; this is an
+  /// opt-out, not a behavior change for anyone who doesn't touch it.
+  autoDelistEnabled Boolean @default(true)
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 
