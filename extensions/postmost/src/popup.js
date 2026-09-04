@@ -57,7 +57,7 @@ async function resolveOrigin() {
 
   for (const origin of ordered) {
     try {
-      const res = await fetch(`${origin}/api/auth/session`, { credentials: "include" });
+      const res = await fetch(`${origin}/api/auth/session`, { credentials: "include", cache: "no-store" });
       if (res.ok) {
         await chrome.storage.local.set({ postmostOrigin: origin });
         return origin;
@@ -71,7 +71,12 @@ async function resolveOrigin() {
 
 async function fetchSessionUser(origin) {
   try {
-    const res = await fetch(`${origin}/api/auth/session`, { credentials: "include" });
+    // This endpoint returns an ETag, so a plain fetch could in principle be served a cached
+    // response by the browser's HTTP cache instead of hitting the server -- no-store rules that
+    // out. (Ruled out as the cause of one real "still shows signed in after logout" report during
+    // testing -- that one was the session cookie genuinely still being valid, not a stale fetch --
+    // but this is still correct practice for an auth-check endpoint regardless.)
+    const res = await fetch(`${origin}/api/auth/session`, { credentials: "include", cache: "no-store" });
     if (!res.ok) return null;
     const body = await res.json().catch(() => ({}));
     return body?.user || null;
@@ -82,7 +87,7 @@ async function fetchSessionUser(origin) {
 
 async function fetchAccounts(origin) {
   try {
-    const res = await fetch(`${origin}/api/extension/accounts`, { credentials: "include" });
+    const res = await fetch(`${origin}/api/extension/accounts`, { credentials: "include", cache: "no-store" });
     if (!res.ok) return [];
     const body = await res.json().catch(() => ({}));
     return Array.isArray(body.accounts) ? body.accounts : [];
