@@ -33,7 +33,7 @@ export interface ListingFormProps {
   mode?: "create" | "draft";
   draftId?: string;
   initialData?: Partial<ListingFormData>;
-  templates?: { id: string; name: string; payload: string }[];
+  templates?: { id: string; name: string; payload: string; platforms?: string | null }[];
   defaultTemplateId?: string;
   shippingProfiles?: ShippingProfileOption[];
   /** Connected marketplace accounts, for the "where should this go?" step in Review -- letting

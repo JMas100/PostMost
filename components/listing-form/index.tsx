@@ -106,6 +106,17 @@ export function ListingForm({ mode = "create", draftId, initialData, templates =
           // eslint-disable-next-line react-hooks/set-state-in-effect
           setPhotoUrls(payload.photos?.length ? payload.photos : [""]);
           wizard.resetTo(computeInitialStep(payload));
+          // A template with its own saved platforms overrides the "every connected platform"
+          // default -- but never pre-select one the workspace isn't actually connected to.
+          if (template.platforms) {
+            try {
+              const templatePlatforms = JSON.parse(template.platforms) as string[];
+              const intersected = templatePlatforms.filter((p) => connectedPlatforms.includes(p));
+              setSelectedPlatforms(new Set(intersected));
+            } catch {
+              // Malformed platforms payload -- fall through, leaving the default selection alone.
+            }
+          }
           toast.success(`Loaded template: ${template.name}`);
           recordTemplateUsed(template.id);
         } catch {
@@ -442,7 +453,7 @@ export function ListingForm({ mode = "create", draftId, initialData, templates =
 
   async function onSaveTemplate() {
     const name = templateName.trim() || "Untitled template";
-    const result = await saveTemplate(name, getCleanValues());
+    const result = await saveTemplate(name, getCleanValues(), Array.from(selectedPlatforms));
     if ("error" in result && result.error) {
       toast.error(typeof result.error === "string" ? result.error : "Failed to save template");
       return;

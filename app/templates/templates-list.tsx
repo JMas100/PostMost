@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { EmptyState } from "@/components/ui/empty-state";
-import { Plus, Trash2 } from "lucide-react";
+import { Plus, Trash2, Pencil } from "lucide-react";
 import type { ListingFormData } from "@/lib/schemas/listing";
 
 interface TemplatesListProps {
@@ -97,6 +97,10 @@ export function TemplatesList({ templates, shippingProfiles }: TemplatesListProp
                 <Button size="sm" onClick={() => router.push(`/listings/new?templateId=${template.id}`)}>
                   <Plus className="mr-2 h-4 w-4" />
                   {needsFinishing ? "Finish it" : "Use template"}
+                </Button>
+                <Button size="sm" variant="outline" onClick={() => router.push(`/templates/${template.id}/edit`)}>
+                  <Pencil className="mr-2 h-4 w-4" />
+                  Edit
                 </Button>
                 <Button
                   size="sm"

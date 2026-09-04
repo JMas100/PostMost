@@ -81,6 +81,10 @@ model Template {
   user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
   name       String
   payload    String
+  /// JSON array of platform ids this template should pre-select when composing a listing from
+  /// it. Null means no preference -- the composer falls back to its own default (every currently
+  /// connected platform).
+  platforms  String?
   usageCount Int       @default(0)
   lastUsedAt DateTime?
   createdAt  DateTime  @default(now())

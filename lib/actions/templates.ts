@@ -31,7 +31,8 @@ export async function recordTemplateUsed(id: string) {
 
 export async function saveTemplate(
   name: string,
-  data: Partial<ListingFormData>
+  data: Partial<ListingFormData>,
+  platforms?: string[]
 ): Promise<{ success: true; template: { id: string } } | { error: string }> {
   const { workspaceUserId: userId } = await requireWorkspace();
 
@@ -45,11 +46,43 @@ export async function saveTemplate(
       userId,
       name,
       payload: JSON.stringify(parsed.data),
+      platforms: platforms && platforms.length > 0 ? JSON.stringify(platforms) : null,
     },
   });
   revalidatePath("/listings/new");
   revalidatePath("/templates");
   return { success: true, template };
+}
+
+export async function updateTemplate(
+  id: string,
+  name: string,
+  data: Partial<ListingFormData>,
+  platforms?: string[]
+): Promise<{ success: true } | { error: string }> {
+  const { workspaceUserId: userId } = await requireWorkspace();
+
+  const parsed = templateSchema.safeParse(data);
+  if (!parsed.success) {
+    return { error: parsed.error.message || "Invalid template data" };
+  }
+
+  const result = await prisma.template.updateMany({
+    where: { id, userId },
+    data: {
+      name,
+      payload: JSON.stringify(parsed.data),
+      platforms: platforms && platforms.length > 0 ? JSON.stringify(platforms) : null,
+    },
+  });
+  if (result.count === 0) {
+    return { error: "Template not found" };
+  }
+
+  revalidatePath("/listings/new");
+  revalidatePath("/templates");
+  revalidatePath(`/templates/${id}/edit`);
+  return { success: true };
 }
 
 export async function deleteTemplate(id: string) {
