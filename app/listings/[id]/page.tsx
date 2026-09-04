@@ -144,6 +144,13 @@ export default async function ListingDetailPage(props: { params: Promise<{ id: s
                     platform={pl.platform}
                     errorMessage={pl.errorMessage}
                     updatedAt={pl.updatedAt}
+                    currentFields={{
+                      size: listing.size ?? "",
+                      category: listing.category ?? "",
+                      condition: listing.condition ?? "",
+                      brand: listing.brand ?? "",
+                    }}
+                    savedOverrides={pl.fieldOverrides}
                   />
                 ))}
               </div>

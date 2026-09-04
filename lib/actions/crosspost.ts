@@ -89,6 +89,29 @@ export async function crossPost(listingId: string, platformIds: string[]) {
   return { success: true, results };
 }
 
+/** Saves a per-platform field correction (size/category/condition/brand) on a FAILED platform
+ *  listing, then retries just that one platform -- for when a platform rejected a field the base
+ *  listing has wrong for it specifically (e.g. a size not on that marketplace's own list), so
+ *  fixing it doesn't mean editing the listing everywhere else it's already live. */
+export async function retryWithFieldOverrides(
+  listingId: string,
+  platform: string,
+  overrides: { size?: string | null; category?: string | null; condition?: string | null; brand?: string | null }
+) {
+  const { workspaceUserId: userId } = await requireWorkspace();
+
+  const listing = await prisma.listing.findFirst({ where: { id: listingId, userId } });
+  if (!listing) return { error: "Listing not found" };
+
+  const result = await prisma.platformListing.updateMany({
+    where: { listingId, platform },
+    data: { fieldOverrides: JSON.stringify(overrides) },
+  });
+  if (result.count === 0) return { error: "Platform listing not found" };
+
+  return crossPost(listingId, [platform]);
+}
+
 /** Queues a DELIST or RELIST job for every currently-POSTED platform on each selected listing.
  *  Ownership is verified via the listing query itself -- a listing id that isn't the caller's
  *  simply won't match and contributes zero jobs. */

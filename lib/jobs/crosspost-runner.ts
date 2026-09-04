@@ -145,10 +145,27 @@ export async function processPendingCrossPostJobs(
       continue;
     }
 
+    // A prior failed attempt on this exact platform may have a saved field correction (the
+    // inline retry card on the listing detail page) -- these win over the base listing's own
+    // values for this platform only, every other platform and the listing itself stay untouched.
+    const platformListing = await prisma.platformListing.findUnique({
+      where: { listingId_platform: { listingId: job.listingId, platform: job.platform } },
+      select: { fieldOverrides: true },
+    });
+    let fieldOverrides: Record<string, unknown> = {};
+    if (platformListing?.fieldOverrides) {
+      try {
+        fieldOverrides = JSON.parse(platformListing.fieldOverrides);
+      } catch {
+        // Malformed override -- ignore it rather than fail the whole job over it.
+      }
+    }
+
     const listingData = {
       ...listingDescriptionFields(job.listing),
       tags: job.listing.tags ? job.listing.tags.split(",").map((t) => t.trim()) : undefined,
       photos: job.listing.photos.map((p: Photo) => p.url),
+      ...fieldOverrides,
     };
 
     const accountData = (await getAccountData(job.userId, job.platform)) ?? { accessToken: null };

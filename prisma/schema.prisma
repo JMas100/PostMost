@@ -151,6 +151,11 @@ model PlatformListing {
   postedAt        DateTime?
   soldAt          DateTime?
   errorMessage    String?
+  /// JSON blob of { size?, category?, condition?, brand? } -- per-platform corrections that win
+  /// over the base Listing's own fields for this platform's next post attempt only, same spirit
+  /// as the existing per-platform `price` override above. Set via the failed-cross-post retry
+  /// card so a rejected field can be fixed without touching the listing everywhere else.
+  fieldOverrides  String?
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 
