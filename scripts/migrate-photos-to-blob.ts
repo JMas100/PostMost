@@ -6,12 +6,10 @@
  * Idempotent: only rows whose url still starts with "data:" are processed, so
  * re-running only picks up whatever is left.
  */
-import { PrismaClient } from "@prisma/client";
+import { prisma } from "../lib/prisma";
 import { getStorage, isStorageConfigured } from "../lib/storage";
 import { extensionForContentType } from "../lib/storage/keys";
 import { randomUUID } from "crypto";
-
-const prisma = new PrismaClient();
 
 function parseDataUrl(dataUrl: string): { buffer: Buffer; contentType: string } | null {
   const match = dataUrl.match(/^data:([^;,]+)(;base64)?,([\s\S]*)$/);

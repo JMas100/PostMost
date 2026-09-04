@@ -4,7 +4,7 @@ import { getAccountData } from "@/lib/marketplaces/account-data";
 import { relistPlatformListing } from "@/lib/marketplaces/relist";
 import { PlatformListingStatus } from "@/lib/marketplaces/listing-status";
 import { track } from "@/lib/analytics/track";
-import { Photo, Prisma } from "@prisma/client";
+import { Photo, Prisma } from "@/lib/generated/prisma/client";
 import type { MarketplaceAdapter } from "@/lib/marketplaces/types";
 import { listingDescriptionFields } from "@/lib/marketplaces/listing-fields";
 import { delistPlatformListing } from "@/lib/marketplaces/delist-platform-listing";

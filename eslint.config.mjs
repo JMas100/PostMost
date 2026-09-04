@@ -12,7 +12,7 @@ export default defineConfig([
         // `next lint` never covered these — they're outside the Next.js app
         // (a separately-built browser extension, a plain Node seed script).
         // eslint . lints the whole repo by default, so restore that scope explicitly.
-        ignores: ["extensions/**", "prisma/seed.js"],
+        ignores: ["extensions/**", "prisma/seed.cjs", "lib/generated/**"],
     },
     {
         extends: [...nextCoreWebVitals, ...nextTypescript],

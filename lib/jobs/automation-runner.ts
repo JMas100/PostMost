@@ -3,7 +3,7 @@ import { getAdapter } from "@/lib/marketplaces";
 import { relistPlatformListing } from "@/lib/marketplaces/relist";
 import { delistPlatformListing } from "@/lib/marketplaces/delist-platform-listing";
 import { STOCK_SYNC_RULE, RELIST_STALE_RULE, RELIST_STALE_DAYS } from "@/lib/automation/rule-types";
-import type { Photo } from "@prisma/client";
+import type { Photo } from "@/lib/generated/prisma/client";
 import { upsertAutomationRanNotification } from "@/lib/notifications";
 
 /** Default per-call budget when no shared deadline is passed in. */

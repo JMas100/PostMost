@@ -1,9 +1,7 @@
-import { PrismaClient } from "@prisma/client";
+import { prisma } from "@/lib/prisma";
 import { normalizeEmail } from "@/lib/email";
 import { PLAN_BY_ID } from "@/lib/plans";
 import type { PlanId } from "@/lib/plans";
-
-const prisma = new PrismaClient();
 
 function readArg(name: string): string | undefined {
   const index = process.argv.indexOf(`--${name}`);
