@@ -18,6 +18,22 @@ function imageHosts() {
   return Array.from(new Set(hosts));
 }
 
+// The browser uploads photos directly to object storage via a presigned PUT URL
+// (lib/upload-client.ts) -- a real cross-origin request the page itself makes, not proxied
+// through our own server, so CSP's connect-src has to explicitly allow it or the browser blocks
+// the request outright before it ever leaves (surfaces as a bare "Load failed"/"Failed to fetch",
+// no CORS error, since CSP enforcement happens client-side before the network request is even
+// attempted -- a CORS-focused check on the bucket itself won't show this). Mirrors r2.ts's own
+// getEndpoint() fallback so a custom S3_ENDPOINT (e.g. MinIO in tests) is covered too.
+function uploadEndpointHost() {
+  try {
+    const endpoint = process.env.S3_ENDPOINT || (process.env.R2_ACCOUNT_ID ? `https://${process.env.R2_ACCOUNT_ID}.r2.cloudflarestorage.com` : "");
+    return endpoint ? new URL(endpoint).hostname : null;
+  } catch {
+    return null;
+  }
+}
+
 // Static (no-nonce) CSP, per Next's own "Without Nonces" guidance -- a nonce-based policy would
 // force every page into dynamic rendering (no static generation/ISR, no CDN caching), which
 // isn't worth it here since 'unsafe-inline' is already required for Next's own hydration data
@@ -25,13 +41,14 @@ function imageHosts() {
 // next/image already trusts, rather than a blanket https:.
 function cspHeaderValue() {
   const imgHosts = imageHosts().map((h) => `https://${h}`).join(" ");
+  const uploadHost = uploadEndpointHost();
   return [
     "default-src 'self'",
     "script-src 'self' 'unsafe-inline'",
     "style-src 'self' 'unsafe-inline'",
     `img-src 'self' data: blob:${imgHosts ? ` ${imgHosts}` : ""}`,
     "font-src 'self' data:",
-    "connect-src 'self'",
+    `connect-src 'self'${uploadHost ? ` https://${uploadHost}` : ""}`,
     "object-src 'none'",
     "base-uri 'self'",
     "form-action 'self'",
