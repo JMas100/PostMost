@@ -149,7 +149,7 @@ const SIGNED_OUT_PHRASES = [
   "credentials",
 ];
 
-function looksLikeSignedOut(message: string): boolean {
+export function looksLikeSignedOut(message: string): boolean {
   const lower = message.toLowerCase();
   return SIGNED_OUT_PHRASES.some((phrase) => lower.includes(phrase));
 }

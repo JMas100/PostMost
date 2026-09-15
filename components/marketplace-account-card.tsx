@@ -39,6 +39,8 @@ export type AccountView = {
   hasCredentials: boolean;
   authMethod: string;
   autoDelistEnabled: boolean;
+  needsReauth: boolean;
+  needsReauthReason: string | null;
 };
 
 // Must match SESSION_AUTH_PLATFORMS in app/api/extension/session/route.ts. Poshmark proved the
@@ -79,11 +81,14 @@ export function MarketplaceAccountCard({ platform, account, stats, canManage = t
             <p className="truncate text-xs text-muted-foreground">
               {account ? account.displayName : platform.authType === "oauth" ? "OAuth" : "Manual / Automation"}
             </p>
+            {account?.needsReauth && (
+              <p className="truncate text-xs text-warning">{account.needsReauthReason ?? "Needs reconnecting"}</p>
+            )}
           </div>
         </div>
         <div className="flex flex-none items-center gap-2">
-          <Badge variant={account ? "default" : "secondary"}>
-            {account ? "Connected" : "Not connected"}
+          <Badge variant={!account ? "secondary" : account.needsReauth ? "warning" : "default"}>
+            {!account ? "Not connected" : account.needsReauth ? "Needs reconnecting" : "Connected"}
           </Badge>
           {canManage ? (
             <ConnectDialog platform={platform} account={account} />

@@ -8,7 +8,7 @@ import { Photo, Prisma } from "@/lib/generated/prisma/client";
 import type { MarketplaceAdapter } from "@/lib/marketplaces/types";
 import { listingDescriptionFields } from "@/lib/marketplaces/listing-fields";
 import { delistPlatformListing } from "@/lib/marketplaces/delist-platform-listing";
-import { NotificationCollector, resolveCrossPostFailure } from "@/lib/notifications";
+import { NotificationCollector, resolveCrossPostFailure, looksLikeSignedOut } from "@/lib/notifications";
 
 /** A RUNNING job whose lock is older than this is considered abandoned and is reclaimed. */
 const STUCK_JOB_TIMEOUT_MS = 5 * 60 * 1000;
@@ -221,6 +221,10 @@ export async function processPendingCrossPostJobs(
       summary.succeeded += 1;
       notifications.recordSuccess(job.userId, job.listingId, job.listing.title, job.platform);
       await resolveCrossPostFailure(job.userId, job.listingId, job.platform);
+      await prisma.marketplaceAccount.updateMany({
+        where: { userId: job.userId, platform: job.platform, needsReauth: true },
+        data: { needsReauth: false, needsReauthReason: null },
+      });
 
       await track("publish_platform_succeeded", job.userId, { listingId: job.listingId, platform: job.platform });
       const claim = await prisma.user.updateMany({
@@ -484,5 +488,11 @@ async function handleFailure(
   });
   summary.failed += 1;
   notifications?.recordFailure(userId, listingId, platform, message);
+  if (looksLikeSignedOut(message)) {
+    await prisma.marketplaceAccount.updateMany({
+      where: { userId, platform },
+      data: { needsReauth: true, needsReauthReason: message },
+    });
+  }
   await track("publish_platform_failed", userId, { listingId, platform, error: message });
 }

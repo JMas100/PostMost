@@ -23,8 +23,14 @@ const NOT_AVAILABLE_PLATFORMS = PLATFORMS.filter((p) => p.authType === "none");
 // real automation/session-connect built and tested for, so they stay full rows even unconnected.
 const TILE_WHEN_UNCONNECTED = new Set(["facebook", "offerup", "grailed", "craigslist"]);
 
-function accountNeedsAttention(a: { isActive: boolean; tokenExpiresAt: Date | null }): { needs: boolean; reason?: string } {
+function accountNeedsAttention(a: {
+  isActive: boolean;
+  tokenExpiresAt: Date | null;
+  needsReauth: boolean;
+  needsReauthReason: string | null;
+}): { needs: boolean; reason?: string } {
   if (!a.isActive) return { needs: true, reason: "Signed out" };
+  if (a.needsReauth) return { needs: true, reason: a.needsReauthReason ?? "Needs reconnecting" };
   if (a.tokenExpiresAt) {
     const msRemaining = a.tokenExpiresAt.getTime() - Date.now();
     if (msRemaining < 0) return { needs: true, reason: "Token expired" };

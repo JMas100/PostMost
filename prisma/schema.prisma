@@ -128,6 +128,14 @@ model MarketplaceAccount {
   /// FAILED. Defaults true so existing accounts keep today's always-on behavior; this is an
   /// opt-out, not a behavior change for anyone who doesn't touch it.
   autoDelistEnabled Boolean @default(true)
+  /// Set when a real post/delist job's terminal failure looks like a broken login (see
+  /// looksLikeSignedOut() in lib/notifications.ts -- same classification the marketplace_signed_out
+  /// notification already uses, kept in sync with it rather than a separate threshold). Cleared on
+  /// reconnect or the next real success, whichever happens first -- lets the Marketplaces page show
+  /// "needs reconnecting" instead of silently reading "Connected" on an account that verifiably
+  /// isn't working.
+  needsReauth       Boolean  @default(false)
+  needsReauthReason String?
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 

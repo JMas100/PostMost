@@ -116,6 +116,10 @@ export async function connectMarketplaceAccount(input: AccountConnectionInput) {
     authMethod: input.authMethod ?? existing?.authMethod ?? "password",
     isActive: true,
     settings: input.settings ? JSON.stringify(input.settings) : existing?.settings ?? null,
+    // A (re)connect is the direct fix for a broken login -- clear any stale warning immediately
+    // rather than waiting for the next job to succeed.
+    needsReauth: false,
+    needsReauthReason: null,
   };
 
   const account = existing
