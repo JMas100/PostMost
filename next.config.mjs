@@ -23,12 +23,24 @@ function imageHosts() {
 // through our own server, so CSP's connect-src has to explicitly allow it or the browser blocks
 // the request outright before it ever leaves (surfaces as a bare "Load failed"/"Failed to fetch",
 // no CORS error, since CSP enforcement happens client-side before the network request is even
-// attempted -- a CORS-focused check on the bucket itself won't show this). Mirrors r2.ts's own
-// getEndpoint() fallback so a custom S3_ENDPOINT (e.g. MinIO in tests) is covered too.
+// attempted -- a CORS-focused check on the bucket itself won't show this).
+//
+// The exact host depends on the AWS SDK's addressing mode, same branch r2.ts's own
+// getClient()/getEndpoint() use: with no S3_ENDPOINT override, forcePathStyle is false, so the
+// SDK defaults to virtual-hosted-style addressing -- the bucket name prefixes the endpoint host
+// (confirmed live: a real presigned URL came back as
+// "postmost-photos.<account>.r2.cloudflarestorage.com", not "<account>.r2.cloudflarestorage.com"
+// with the bucket in the path, which is what the first version of this fix wrongly assumed and
+// still left uploads blocked). S3_ENDPOINT (e.g. MinIO in tests) forces path-style instead, where
+// the bucket lives in the URL path, not the host.
 function uploadEndpointHost() {
   try {
-    const endpoint = process.env.S3_ENDPOINT || (process.env.R2_ACCOUNT_ID ? `https://${process.env.R2_ACCOUNT_ID}.r2.cloudflarestorage.com` : "");
-    return endpoint ? new URL(endpoint).hostname : null;
+    if (process.env.S3_ENDPOINT) {
+      return new URL(process.env.S3_ENDPOINT).hostname;
+    }
+    if (!process.env.R2_ACCOUNT_ID) return null;
+    const endpointHost = `${process.env.R2_ACCOUNT_ID}.r2.cloudflarestorage.com`;
+    return process.env.R2_BUCKET ? `${process.env.R2_BUCKET}.${endpointHost}` : endpointHost;
   } catch {
     return null;
   }
