@@ -310,11 +310,22 @@ export async function runPlaywrightAutomation(
 
   let page: import("playwright-core").Page | undefined;
 
+  // Unlike authenticateWithSession's equivalent listeners, this trail is NOT gated on NODE_ENV
+  // -- it was invisible in production (Railway always runs NODE_ENV=production) with no way to
+  // see it after the fact, which is exactly the wrong time to lose diagnostic signal. Folded
+  // into the returned error string (same pattern as the screenshot URL below), capped and
+  // truncated, so it self-diagnoses without needing live log access.
+  const consoleErrors: string[] = [];
+  const failedResponses: string[] = [];
+
   async function fail(error: string): Promise<PostResult> {
     const screenshotUrl = page ? await captureFailureScreenshot(page, platformId) : undefined;
+    const consoleTrail = consoleErrors.length ? ` | Console errors: ${consoleErrors.slice(-3).join(" || ")}` : "";
+    const requestTrail = failedResponses.length ? ` | Failed requests: ${failedResponses.slice(-3).join(" || ")}` : "";
+    const screenshotTrail = screenshotUrl ? ` | Screenshot: ${screenshotUrl}` : "";
     return {
       success: false,
-      error: screenshotUrl ? `${error} | Screenshot: ${screenshotUrl}` : error,
+      error: `${error}${consoleTrail}${requestTrail}${screenshotTrail}`,
       raw,
     };
   }
@@ -326,6 +337,12 @@ export async function runPlaywrightAutomation(
       viewport: { width: 1280, height: 800 },
     });
     page = await context.newPage();
+    page.on("console", (msg) => {
+      if (msg.type() === "error") consoleErrors.push(msg.text().slice(0, 200));
+    });
+    page.on("response", (res) => {
+      if (res.status() >= 400) failedResponses.push(`${res.status()} ${res.request().method()} ${res.url()}`);
+    });
 
     // Never assume a login form submit (or a replayed session) actually left us authenticated —
     // wrong credentials, an expired/rejected session, an unexpected 2FA/verification prompt, or
@@ -453,8 +470,12 @@ async function captureFailureScreenshot(
     await fs.writeFile(filePath, bytes);
     console.error(`[automation-debug] ${platformId} failure screenshot: ${filePath}`);
     return filePath;
-  } catch {
-    // Screenshot capture is best-effort — never let it mask the real failure reason.
+  } catch (err) {
+    // Screenshot capture is best-effort — never let it mask the real failure reason. Logged
+    // (not swallowed silently) so a broken upload path doesn't look identical to "nothing went
+    // wrong" -- this was previously invisible even with storage fully configured.
+    const message = err instanceof Error ? err.message : String(err);
+    console.error(`[automation-debug] ${platformId} failure screenshot capture/upload failed: ${message}`);
     return undefined;
   }
 }
