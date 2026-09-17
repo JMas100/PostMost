@@ -8,12 +8,12 @@ import type { ListingData } from "../types";
 
 // PostMost's own category taxonomy (components/listing-form/step-details.tsx) is organized by
 // item type -- "Clothing", "Shoes", "Accessories", "Electronics", "Home", "Toys", "Sports",
-// "Vintage", "Other". Poshmark's top-level taxonomy is organized by audience instead (Women/Men/
-// Kids/Home/Pets/Electronics), so three of ours (Electronics, Home, Toys) map straight across
-// with no ambiguity. For the rest, `listing.audience` ("Women"/"Men"/"Kids"/"Unisex", set via the
-// listing form's own "Who's it for?" field -- see prisma/schema.prisma's Listing.audience) is the
-// real signal now; keyword-matching the title/description is kept only as a fallback for listings
-// created before that field existed.
+// "Vintage", "Other". Poshmark's top-level taxonomy is organized by audience instead -- all six
+// of Women/Men/Kids/Home/Pets/Electronics are reachable here: three of ours (Electronics, Home,
+// Toys) map straight across with no ambiguity, and the rest come from `listing.audience`
+// ("Women"/"Men"/"Kids"/"Unisex"/"Pets", set via the listing form's own "Who's it for?" field --
+// see prisma/schema.prisma's Listing.audience), which is the real signal now; keyword-matching
+// the title/description is kept only as a fallback for listings created before that field existed.
 const DIRECT_CATEGORY_MAP: Record<string, string> = {
   electronics: "electronics",
   home: "home",
@@ -24,6 +24,7 @@ const AUDIENCE_FIELD_MAP: Record<string, string> = {
   women: "women",
   men: "men",
   kids: "kids",
+  pets: "pets",
   // "Unisex" has no equivalent Poshmark bucket -- falls through to keyword-matching below.
 };
 
@@ -31,9 +32,18 @@ const AUDIENCE_KEYWORDS: { slug: string; keywords: string[] }[] = [
   { slug: "women", keywords: ["women", "woman", "womens", "ladies", "her", "hers", "girl", "girls"] },
   { slug: "men", keywords: ["men", "man", "mens", "menswear", "his", "guy", "guys", "boy", "boys"] },
   { slug: "kids", keywords: ["kid", "kids", "child", "children", "baby", "toddler", "youth", "infant"] },
+  { slug: "pets", keywords: ["pet", "pets", "dog", "cat", "puppy", "kitten"] },
 ];
 
 type CategoryInput = Pick<ListingData, "category" | "audience" | "title" | "description">;
+
+// Plain substring matching is genuinely unsafe for short, common words -- "her" matches inside
+// "here"/"there"/"other", "man" matches inside "woman"/"demand". Word-boundary matching (real
+// words in the haystack, not just any substring) avoids a title like "...clue here" spuriously
+// resolving to "women" through no fault of the seller's.
+function includesWord(haystack: string, word: string): boolean {
+  return new RegExp(`\\b${word.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`).test(haystack);
+}
 
 export function matchPoshmarkCategory(listing: CategoryInput): string {
   const directMatch = DIRECT_CATEGORY_MAP[listing.category.toLowerCase()];
@@ -44,7 +54,7 @@ export function matchPoshmarkCategory(listing: CategoryInput): string {
 
   const haystack = `${listing.title} ${listing.description}`.toLowerCase();
   for (const { slug, keywords } of AUDIENCE_KEYWORDS) {
-    if (keywords.some((kw) => haystack.includes(kw))) return slug;
+    if (keywords.some((kw) => includesWord(haystack, kw))) return slug;
   }
   // Category is the one field Poshmark marks required with a hard asterisk -- fail loudly with
   // an actionable message (and a fix the user can actually make) rather than silently guessing a

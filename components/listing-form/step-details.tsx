@@ -18,7 +18,7 @@ import { OptimizingState } from "./types";
 
 const conditions = ["New with tags", "New without tags", "Like new", "Good", "Fair", "Poor"];
 const categories = ["Clothing", "Shoes", "Accessories", "Electronics", "Home", "Toys", "Sports", "Vintage", "Other"];
-const audiences = ["Women", "Men", "Kids", "Unisex"];
+const audiences = ["Women", "Men", "Kids", "Unisex", "Pets"];
 // Categories where audience is genuinely ambiguous from item type alone -- matches
 // DIRECT_CATEGORY_MAP in lib/marketplaces/adapters/poshmark.ts, which maps the rest (Electronics/
 // Home/Toys) straight across without needing this field at all.

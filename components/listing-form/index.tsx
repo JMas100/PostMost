@@ -20,6 +20,7 @@ import {
 } from "@/lib/actions/ai-enhance";
 import { BgRemovalTier } from "@/lib/plans";
 import { getPlatform } from "@/lib/marketplaces/platforms";
+import { getPlatformListingWarning } from "@/lib/marketplaces/client-validation";
 import { DEFAULT_PHOTO_PRESET, PhotoBackground } from "@/lib/images/presets";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { toast } from "sonner";
@@ -477,6 +478,19 @@ export function ListingForm({ mode = "create", draftId, editId, initialData, tem
     if (validPhotos.length === 0) {
       toast.error("Add at least one valid photo");
       return;
+    }
+
+    // Never send a selected platform into a publish we already know will fail -- same check the
+    // Review step's inline warning shows live; this is the hard gate on top of it. Blocks the
+    // whole submit (rather than silently dropping just that platform) so the user fixes it or
+    // deselects it deliberately, instead of wondering later why it wasn't included.
+    for (const platformId of selectedPlatforms) {
+      const warning = getPlatformListingWarning(platformId, data);
+      if (warning) {
+        const platformName = getPlatform(platformId)?.name ?? platformId;
+        toast.error(`${platformName}: ${warning}`);
+        return;
+      }
     }
 
     if (mode === "edit" && editId) {

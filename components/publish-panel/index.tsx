@@ -12,6 +12,7 @@ import { PlatformRow } from "./platform-row";
 import { PublishConfirmationDialog } from "./publish-confirmation-dialog";
 import { PublishPanelProps } from "./types";
 import { listingDescriptionFields } from "@/lib/marketplaces/listing-fields";
+import { getPlatformListingWarning } from "@/lib/marketplaces/client-validation";
 
 export function PublishPanel({ listingId, accounts, extensionListing, hasActiveJobs, platformListings, initialPublishedPlatforms }: PublishPanelProps) {
   const router = useRouter();
@@ -43,6 +44,19 @@ export function PublishPanel({ listingId, accounts, extensionListing, hasActiveJ
     [accounts, extensionInstalled, alreadyAttempted]
   );
 
+  // Shown live, next to each platform's own row, before Publish is ever clicked -- same check
+  // the listing wizard runs (lib/marketplaces/client-validation.ts). This listing is already
+  // saved, so unlike the wizard there's no live form to react to -- these are static per the
+  // listing's current saved data.
+  const platformWarnings = useMemo(() => {
+    const warnings: Record<string, string> = {};
+    for (const platform of platforms) {
+      const warning = getPlatformListingWarning(platform.id, extensionListing);
+      if (warning) warnings[platform.id] = warning;
+    }
+    return warnings;
+  }, [platforms, extensionListing]);
+
   function toggle(id: string) {
     const platform = platforms.find((p) => p.id === id);
     if (!platform || platform.mechanism === "unconnected") return;
@@ -60,6 +74,14 @@ export function PublishPanel({ listingId, accounts, extensionListing, hasActiveJ
     const chosen = platforms.filter((p) => selected.has(p.id));
     if (chosen.length === 0) {
       toast.error("Select at least one marketplace");
+      return;
+    }
+
+    // Never send a selected platform into a publish we already know will fail -- the row already
+    // shows this warning inline, this is the hard gate on top of it.
+    const blocked = chosen.find((p) => platformWarnings[p.id]);
+    if (blocked) {
+      toast.error(`${blocked.name}: ${platformWarnings[blocked.id]}`);
       return;
     }
 
@@ -116,7 +138,13 @@ export function PublishPanel({ listingId, accounts, extensionListing, hasActiveJ
     <div className="space-y-4">
       <div className="space-y-2">
         {platforms.map((platform) => (
-          <PlatformRow key={platform.id} platform={platform} checked={selected.has(platform.id)} onToggle={toggle} />
+          <PlatformRow
+            key={platform.id}
+            platform={platform}
+            checked={selected.has(platform.id)}
+            onToggle={toggle}
+            warning={platformWarnings[platform.id]}
+          />
         ))}
       </div>
       <Button onClick={handlePublish} className="w-full" disabled={publishing || selected.size === 0}>

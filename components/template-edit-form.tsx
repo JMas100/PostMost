@@ -26,7 +26,7 @@ import { Trash2 } from "lucide-react";
 // shared file for two arrays that already exist independently in two other places.
 const CONDITIONS = ["New with tags", "New without tags", "Like new", "Good", "Fair", "Poor"];
 const CATEGORIES = ["Clothing", "Shoes", "Accessories", "Electronics", "Home", "Toys", "Sports", "Vintage", "Other"];
-const AUDIENCES = ["Women", "Men", "Kids", "Unisex"];
+const AUDIENCES = ["Women", "Men", "Kids", "Unisex", "Pets"];
 const NO_SHIPPING_PROFILE = "__none__";
 
 interface TemplateEditFormProps {
