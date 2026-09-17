@@ -10,17 +10,20 @@ const WHO_FOR: Record<string, string> = {
   pro: "For serious resellers.",
 };
 
+// Active inventory leads, listings second: imports don't consume the monthly listing quota (see
+// INDEX.md), so the active-item cap is the row a plan is actually judged on -- a Free seller
+// importing 186 items hits the 50-item cap long before 25 listings/mo.
 const ROWS: Record<string, [string, string, string, string]> = {
-  free: ["25/mo", "50", "3", "10"],
-  launch: ["100/mo", "500", "5", "50"],
-  grow: ["300/mo", "2,000", "10+", "100"],
-  pro: ["750/mo", "5,000", "All", "500"],
-  scale: ["2,000/mo", "Unlimited", "All", "3 seats"],
+  free: ["50", "25/mo", "3", "10"],
+  launch: ["500", "100/mo", "5", "50"],
+  grow: ["2,000", "300/mo", "10+", "100"],
+  pro: ["5,000", "750/mo", "All", "500"],
+  scale: ["Unlimited", "2,000/mo", "All", "3 seats"],
   enterprise: ["Unlimited", "Unlimited", "All", "Unlimited"],
 };
 
-const ROW_LABELS = ["Listings", "Active inventory", "Marketplaces", "AI credits"];
-const ROW_LABELS_SEATS = ["Listings", "Active inventory", "Marketplaces", "Team seats"];
+const ROW_LABELS = ["Active inventory", "Listings", "Marketplaces", "AI credits"];
+const ROW_LABELS_SEATS = ["Active inventory", "Listings", "Marketplaces", "Team seats"];
 
 const PROSE: Record<string, string> = {
   free: "Basic crosslisting, listing templates, manual delist/relist, basic analytics, and the mobile app.",
@@ -133,6 +136,7 @@ export function PricingGrid({ currentPlanId }: { currentPlanId: string }) {
               <button
                 type="button"
                 onClick={() => setInterval("month")}
+                aria-pressed={!isAnnual}
                 className={cn(
                   "flex h-10 items-center rounded-[7px] px-4 text-[14px] font-semibold transition-colors",
                   !isAnnual ? "bg-[#090B0D] text-white" : "text-[#68727D]"
@@ -143,6 +147,7 @@ export function PricingGrid({ currentPlanId }: { currentPlanId: string }) {
               <button
                 type="button"
                 onClick={() => setInterval("year")}
+                aria-pressed={isAnnual}
                 className={cn(
                   "flex h-10 items-center gap-2 rounded-[7px] px-4 text-[14px] font-semibold transition-colors",
                   isAnnual ? "bg-[#090B0D] text-white" : "text-[#68727D]"

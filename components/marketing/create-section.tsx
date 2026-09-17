@@ -52,10 +52,14 @@ export function CreateSection() {
           </div>
           <div className="bg-white p-6">
             <div className="grid grid-cols-4 gap-2">
-              {["phantom-gx-square.jpg", "phantom-gx-square-2.jpg", "phantom-gx-square-3.jpg"].map((src) => (
+              {["phantom-gx-square.jpg", "phantom-gx-square-2.jpg", "phantom-gx-square-3.jpg"].map((src, i) => (
                 <div key={src} className="aspect-square overflow-hidden rounded-[8px]">
                   {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={`/marketing/${src}`} alt="" className="h-full w-full object-cover" />
+                  <img
+                    src={`/marketing/${src}`}
+                    alt={`Nike Phantom GX Elite FG cleats, listing photo ${i + 1} of 3`}
+                    className="h-full w-full object-cover"
+                  />
                 </div>
               ))}
               <div className="flex aspect-square items-center justify-center rounded-[8px] border border-dashed border-[#E5E7EB]">

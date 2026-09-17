@@ -130,8 +130,8 @@ export function PricingGrid() {
                 <p className="text-[12px] font-semibold uppercase tracking-[0.12em] text-[#68727D]">{plan.name}</p>
                 <div className="mt-1.5 flex items-baseline gap-2">
                   <p className="font-display text-[32px] font-bold tracking-[-0.02em] text-[#090B0D]">
-                    {isEnterprise ? "Custom" : formatPrice(plan.priceMonthly)}
-                    {!isEnterprise && <span className="text-[14px] font-normal text-[#68727D]">/mo</span>}
+                    {formatPrice(plan.priceMonthly)}
+                    <span className="text-[14px] font-normal text-[#68727D]">/mo</span>
                   </p>
                   <span className="text-[14.5px] text-[#68727D]">
                     {MOBILE_DESCRIPTION[plan.id] ?? plan.description}
@@ -193,10 +193,8 @@ export function PricingGrid() {
                     isPro ? "text-white xl:text-[44px]" : "text-[#090B0D] xl:text-[40px]"
                   )}
                 >
-                  {isEnterprise ? "Custom" : formatPrice(plan.priceMonthly)}
-                  {!isEnterprise && (
-                    <span className={cn("text-[15px] font-normal", isPro ? "text-[#68727D]" : "text-[#68727D]")}>/mo</span>
-                  )}
+                  {formatPrice(plan.priceMonthly)}
+                  <span className={cn("text-[15px] font-normal", isPro ? "text-[#68727D]" : "text-[#68727D]")}>/mo</span>
                 </p>
                 <p className={cn("mt-2 text-[15px]", isPro ? "text-[#aab2ba]" : "text-[#68727D]")}>{plan.description}</p>
 

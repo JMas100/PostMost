@@ -97,7 +97,11 @@ export function HeroBranch() {
           >
             <div className="h-[150px] overflow-hidden rounded-t-[12px]">
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src="/marketing/phantom-gx-wide.jpg" alt="" className="h-full w-full object-cover" />
+              <img
+                src="/marketing/phantom-gx-wide.jpg"
+                alt="Nike Phantom GX Elite FG soccer cleats, white and pink colorway"
+                className="h-full w-full object-cover"
+              />
             </div>
             <div className="p-4">
               <p className="font-heading text-[19px] font-bold text-[#090B0D]">Nike Phantom GX Elite FG</p>
@@ -237,7 +241,11 @@ export function HeroBranch() {
           >
             <div className="h-[110px] overflow-hidden rounded-t-[12px]">
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src="/marketing/phantom-gx-wide.jpg" alt="" className="h-full w-full object-cover" />
+              <img
+                src="/marketing/phantom-gx-wide.jpg"
+                alt="Nike Phantom GX Elite FG soccer cleats, white and pink colorway"
+                className="h-full w-full object-cover"
+              />
             </div>
             <div className="p-3">
               <p className="font-heading text-[15px] font-bold text-[#090B0D]">Nike Phantom GX Elite FG</p>
@@ -374,7 +382,11 @@ export function HeroBranch() {
           >
             <div className="h-[132px] overflow-hidden rounded-t-[12px]">
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src="/marketing/phantom-gx-wide.jpg" alt="" className="h-full w-full object-cover" />
+              <img
+                src="/marketing/phantom-gx-wide.jpg"
+                alt="Nike Phantom GX Elite FG soccer cleats, white and pink colorway"
+                className="h-full w-full object-cover"
+              />
             </div>
             <div className="p-4">
               <p className="font-heading text-[16px] font-bold text-[#090B0D]">Nike Phantom GX Elite FG</p>

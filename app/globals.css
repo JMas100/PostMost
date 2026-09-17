@@ -67,9 +67,23 @@
     --sidebar-accent-foreground: var(--ink);
     --sidebar-border: var(--border-light);
     --sidebar-ring: var(--lime-dark);
+
+    /* Marketing display type and large numerals both read as Manrope -- alias the "display"
+       font slot to the same loaded --font-heading instance instead of loading a second face. */
+    --font-display: var(--font-heading);
   }
 
   .dark {
+    /* Stepped elevation scale for dark mode -- the marketing shadow tokens below are near-
+       invisible on obsidian, so dark surfaces separate by getting lighter, not by shadow.
+       surface-1 matches the page background itself (for a footer/recessed step reading
+       "beneath" its card); surface-2/-card are the existing card levels; surface-4 is one step
+       above a card, for popovers/menus/anything that should read as floating over content. */
+    --surface-1: var(--obsidian);
+    --surface-3: var(--surface-card);
+    --surface-4: 206 11% 12%;
+    --hairline: 210 8% 20%;
+
     --background: var(--obsidian);
     --foreground: var(--white);
     --card: var(--surface-card);
@@ -187,6 +201,10 @@
 .shadow-medium { box-shadow: var(--shadow-medium); }
 .shadow-lifted { box-shadow: var(--shadow-lifted); }
 .shadow-glow-lime { box-shadow: var(--shadow-glow-lime); }
+
+/* Craft pass: tabular numerals for anything meant to line up in a column -- prices, counts,
+   margins. Apply to the value and, for a whole numeric table column, to its <td>s too. */
+.tnum { font-variant-numeric: tabular-nums; }
 
 /* Redesign motion primitives: shared pulse ring + connector draw-in, used by
    hero-branch, publish-radial, and other ONE→MANY style diagrams. */

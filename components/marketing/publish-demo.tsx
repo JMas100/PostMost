@@ -101,7 +101,7 @@ export function PublishDemo() {
           <div className="flex items-center gap-3 border-b border-[#24282D] p-4">
             <div className="h-14 w-14 shrink-0 overflow-hidden rounded-[8px]">
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src="/marketing/phantom-gx-square.jpg" alt="" className="h-full w-full object-cover" />
+              <img src="/marketing/phantom-gx-square.jpg" alt="Nike Phantom GX Elite FG cleats" className="h-full w-full object-cover" />
             </div>
             <div className="min-w-0 flex-1">
               <p className="truncate text-[14.5px] font-semibold text-white">Nike Phantom GX Elite FG</p>
@@ -160,16 +160,16 @@ export function PublishDemo() {
                 <div className="flex shrink-0 flex-col gap-2">
                   <div className="h-[180px] w-[180px] overflow-hidden rounded-[10px] xl:h-[220px] xl:w-[220px]">
                     {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img src="/marketing/phantom-gx-square.jpg" alt="" className="h-full w-full object-cover" />
+                    <img src="/marketing/phantom-gx-square.jpg" alt="Nike Phantom GX Elite FG cleats, main listing photo" className="h-full w-full object-cover" />
                   </div>
                   <div className="flex gap-2">
                     <div className="h-[60px] w-[60px] overflow-hidden rounded-[8px]">
                       {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img src="/marketing/phantom-gx-square-2.jpg" alt="" className="h-full w-full object-cover" />
+                      <img src="/marketing/phantom-gx-square-2.jpg" alt="Nike Phantom GX Elite FG cleats, photo 2" className="h-full w-full object-cover" />
                     </div>
                     <div className="h-[60px] w-[60px] overflow-hidden rounded-[8px]">
                       {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img src="/marketing/phantom-gx-square-3.jpg" alt="" className="h-full w-full object-cover" />
+                      <img src="/marketing/phantom-gx-square-3.jpg" alt="Nike Phantom GX Elite FG cleats, photo 3" className="h-full w-full object-cover" />
                     </div>
                     <div className="flex h-[60px] w-[60px] items-center justify-center rounded-[8px] border border-dashed border-[#24282D]">
                       <Plus className="h-4 w-4 text-[#68727D]" />

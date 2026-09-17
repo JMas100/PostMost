@@ -17,21 +17,23 @@ const FIELD_CLASS =
   "h-[46px] w-full rounded-[8px] border border-[#24282D] bg-[#15181C] px-3 text-[14px] text-white placeholder:text-[#68727D] outline-none focus-visible:border-[#B6F34A]";
 const LABEL_CLASS = "mb-1.5 block text-[11.5px] font-semibold uppercase tracking-[0.08em] text-[#68727D]";
 
+type FieldErrors = { name?: string; email?: string; company?: string; message?: string };
+
 export function EnterpriseContact() {
   const [isPending, startTransition] = useTransition();
-  const [error, setError] = useState("");
+  const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
   const [success, setSuccess] = useState(false);
   const [volume, setVolume] = useState(VOLUME_OPTIONS[0]);
 
   function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
-    setError("");
+    setFieldErrors({});
     const formData = new FormData(e.currentTarget);
     formData.set("volume", volume);
     startTransition(async () => {
       const result = await submitEnterpriseContact(formData);
-      if (result.error) {
-        setError(result.error);
+      if ("fieldErrors" in result && result.fieldErrors) {
+        setFieldErrors(result.fieldErrors);
         return;
       }
       setSuccess(true);
@@ -87,17 +89,41 @@ export function EnterpriseContact() {
               <div className="mt-6 grid grid-cols-2 gap-3">
                 <div>
                   <label className={LABEL_CLASS} htmlFor="ec-name">Name</label>
-                  <input id="ec-name" name="name" type="text" required className={FIELD_CLASS} />
+                  <input
+                    id="ec-name"
+                    name="name"
+                    type="text"
+                    required
+                    aria-invalid={!!fieldErrors.name}
+                    className={cn(FIELD_CLASS, fieldErrors.name && "border-[#EF4444]")}
+                  />
+                  {fieldErrors.name && <p className="mt-1 text-[12px] text-[#EF4444]">{fieldErrors.name}</p>}
                 </div>
                 <div>
                   <label className={LABEL_CLASS} htmlFor="ec-email">Work email</label>
-                  <input id="ec-email" name="email" type="email" required className={FIELD_CLASS} />
+                  <input
+                    id="ec-email"
+                    name="email"
+                    type="email"
+                    required
+                    aria-invalid={!!fieldErrors.email}
+                    className={cn(FIELD_CLASS, fieldErrors.email && "border-[#EF4444]")}
+                  />
+                  {fieldErrors.email && <p className="mt-1 text-[12px] text-[#EF4444]">{fieldErrors.email}</p>}
                 </div>
               </div>
 
               <div className="mt-3">
                 <label className={LABEL_CLASS} htmlFor="ec-company">Company</label>
-                <input id="ec-company" name="company" type="text" required className={FIELD_CLASS} />
+                <input
+                  id="ec-company"
+                  name="company"
+                  type="text"
+                  required
+                  aria-invalid={!!fieldErrors.company}
+                  className={cn(FIELD_CLASS, fieldErrors.company && "border-[#EF4444]")}
+                />
+                {fieldErrors.company && <p className="mt-1 text-[12px] text-[#EF4444]">{fieldErrors.company}</p>}
               </div>
 
               <div className="mt-3">
@@ -123,10 +149,16 @@ export function EnterpriseContact() {
 
               <div className="mt-3">
                 <label className={LABEL_CLASS} htmlFor="ec-message">What do you need?</label>
-                <textarea id="ec-message" name="message" required rows={3} className={cn(FIELD_CLASS, "h-[96px] resize-none py-2.5")} />
+                <textarea
+                  id="ec-message"
+                  name="message"
+                  required
+                  rows={3}
+                  aria-invalid={!!fieldErrors.message}
+                  className={cn(FIELD_CLASS, "h-[96px] resize-none py-2.5", fieldErrors.message && "border-[#EF4444]")}
+                />
+                {fieldErrors.message && <p className="mt-1 text-[12px] text-[#EF4444]">{fieldErrors.message}</p>}
               </div>
-
-              {error && <p className="mt-3 text-[13px] text-[#EF4444]">{error}</p>}
 
               <button
                 type="submit"

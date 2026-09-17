@@ -11,10 +11,12 @@ export async function submitEnterpriseContact(formData: FormData) {
   const volume = String(formData.get("volume") || "").trim();
   const message = String(formData.get("message") || "").trim();
 
-  if (!name) return { error: "Name is required." };
-  if (!email || !EMAIL_RE.test(email)) return { error: "Enter a valid work email." };
-  if (!company) return { error: "Company is required." };
-  if (!message) return { error: "Tell us what you need." };
+  const fieldErrors: { name?: string; email?: string; company?: string; message?: string } = {};
+  if (!name) fieldErrors.name = "Name is required.";
+  if (!email || !EMAIL_RE.test(email)) fieldErrors.email = "Enter a valid work email.";
+  if (!company) fieldErrors.company = "Company is required.";
+  if (!message) fieldErrors.message = "Tell us what you need.";
+  if (Object.keys(fieldErrors).length > 0) return { fieldErrors };
 
   await track("enterprise_contact_submitted", null, { name, email, company, volume, message });
 

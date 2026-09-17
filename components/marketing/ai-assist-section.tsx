@@ -35,7 +35,7 @@ export function AiAssistSection() {
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
                   src="/marketing/phantom-gx-wide.jpg"
-                  alt=""
+                  alt="Uploaded photo of Nike Phantom GX Elite FG cleats"
                   className="h-full w-full object-cover"
                 />
               </div>

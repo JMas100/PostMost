@@ -15,8 +15,8 @@ const PRO_INDEX = PLANS.findIndex((p) => p.id === "pro");
 type Row = { label: string; values: string[] };
 
 const ROWS: Row[] = [
-  { label: "New listings per month", values: ["25", "100", "300", "750", "2,000", "Unlimited"] },
   { label: "Active inventory", values: ["50", "500", "2,000", "5,000", "Unlimited", "Unlimited"] },
+  { label: "New listings per month", values: ["25", "100", "300", "750", "2,000", "Unlimited"] },
   { label: "Marketplaces", values: ["3", "5", "10+", "All", "All", "All"] },
   { label: "AI credits per month", values: ["10", "50", "100", "500", "5,000", "10,000"] },
   { label: "Studio-quality photo edits", values: ["—", "10", "50", "200", "1,000", "Unlimited"] },
