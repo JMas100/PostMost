@@ -44,6 +44,14 @@ function matchPoshmarkCategory(listing: ListingData): string {
   const audienceMatch = listing.audience ? AUDIENCE_FIELD_MAP[listing.audience.toLowerCase()] : undefined;
   if (audienceMatch) return audienceMatch;
 
+  // TEMPORARY diagnostic (2026-09-17): a real production job failed here with audience
+  // confirmed "Women" in the database and in a local reproduction of this exact function against
+  // that exact data -- this surfaces the raw value actually received at runtime, to settle
+  // whether it's arriving intact over the worker HTTP boundary. Remove once resolved.
+  throw new Error(
+    `[diagnostic] matchPoshmarkCategory saw listing.audience = ${JSON.stringify(listing.audience)} (type ${typeof listing.audience}), category = ${JSON.stringify(listing.category)}, keys = ${JSON.stringify(Object.keys(listing))}`
+  );
+
   const haystack = `${listing.title} ${listing.description}`.toLowerCase();
   for (const { slug, keywords } of AUDIENCE_KEYWORDS) {
     if (keywords.some((kw) => haystack.includes(kw))) return slug;
