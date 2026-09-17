@@ -8,9 +8,11 @@ import { Trash2 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
-import { PlatformBadge } from "@/components/platform-badge";
+import { PlatformBadgeRow } from "@/components/platform-badge-row";
 import { InventoryCostCell } from "@/components/inventory-cost-cell";
 import { bulkDeleteListings } from "@/lib/actions/listings";
+import { ConfirmDialog } from "@/components/confirm-dialog";
+import { cn } from "@/lib/utils";
 import {
   Table,
   TableBody,
@@ -35,9 +37,11 @@ export function InventoryTable({ listings, canDelete }: { listings: InventoryRow
   const router = useRouter();
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [isPending, startTransition] = useTransition();
+  const [confirmDelete, setConfirmDelete] = useState(false);
 
   const allSelected = listings.length > 0 && selected.size === listings.length;
   const someSelected = selected.size > 0 && !allSelected;
+  const count = selected.size;
 
   function toggleAll() {
     setSelected(allSelected ? new Set() : new Set(listings.map((l) => l.id)));
@@ -52,12 +56,7 @@ export function InventoryTable({ listings, canDelete }: { listings: InventoryRow
     });
   }
 
-  function handleBulkDelete() {
-    const count = selected.size;
-    if (count === 0) return;
-    const label = count === 1 ? "this item" : `these ${count} items`;
-    if (!window.confirm(`Delete ${label} from inventory? This can't be undone.`)) return;
-
+  function performDelete() {
     startTransition(async () => {
       const result = await bulkDeleteListings(Array.from(selected));
       if (result.success) {
@@ -67,6 +66,7 @@ export function InventoryTable({ listings, canDelete }: { listings: InventoryRow
       } else {
         toast.error("Couldn't delete those items. Try again.");
       }
+      setConfirmDelete(false);
     });
   }
 
@@ -79,15 +79,15 @@ export function InventoryTable({ listings, canDelete }: { listings: InventoryRow
             <Button variant="ghost" size="sm" onClick={() => setSelected(new Set())}>
               Clear
             </Button>
-            <Button variant="destructive" size="sm" onClick={handleBulkDelete} disabled={isPending}>
+            <Button variant="destructive" size="sm" onClick={() => setConfirmDelete(true)} disabled={isPending}>
               <Trash2 className="mr-1 h-4 w-4" />
-              {isPending ? "Deleting…" : "Delete"}
+              Delete
             </Button>
           </div>
         </div>
       )}
 
-      <Card>
+      <Card className="hidden md:block">
         <CardContent className="p-0">
           <Table>
             <TableHeader>
@@ -97,14 +97,14 @@ export function InventoryTable({ listings, canDelete }: { listings: InventoryRow
                     <Checkbox checked={allSelected} indeterminate={someSelected} onCheckedChange={toggleAll} aria-label="Select all" />
                   </TableHead>
                 )}
-                <TableHead></TableHead>
+                <TableHead className="hidden xl:table-cell"></TableHead>
                 <TableHead>Item</TableHead>
-                <TableHead>SKU</TableHead>
-                <TableHead>Quantity</TableHead>
-                <TableHead>Price</TableHead>
-                <TableHead>Cost</TableHead>
-                <TableHead>Margin</TableHead>
-                <TableHead>Value</TableHead>
+                <TableHead className="hidden xl:table-cell">SKU</TableHead>
+                <TableHead className="hidden text-right xl:table-cell">Quantity</TableHead>
+                <TableHead className="text-right">Price</TableHead>
+                <TableHead className="text-right">Cost</TableHead>
+                <TableHead className="hidden text-right xl:table-cell">Margin</TableHead>
+                <TableHead className="hidden text-right xl:table-cell">Value</TableHead>
                 <TableHead>Platforms</TableHead>
               </TableRow>
             </TableHeader>
@@ -124,7 +124,7 @@ export function InventoryTable({ listings, canDelete }: { listings: InventoryRow
                         />
                       </TableCell>
                     )}
-                    <TableCell>
+                    <TableCell className="hidden xl:table-cell">
                       {listing.photos[0] ? (
                         // eslint-disable-next-line @next/next/no-img-element
                         <img src={listing.photos[0].url} alt="" className="h-10 w-10 rounded-md object-cover" />
@@ -132,33 +132,52 @@ export function InventoryTable({ listings, canDelete }: { listings: InventoryRow
                         <div className="h-10 w-10 rounded-md bg-muted" />
                       )}
                     </TableCell>
-                    <TableCell>
-                      <Link href={`/listings/${listing.id}`} className="font-medium hover:underline">
-                        {listing.title}
-                      </Link>
+                    <TableCell className="max-w-[200px] md:max-w-[260px] xl:max-w-none">
+                      <div className="flex min-w-0 items-center gap-3">
+                        {/* Below xl there's no separate photo column, and SKU/quantity join this
+                            cell's second line instead of their own columns. */}
+                        <span className="shrink-0 xl:hidden">
+                          {listing.photos[0] ? (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img src={listing.photos[0].url} alt="" className="h-9 w-9 rounded-md object-cover" />
+                          ) : (
+                            <span className="block h-9 w-9 rounded-md bg-muted" />
+                          )}
+                        </span>
+                        <div className="min-w-0 flex-1">
+                          <Link href={`/listings/${listing.id}`} className="block truncate font-medium hover:underline">
+                            {listing.title}
+                          </Link>
+                          <p className="tnum truncate text-xs text-muted-foreground xl:hidden">
+                            {listing.sku || "No SKU"} · Qty {soldOut ? "0" : listing.quantity}
+                          </p>
+                        </div>
+                      </div>
                     </TableCell>
-                    <TableCell className="text-muted-foreground">{listing.sku || "—"}</TableCell>
-                    <TableCell>
+                    <TableCell className="hidden text-muted-foreground xl:table-cell">{listing.sku || "—"}</TableCell>
+                    <TableCell className="tnum hidden text-right xl:table-cell">
                       {soldOut ? (
                         <span className="text-xs font-medium text-muted-foreground">Sold out</span>
                       ) : (
                         listing.quantity
                       )}
                     </TableCell>
-                    <TableCell>${listing.price.toFixed(2)}</TableCell>
-                    <TableCell>
+                    <TableCell className="tnum text-right">
+                      <div>${listing.price.toFixed(2)}</div>
+                      {/* Margin joins the price cell below xl, where it has no column of its own. */}
+                      <div className="text-xs text-muted-foreground xl:hidden">
+                        {margin !== null ? `${margin.toFixed(0)}% margin` : "— margin"}
+                      </div>
+                    </TableCell>
+                    <TableCell className="tnum text-right">
                       <InventoryCostCell id={listing.id} initialCost={listing.cost} rowIndex={index} />
                     </TableCell>
-                    <TableCell className={hasCost ? undefined : "text-muted-foreground"}>
+                    <TableCell className={cn("tnum hidden text-right xl:table-cell", hasCost ? undefined : "text-muted-foreground")}>
                       {margin !== null ? `${margin.toFixed(0)}%` : "—"}
                     </TableCell>
-                    <TableCell>${(listing.price * listing.quantity).toFixed(2)}</TableCell>
+                    <TableCell className="tnum hidden text-right xl:table-cell">${(listing.price * listing.quantity).toFixed(2)}</TableCell>
                     <TableCell>
-                      <div className="flex flex-wrap gap-1">
-                        {listing.platformListings.slice(0, 3).map((pl) => (
-                          <PlatformBadge key={pl.id} platform={pl.platform} status={pl.status} />
-                        ))}
-                      </div>
+                      <PlatformBadgeRow platformListings={listing.platformListings} />
                     </TableCell>
                   </TableRow>
                 );
@@ -167,6 +186,65 @@ export function InventoryTable({ listings, canDelete }: { listings: InventoryRow
           </Table>
         </CardContent>
       </Card>
+
+      <div className="space-y-2 md:hidden">
+        {listings.map((listing, index) => {
+          const soldOut = listing.quantity === 0;
+          const hasCost = listing.cost !== null;
+          const margin = hasCost && listing.price > 0 ? ((listing.price - listing.cost!) / listing.price) * 100 : null;
+          return (
+            <Card key={listing.id}>
+              <CardContent className="flex gap-3 p-3">
+                {canDelete && (
+                  <Checkbox
+                    checked={selected.has(listing.id)}
+                    onCheckedChange={() => toggleOne(listing.id)}
+                    aria-label={`Select ${listing.title}`}
+                    className="mt-1"
+                  />
+                )}
+                <div className="flex min-w-0 flex-1 gap-3">
+                  <Link href={`/listings/${listing.id}`} className="shrink-0">
+                    {listing.photos[0] ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={listing.photos[0].url} alt="" className="h-14 w-14 rounded-md object-cover" />
+                    ) : (
+                      <div className="h-14 w-14 rounded-md bg-muted" />
+                    )}
+                  </Link>
+                  <div className="min-w-0 flex-1 space-y-1.5">
+                    <div className="flex items-start justify-between gap-2">
+                      <Link href={`/listings/${listing.id}`} className="truncate font-medium hover:underline">
+                        {listing.title}
+                      </Link>
+                      <p className="tnum shrink-0 font-medium">${listing.price.toFixed(2)}</p>
+                    </div>
+                    <p className="tnum text-xs text-muted-foreground">
+                      {listing.sku || "No SKU"} · {soldOut ? "Sold out" : `Qty ${listing.quantity}`} ·{" "}
+                      {margin !== null ? `${margin.toFixed(0)}% margin` : "no cost recorded"}
+                    </p>
+                    <div className="flex items-center gap-2 text-xs">
+                      <span className="text-muted-foreground">Cost:</span>
+                      <InventoryCostCell id={listing.id} initialCost={listing.cost} rowIndex={index} />
+                    </div>
+                    <PlatformBadgeRow platformListings={listing.platformListings} />
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          );
+        })}
+      </div>
+
+      <ConfirmDialog
+        open={confirmDelete}
+        onOpenChange={setConfirmDelete}
+        pending={isPending}
+        title={`Delete ${count === 1 ? "this item" : `these ${count} items`} from inventory?`}
+        description="This can't be undone."
+        confirmLabel="Delete"
+        onConfirm={performDelete}
+      />
     </div>
   );
 }

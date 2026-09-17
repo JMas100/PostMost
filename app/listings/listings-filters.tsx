@@ -4,8 +4,10 @@ import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import { useState, useTransition } from "react";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { buttonVariants } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
+import { SlidersHorizontal } from "lucide-react";
 import Link from "next/link";
 
 interface PlatformOption {
@@ -37,43 +39,78 @@ export function ListingsFilters({ platformOptions }: { platformOptions: Platform
     });
   }
 
+  const activeCount = (q ? 1 : 0) + (platform !== "all" ? 1 : 0);
+  const clearHref = (() => {
+    const tab = searchParams?.get("tab");
+    return tab ? `${pathname}?tab=${tab}` : pathname;
+  })();
+
+  const searchInput = (
+    <Input
+      placeholder="Search listings…"
+      value={q}
+      onChange={(e) => setQ(e.target.value)}
+      onKeyDown={(e) => {
+        if (e.key === "Enter") updateParams({ q });
+      }}
+      onBlur={() => updateParams({ q })}
+      className="w-full sm:w-64"
+    />
+  );
+  const platformSelect = (
+    <Select value={platform} onValueChange={(v) => updateParams({ platform: v ?? "all" })}>
+      <SelectTrigger className="w-full sm:w-44">
+        <SelectValue>{(v: string) => platformLabels[v] ?? v}</SelectValue>
+      </SelectTrigger>
+      <SelectContent>
+        <SelectItem value="all">All platforms</SelectItem>
+        {platformOptions.map((p) => (
+          <SelectItem key={p.id} value={p.id}>
+            {p.name}
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
+  );
+  const clearLink = hasFilters && (
+    <Link href={clearHref} onClick={() => setQ("")} className={cn(buttonVariants({ variant: "ghost", size: "sm" }))}>
+      Clear filters
+    </Link>
+  );
+
   return (
-    <div className="flex flex-wrap items-center gap-2">
-      <Input
-        placeholder="Search listings…"
-        value={q}
-        onChange={(e) => setQ(e.target.value)}
-        onKeyDown={(e) => {
-          if (e.key === "Enter") updateParams({ q });
-        }}
-        onBlur={() => updateParams({ q })}
-        className="w-full sm:w-64"
-      />
-      <Select value={platform} onValueChange={(v) => updateParams({ platform: v ?? "all" })}>
-        <SelectTrigger className="w-full sm:w-44">
-          <SelectValue>{(v: string) => platformLabels[v] ?? v}</SelectValue>
-        </SelectTrigger>
-        <SelectContent>
-          <SelectItem value="all">All platforms</SelectItem>
-          {platformOptions.map((p) => (
-            <SelectItem key={p.id} value={p.id}>
-              {p.name}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
-      {hasFilters && (
-        <Link
-          href={(() => {
-            const tab = searchParams?.get("tab");
-            return tab ? `${pathname}?tab=${tab}` : pathname;
-          })()}
-          onClick={() => setQ("")}
-          className={cn(buttonVariants({ variant: "ghost", size: "sm" }))}
-        >
-          Clear filters
-        </Link>
-      )}
-    </div>
+    <>
+      {/* lg+: controls stay inline, as before. */}
+      <div className="hidden items-center gap-2 lg:flex">
+        {searchInput}
+        {platformSelect}
+        {clearLink}
+      </div>
+
+      {/* Below lg: one Filters button with an active-count badge, opening the same controls in
+          a popover -- three separate controls don't fit this width. */}
+      <div className="flex items-center gap-2 lg:hidden">
+        <Popover>
+          <PopoverTrigger
+            render={
+              <Button variant="outline" size="sm">
+                <SlidersHorizontal className="mr-1.5 h-3.5 w-3.5" />
+                Filters
+                {activeCount > 0 && (
+                  <span className="ml-1.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 text-[10px] font-semibold text-primary-foreground">
+                    {activeCount}
+                  </span>
+                )}
+              </Button>
+            }
+          />
+          <PopoverContent className="w-72 space-y-2 p-3">
+            {searchInput}
+            {platformSelect}
+          </PopoverContent>
+        </Popover>
+        {clearLink}
+      </div>
+    </>
   );
 }

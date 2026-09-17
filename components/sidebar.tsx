@@ -127,7 +127,7 @@ function NavContent({ onClick }: { onClick?: () => void }) {
 function MobileTopBar() {
   return (
     <Sheet>
-      <div className="flex h-14 flex-none items-center gap-3 border-b bg-background px-4 lg:hidden">
+      <div className="flex h-14 flex-none items-center gap-3 border-b bg-background px-4 md:hidden">
         <SheetTrigger className={cn(buttonVariants({ variant: "ghost", size: "icon" }))}>
           <Menu className="h-5 w-5" />
         </SheetTrigger>
@@ -146,12 +146,55 @@ function MobileTopBar() {
   );
 }
 
+/** The 768-1023px band: a 72px icon-only rail, not a drawer -- navigation stays one tap instead
+ *  of two. Labels surface via the native title tooltip on hover; there's no touch equivalent for
+ *  long-press without a dedicated tooltip primitive, a known, accepted gap for this pass. */
+function NavIconRail() {
+  const pathname = usePathname();
+  return (
+    <aside className="hidden w-[72px] flex-none flex-col items-center gap-1 border-r bg-sidebar py-4 md:flex lg:hidden">
+      <Link href="/dashboard" className="mb-2 flex h-11 w-11 items-center justify-center" title="PostMost">
+        <LogoMark className="h-7 w-7" />
+      </Link>
+      <Link
+        href="/listings/new"
+        title="Create listing"
+        className={cn(buttonVariants({ size: "icon" }), "mb-2 h-11 w-11")}
+      >
+        <Plus className="h-5 w-5" />
+      </Link>
+      <nav className="flex flex-1 flex-col items-center gap-1 overflow-auto">
+        {primaryNav.map((item) => (
+          <Link
+            key={item.href}
+            href={item.href}
+            title={item.label}
+            className={cn(
+              "flex h-11 w-11 items-center justify-center rounded-md border-l-2 transition-colors",
+              isActive(pathname, item.href)
+                ? "border-primary bg-sidebar-accent text-primary"
+                : "border-transparent text-muted-foreground hover:bg-muted hover:text-foreground"
+            )}
+          >
+            <item.icon className="h-5 w-5" />
+          </Link>
+        ))}
+      </nav>
+      <div className="flex flex-col items-center gap-1 border-t pt-3">
+        <NotificationBell />
+        <ThemeToggle />
+      </div>
+    </aside>
+  );
+}
+
 export function Sidebar() {
   return (
     <>
       <aside className="hidden w-64 flex-none border-r bg-sidebar lg:block">
         <NavContent />
       </aside>
+      <NavIconRail />
       <MobileTopBar />
     </>
   );
@@ -159,7 +202,7 @@ export function Sidebar() {
 
 export function Shell({ children }: { children: React.ReactNode }) {
   return (
-    <div className="app-shell flex min-h-screen w-full flex-col bg-background font-sans text-foreground lg:flex-row">
+    <div className="app-shell flex min-h-screen w-full flex-col bg-background font-sans text-foreground md:flex-row">
       <Sidebar />
       <main className="min-w-0 flex-1 p-4 sm:p-6 lg:p-10">{children}</main>
     </div>
