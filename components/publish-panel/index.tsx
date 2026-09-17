@@ -68,22 +68,29 @@ export function PublishPanel({ listingId, accounts, extensionListing, hasActiveJ
 
     setPublishing(true);
 
-    let automationFailed = false;
+    // Only platforms that actually got queued belong in the success confirmation below -- a
+    // pre-flight check (e.g. Poshmark needing a Women/Men/Kids category it can't infer) can
+    // reject one platform in a multi-platform publish without the whole request erroring, so
+    // this can't just be "did the call succeed."
+    let succeededAutomationIds = automationIds;
     if (automationIds.length > 0) {
       const result = await crossPost(listingId, automationIds);
       if (result.error) {
         toast.error(result.error);
-        automationFailed = true;
+        succeededAutomationIds = [];
       } else {
         const failed = (result.results ?? []).filter((r) => !r.success);
-        // One toast per platform with its actual reason -- a platform-specific pre-flight
-        // check (e.g. Poshmark needing a Women/Men/Kids category it can't infer) returns a
-        // real, actionable message, and collapsing everything into "Failed to queue: poshmark"
-        // would throw that away right when the user most needs to see it.
+        // One toast per platform with its actual reason -- collapsing everything into "Failed
+        // to queue: poshmark" would throw away the actionable message right when the user most
+        // needs to see it, and previously this loop's failures never stopped the success
+        // confirmation dialog from opening right after, for every platform including the failed
+        // one -- reading as "it silently worked" when it hadn't.
         for (const f of failed) {
           const platformName = platforms.find((p) => p.id === f.platformId)?.name ?? f.platformId;
           toast.error(f.error ? `${platformName}: ${f.error}` : `Failed to queue ${platformName}`);
         }
+        const failedIds = new Set(failed.map((f) => f.platformId));
+        succeededAutomationIds = automationIds.filter((id) => !failedIds.has(id));
       }
     }
 
@@ -93,8 +100,8 @@ export function PublishPanel({ listingId, accounts, extensionListing, hasActiveJ
 
     setPublishing(false);
 
-    if (!automationFailed) {
-      setConfirmation({ automationIds, extensionIds });
+    if (succeededAutomationIds.length > 0 || extensionIds.length > 0) {
+      setConfirmation({ automationIds: succeededAutomationIds, extensionIds });
     }
 
     setSelected(new Set());
