@@ -60,6 +60,9 @@ export interface ManualAdapterConfig extends AutomationConfig {
     saveSelectors: string[];
     verifyPriceUpdated?: PriceUpdateConfig["verifyPriceUpdated"];
   };
+  /** See MarketplaceAdapter.validateListing -- a synchronous pre-flight check run at publish
+   *  time, before any browser automation. Optional: most platforms have nothing to check here. */
+  validateListing?(listing: ListingData): { valid: true } | { valid: false; error: string };
 }
 
 function defaultListingSteps(listing: ListingData) {
@@ -142,6 +145,7 @@ export function createManualAdapter(config: ManualAdapterConfig): MarketplaceAda
       { key: "username", label: "Username / email", type: "text" },
       { key: "password", label: "Password", type: "password" },
     ],
+    validateListing: config.validateListing,
     async post(listing: ListingData, account: PlatformAccount): Promise<PostResult> {
       if (BROWSER_WORKER_URL) {
         return callBrowserWorker<PostResult>({ platform: config.id, action: "post", listing, account });

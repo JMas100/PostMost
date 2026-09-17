@@ -8,6 +8,7 @@ import { track } from "@/lib/analytics/track";
 import { requireWorkspace } from "@/lib/auth-helpers";
 import { triggerJobWorker } from "@/lib/jobs/trigger";
 import { checkRateLimit } from "@/lib/rate-limit";
+import { listingDescriptionFields } from "@/lib/marketplaces/listing-fields";
 
 const CROSSPOST_WINDOW_MS = 5 * 60 * 1000;
 const CROSSPOST_MAX_PER_WINDOW = 30;
@@ -45,6 +46,19 @@ export async function crossPost(listingId: string, platformIds: string[]) {
       const adapter = getAdapter(platformId);
       if (!adapter) {
         return { platformId, success: false, error: "Unsupported platform" };
+      }
+
+      // Synchronous, no-I/O pre-flight check -- catches a platform-specific requirement
+      // PostMost's own listing data can't always satisfy (e.g. Poshmark needing a Women/Men/
+      // Kids/Home/Pets/Electronics category with no equivalent field in our model) immediately
+      // in the publish UI, instead of queuing a job destined to fail on a live browser minutes
+      // later with no chance for the user to fix it first.
+      const validation = adapter.validateListing?.({
+        ...listingDescriptionFields(listing),
+        photos: listing.photos.map((p) => p.url),
+      });
+      if (validation && !validation.valid) {
+        return { platformId, success: false, error: validation.error };
       }
 
       const account = accountByPlatform.get(platformId);

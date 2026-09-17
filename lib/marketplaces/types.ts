@@ -102,4 +102,10 @@ export interface MarketplaceAdapter {
   exchangeCode?(code: string, ctx?: { codeVerifier?: string }): Promise<OAuthTokenResult>;
   /** Exchanges a stored refresh token for a new access token once the current one expires. */
   refreshAccessToken?(refreshToken: string): Promise<OAuthTokenResult>;
+  /** Synchronous, no-I/O pre-flight check run at publish time, before a CrossPostJob is ever
+   *  queued -- for a platform-specific requirement PostMost's own listing data can't always
+   *  satisfy (e.g. Poshmark requiring a Women/Men/Kids/Home/Pets/Electronics category with no
+   *  equivalent field in our own listing model). Lets the user fix it immediately in the publish
+   *  UI instead of discovering the failure only after the job runs and fails on a live browser. */
+  validateListing?(listing: ListingData): { valid: true } | { valid: false; error: string };
 }

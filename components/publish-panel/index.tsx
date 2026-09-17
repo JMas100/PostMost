@@ -76,8 +76,13 @@ export function PublishPanel({ listingId, accounts, extensionListing, hasActiveJ
         automationFailed = true;
       } else {
         const failed = (result.results ?? []).filter((r) => !r.success);
-        if (failed.length > 0) {
-          toast.error(`Failed to queue: ${failed.map((f) => f.platformId).join(", ")}`);
+        // One toast per platform with its actual reason -- a platform-specific pre-flight
+        // check (e.g. Poshmark needing a Women/Men/Kids category it can't infer) returns a
+        // real, actionable message, and collapsing everything into "Failed to queue: poshmark"
+        // would throw that away right when the user most needs to see it.
+        for (const f of failed) {
+          const platformName = platforms.find((p) => p.id === f.platformId)?.name ?? f.platformId;
+          toast.error(f.error ? `${platformName}: ${f.error}` : `Failed to queue ${platformName}`);
         }
       }
     }

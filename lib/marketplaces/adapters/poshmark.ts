@@ -144,6 +144,17 @@ export const poshmarkAdapter = createManualAdapter({
   passwordSelector: "input[name=\"login_form[password]\"]",
   submitSelector: "button[type=\"submit\"]",
   preSubmitSteps: poshmarkListingSteps,
+  // Runs at publish time, before any browser automation, so the user finds out "Poshmark needs
+  // to know who this is for" immediately in the publish UI -- not minutes later as a job failure
+  // after a real browser already spent time on it.
+  validateListing(listing) {
+    try {
+      matchPoshmarkCategory(listing);
+      return { valid: true };
+    } catch (err) {
+      return { valid: false, error: err instanceof Error ? err.message : String(err) };
+    }
+  },
   // Delete-flow selectors are still best-effort, written from general knowledge of Poshmark's
   // UI -- not verified against a live account like the create-listing flow above now is. Needs
   // real-account testing before it's trusted.
