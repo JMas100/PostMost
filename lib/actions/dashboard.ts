@@ -263,7 +263,7 @@ export async function getDashboardData(period: DashboardPeriod) {
       title: `Your ${conn.name} connection ${conn.attentionReason?.toLowerCase()}`,
       body: conn.live > 0 ? `${conn.live} listing${conn.live === 1 ? "" : "s"} stop syncing when it does. Nothing gets delisted — updates just stop.` : "Reconnect to keep cross-posting to this marketplace.",
       actionLabel: `Reconnect ${conn.name}`,
-      actionHref: "/settings",
+      actionHref: "/marketplaces",
     });
   }
 

@@ -148,7 +148,7 @@ export function CsvImporter() {
                 className="w-full rounded-md border bg-background px-3 py-2 text-sm"
               >
                 <option value="generic">Auto-detect / generic</option>
-                <option value="ebay">eBay Seller Hub export</option>
+                <option value="ebay">Marketplace export (e.g. Seller Hub)</option>
               </select>
             </div>
             <div className="space-y-2">
@@ -217,7 +217,7 @@ export function CsvImporter() {
           <p className="mt-2">
             Use <code>photo1</code>, <code>photo2</code> columns, or a single <code>photos</code> column with URLs separated by <code>|</code>.
             Column names are matched loosely, so most exports work without renaming anything — pick
-            the eBay format above if you&apos;re uploading a Seller Hub listings report.
+            the marketplace export format above if your file came from a seller dashboard&apos;s listings report.
           </p>
         </div>
       </CardContent>

@@ -30,8 +30,12 @@ export interface ShippingProfileOption {
 }
 
 export interface ListingFormProps {
-  mode?: "create" | "draft";
+  mode?: "create" | "draft" | "edit";
   draftId?: string;
+  /** Id of the already-published listing being edited, when `mode === "edit"`. Submitting saves
+   *  the base fields via `updateListing` and returns to the detail page -- it never re-publishes
+   *  or touches already-live platform listings, so the marketplace picker in Review is hidden. */
+  editId?: string;
   initialData?: Partial<ListingFormData>;
   templates?: { id: string; name: string; payload: string; platforms?: string | null }[];
   defaultTemplateId?: string;

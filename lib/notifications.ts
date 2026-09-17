@@ -33,6 +33,12 @@ export interface UpsertNotificationParams {
   render: (mergedTargetIds: string[]) => RenderedNotification;
   platform?: string;
   targetIds?: string[];
+  /** False when the caller's kind has a user-togglable App preference and that preference is
+   *  off. The in-app row is skipped entirely in that case, but the email send below still runs
+   *  unconditionally -- App and Email are independent toggles, and maybeSendNotificationEmail
+   *  already does its own Email-specific check, so this must never gate the email too. Kinds
+   *  with no App toggle at all (the two "needs you" kinds) never pass this and default to true. */
+  appEnabled?: boolean;
 }
 
 /** Upserts on (userId, groupKey) -- what makes repeated writes for the same cause become one row
@@ -43,6 +49,8 @@ export interface UpsertNotificationParams {
  *  occurrence of an already-resolved or already-read cause reopens and re-surfaces it rather than
  *  staying silently marked done. */
 export async function upsertNotification(params: UpsertNotificationParams) {
+  const appEnabled = params.appEnabled ?? true;
+
   const existing = await prisma.notification.findUnique({
     where: { userId_groupKey: { userId: params.userId, groupKey: params.groupKey } },
   });
@@ -52,24 +60,28 @@ export async function upsertNotification(params: UpsertNotificationParams) {
     : (params.targetIds ?? []);
 
   const rendered = params.render(mergedTargetIds);
-  const shared = {
-    category: params.category,
-    kind: params.kind,
-    title: rendered.title,
-    body: rendered.body,
-    actionLabel: rendered.actionLabel,
-    actionHref: rendered.actionHref,
-    secondaryActionLabel: rendered.secondaryActionLabel,
-    secondaryActionHref: rendered.secondaryActionHref,
-    platform: params.platform,
-    targetIds: mergedTargetIds,
-  };
 
-  const result = await prisma.notification.upsert({
-    where: { userId_groupKey: { userId: params.userId, groupKey: params.groupKey } },
-    create: { userId: params.userId, groupKey: params.groupKey, ...shared },
-    update: { ...shared, resolvedAt: null, readAt: null },
-  });
+  let result = existing;
+  if (appEnabled) {
+    const shared = {
+      category: params.category,
+      kind: params.kind,
+      title: rendered.title,
+      body: rendered.body,
+      actionLabel: rendered.actionLabel,
+      actionHref: rendered.actionHref,
+      secondaryActionLabel: rendered.secondaryActionLabel,
+      secondaryActionHref: rendered.secondaryActionHref,
+      platform: params.platform,
+      targetIds: mergedTargetIds,
+    };
+
+    result = await prisma.notification.upsert({
+      where: { userId_groupKey: { userId: params.userId, groupKey: params.groupKey } },
+      create: { userId: params.userId, groupKey: params.groupKey, ...shared },
+      update: { ...shared, resolvedAt: null, readAt: null },
+    });
+  }
 
   const action = rendered.actionLabel && rendered.actionHref ? { label: rendered.actionLabel, url: rendered.actionHref } : undefined;
   await maybeSendNotificationEmail(params.userId, params.kind, rendered.title, rendered.body, action);
@@ -110,20 +122,26 @@ export async function upsertNearPlanLimitNotification(userId: string, used: numb
     ? `You've used all ${limit} listings included in your plan this month. Upgrade to keep creating new ones.`
     : `You've used ${used} of ${limit} listings included in your plan this month.`;
 
-  await prisma.notification.upsert({
-    where: { userId_groupKey: { userId, groupKey } },
-    create: {
-      userId,
-      groupKey,
-      category: "needs_you",
-      kind: "near_plan_limit",
-      title,
-      body,
-      actionLabel: "Upgrade plan",
-      actionHref: "/settings/billing",
-    },
-    update: { title, body, resolvedAt: null, readAt: null },
-  });
+  // App and email are independent toggles (see the six-row preference matrix) -- the email call
+  // below already does its own nearPlanLimitEmail check internally, so only the in-app row is
+  // gated here.
+  const pref = await prisma.notificationPreference.findUnique({ where: { userId } });
+  if (!pref || pref.nearPlanLimitApp) {
+    await prisma.notification.upsert({
+      where: { userId_groupKey: { userId, groupKey } },
+      create: {
+        userId,
+        groupKey,
+        category: "needs_you",
+        kind: "near_plan_limit",
+        title,
+        body,
+        actionLabel: "Upgrade plan",
+        actionHref: "/settings/billing",
+      },
+      update: { title, body, resolvedAt: null, readAt: null },
+    });
+  }
 
   await maybeSendNotificationEmail(userId, "near_plan_limit", title, body, {
     label: "Upgrade plan",
@@ -245,22 +263,29 @@ export class NotificationCollector {
       }
     }
 
-    for (const entry of this.successes.values()) {
-      // targetIds here holds platform names (this listing's own groupKey already scopes it to
-      // one listing) so "Live in N places" accumulates correctly if a later invocation posts
-      // this same listing to yet another platform, rather than resetting to this batch's count.
-      await upsertNotification({
-        userId: entry.userId,
-        category: "activity",
-        kind: "cross_post_succeeded",
-        groupKey: `cps:${entry.userId}:${entry.listingId}`,
-        render: (merged) => ({
-          title: `Live in ${merged.length} place${merged.length === 1 ? "" : "s"}`,
-          body: entry.listingTitle,
-          actionHref: `/listings/${entry.listingId}`,
-        }),
-        targetIds: Array.from(entry.platforms),
-      });
+    if (this.successes.size > 0) {
+      const userIds = Array.from(new Set(Array.from(this.successes.values()).map((e) => e.userId)));
+      const prefs = await prisma.notificationPreference.findMany({ where: { userId: { in: userIds } } });
+      const appEnabledByUser = new Map(prefs.map((p) => [p.userId, p.crossPostSucceededApp]));
+
+      for (const entry of this.successes.values()) {
+        // targetIds here holds platform names (this listing's own groupKey already scopes it to
+        // one listing) so "Live in N places" accumulates correctly if a later invocation posts
+        // this same listing to yet another platform, rather than resetting to this batch's count.
+        await upsertNotification({
+          userId: entry.userId,
+          category: "activity",
+          kind: "cross_post_succeeded",
+          groupKey: `cps:${entry.userId}:${entry.listingId}`,
+          render: (merged) => ({
+            title: `Live in ${merged.length} place${merged.length === 1 ? "" : "s"}`,
+            body: entry.listingTitle,
+            actionHref: `/listings/${entry.listingId}`,
+          }),
+          targetIds: Array.from(entry.platforms),
+          appEnabled: appEnabledByUser.get(entry.userId) ?? true,
+        });
+      }
     }
   }
 }
@@ -388,6 +413,7 @@ function renderRelistRan(tokens: string[]): RenderedNotification {
 export async function upsertAutomationRanNotification(userId: string, ruleType: string, tokens: string[]) {
   if (tokens.length === 0) return;
   const day = new Date().toISOString().slice(0, 10);
+  const pref = await prisma.notificationPreference.findUnique({ where: { userId } });
   await upsertNotification({
     userId,
     category: "activity",
@@ -395,5 +421,6 @@ export async function upsertAutomationRanNotification(userId: string, ruleType: 
     groupKey: `auto:${userId}:${ruleType}:${day}`,
     render: ruleType === STOCK_SYNC_RULE ? renderStockSyncRan : renderRelistRan,
     targetIds: tokens,
+    appEnabled: !pref || pref.automationRanApp,
   });
 }

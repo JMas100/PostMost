@@ -322,7 +322,7 @@ export default async function DashboardPage(props: { searchParams: Promise<{ per
                             </p>
                           </div>
                           {c.needsAttention && (
-                            <Link href="/settings" className="text-xs font-medium text-primary hover:underline">
+                            <Link href="/marketplaces" className="text-xs font-medium text-primary hover:underline">
                               Fix
                             </Link>
                           )}

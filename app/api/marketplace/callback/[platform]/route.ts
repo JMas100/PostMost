@@ -23,7 +23,7 @@ export async function GET(request: NextRequest, props: { params: Promise<{ platf
       ? `${error}: ${errorDescription || "Authorization failed"}`
       : "Missing authorization code";
     return NextResponse.redirect(
-      new URL(`/settings?error=${encodeURIComponent(msg)}`, process.env.NEXTAUTH_URL)
+      new URL(`/marketplaces?error=${encodeURIComponent(msg)}`, process.env.NEXTAUTH_URL)
     );
   }
 
@@ -31,7 +31,7 @@ export async function GET(request: NextRequest, props: { params: Promise<{ platf
   if (!adapter || adapter.authType !== "oauth" || !adapter.exchangeCode) {
     return NextResponse.redirect(
       new URL(
-        `/settings?error=${encodeURIComponent("OAuth is not supported for this marketplace")}`,
+        `/marketplaces?error=${encodeURIComponent("OAuth is not supported for this marketplace")}`,
         process.env.NEXTAUTH_URL
       )
     );
@@ -68,7 +68,7 @@ export async function GET(request: NextRequest, props: { params: Promise<{ platf
   if (!stateOk) {
     return NextResponse.redirect(
       new URL(
-        `/settings?error=${encodeURIComponent("This authorization link is invalid or expired. Please try connecting again.")}`,
+        `/marketplaces?error=${encodeURIComponent("This authorization link is invalid or expired. Please try connecting again.")}`,
         process.env.NEXTAUTH_URL
       )
     );
@@ -91,14 +91,14 @@ export async function GET(request: NextRequest, props: { params: Promise<{ platf
 
     return NextResponse.redirect(
       new URL(
-        `/settings?connected=${encodeURIComponent(platform)}`,
+        `/marketplaces?connected=${encodeURIComponent(platform)}`,
         process.env.NEXTAUTH_URL
       )
     );
   } catch (err) {
     const message = err instanceof Error ? err.message : "OAuth callback failed";
     return NextResponse.redirect(
-      new URL(`/settings?error=${encodeURIComponent(message)}`, process.env.NEXTAUTH_URL)
+      new URL(`/marketplaces?error=${encodeURIComponent(message)}`, process.env.NEXTAUTH_URL)
     );
   }
 }

@@ -36,6 +36,7 @@ export function StepReview({
   connectedPlatforms,
   selectedPlatforms,
   onTogglePlatform,
+  hidePlatformPicker = false,
 }: {
   photoUrls: string[];
   optimizing: OptimizingState;
@@ -52,6 +53,9 @@ export function StepReview({
   connectedPlatforms: string[];
   selectedPlatforms: Set<string>;
   onTogglePlatform: (platform: string) => void;
+  /** Editing an already-published listing doesn't re-publish or touch live platform listings, so
+   *  a "where should this go?" picker here would be actionable-looking but do nothing. */
+  hidePlatformPicker?: boolean;
 }) {
   const { watch, getValues } = useFormContext<ListingFormData>();
   const title = watch("title");
@@ -80,44 +84,46 @@ export function StepReview({
         </div>
       </div>
 
-      <div className="rounded-lg border p-4 space-y-3">
-        <div>
-          <p className="text-sm font-medium">Where should this go?</p>
-          <p className="text-xs text-muted-foreground">
-            {connectedPlatforms.length > 0
-              ? "Everything is ready. Pick the marketplaces and publish."
-              : "Connect a marketplace to publish immediately, or save as a draft for now."}
-          </p>
-        </div>
-        {connectedPlatforms.length > 0 && (
-          <div className="space-y-1">
-            {connectedPlatforms.map((platform) => {
-              const info = PLATFORMS.find((p) => p.id === platform);
-              return (
-                <label
-                  key={platform}
-                  className="flex cursor-pointer items-center justify-between gap-3 rounded-md border p-2.5 hover:bg-muted"
-                >
-                  <div className="flex items-center gap-2.5">
-                    <Checkbox checked={selectedPlatforms.has(platform)} onCheckedChange={() => onTogglePlatform(platform)} />
-                    <PlatformLogo platform={platform} size={22} />
-                    <span className="text-sm font-medium">{info?.name ?? platform}</span>
-                  </div>
-                  <span className="text-sm text-muted-foreground">${Number(price || 0).toFixed(2)}</span>
-                </label>
-              );
-            })}
+      {!hidePlatformPicker && (
+        <div className="rounded-lg border p-4 space-y-3">
+          <div>
+            <p className="text-sm font-medium">Where should this go?</p>
+            <p className="text-xs text-muted-foreground">
+              {connectedPlatforms.length > 0
+                ? "Everything is ready. Pick the marketplaces and publish."
+                : "Connect a marketplace to publish immediately, or save as a draft for now."}
+            </p>
           </div>
-        )}
-        {unconnectedCount > 0 && (
-          <p className="text-xs text-muted-foreground">
-            {unconnectedCount} more marketplace{unconnectedCount === 1 ? "" : "s"} available.{" "}
-            <Link href="/marketplaces" className="text-primary hover:underline">
-              Connect
-            </Link>
-          </p>
-        )}
-      </div>
+          {connectedPlatforms.length > 0 && (
+            <div className="space-y-1">
+              {connectedPlatforms.map((platform) => {
+                const info = PLATFORMS.find((p) => p.id === platform);
+                return (
+                  <label
+                    key={platform}
+                    className="flex cursor-pointer items-center justify-between gap-3 rounded-md border p-2.5 hover:bg-muted"
+                  >
+                    <div className="flex items-center gap-2.5">
+                      <Checkbox checked={selectedPlatforms.has(platform)} onCheckedChange={() => onTogglePlatform(platform)} />
+                      <PlatformLogo platform={platform} size={22} />
+                      <span className="text-sm font-medium">{info?.name ?? platform}</span>
+                    </div>
+                    <span className="text-sm text-muted-foreground">${Number(price || 0).toFixed(2)}</span>
+                  </label>
+                );
+              })}
+            </div>
+          )}
+          {unconnectedCount > 0 && (
+            <p className="text-xs text-muted-foreground">
+              {unconnectedCount} more marketplace{unconnectedCount === 1 ? "" : "s"} available.{" "}
+              <Link href="/marketplaces" className="text-primary hover:underline">
+                Connect
+              </Link>
+            </p>
+          )}
+        </div>
+      )}
 
       <details className="group rounded-lg border p-4">
         <summary className="flex cursor-pointer list-none items-center justify-between text-sm font-medium">

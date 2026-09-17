@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { FieldErrors, FormProvider, useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { listingSchema, ListingFormData } from "@/lib/schemas/listing";
-import { createListing, saveDraft, publishDraft } from "@/lib/actions/listings";
+import { createListing, saveDraft, publishDraft, updateListing } from "@/lib/actions/listings";
 import { crossPost } from "@/lib/actions/crosspost";
 import { saveTemplate, recordTemplateUsed } from "@/lib/actions/templates";
 import { generateListingFromPhoto } from "@/lib/actions/ai-generate";
@@ -19,6 +19,7 @@ import {
   isStudioRemovalAvailable,
 } from "@/lib/actions/ai-enhance";
 import { BgRemovalTier } from "@/lib/plans";
+import { getPlatform } from "@/lib/marketplaces/platforms";
 import { DEFAULT_PHOTO_PRESET, PhotoBackground } from "@/lib/images/presets";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { toast } from "sonner";
@@ -32,7 +33,7 @@ import { StepDetails } from "./step-details";
 import { StepPricing } from "./step-pricing";
 import { StepReview } from "./step-review";
 
-export function ListingForm({ mode = "create", draftId, initialData, templates = [], defaultTemplateId = "", shippingProfiles = [], accounts = [] }: ListingFormProps) {
+export function ListingForm({ mode = "create", draftId, editId, initialData, templates = [], defaultTemplateId = "", shippingProfiles = [], accounts = [] }: ListingFormProps) {
   const router = useRouter();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [photoUrls, setPhotoUrls] = useState<string[]>(initialData?.photos?.length ? initialData.photos : [""]);
@@ -77,7 +78,7 @@ export function ListingForm({ mode = "create", draftId, initialData, templates =
     resolver: zodResolver(listingSchema),
     defaultValues,
   });
-  const { handleSubmit, setValue, getValues, reset, trigger, formState: { isSubmitting } } = form;
+  const { handleSubmit, setValue, getValues, reset, trigger, formState: { isSubmitting, dirtyFields } } = form;
 
   const wizard = useListingWizard(computeInitialStep(initialData));
 
@@ -182,18 +183,20 @@ export function ListingForm({ mode = "create", draftId, initialData, templates =
         toast.error(result.error || "AI analysis failed");
         return;
       }
+      // Never clobber a field the user already typed into -- AI-fill is an assist, not an
+      // override, so every field it sets is conditional on the user not having touched it first.
       const l = result.listing;
-      setValue("title", l.title, { shouldValidate: true });
-      setValue("description", l.description, { shouldValidate: true });
-      setValue("price", l.price, { shouldValidate: true });
-      setValue("quantity", l.quantity, { shouldValidate: true });
-      setValue("condition", l.condition, { shouldValidate: true });
-      setValue("category", l.category, { shouldValidate: true });
-      if (l.audience) setValue("audience", l.audience, { shouldValidate: true });
-      if (l.brand) setValue("brand", l.brand);
-      if (l.size) setValue("size", l.size);
-      if (l.color) setValue("color", l.color);
-      if (l.material) setValue("material", l.material);
+      if (!dirtyFields.title) setValue("title", l.title, { shouldValidate: true });
+      if (!dirtyFields.description) setValue("description", l.description, { shouldValidate: true });
+      if (!dirtyFields.price) setValue("price", l.price, { shouldValidate: true });
+      if (!dirtyFields.quantity) setValue("quantity", l.quantity, { shouldValidate: true });
+      if (!dirtyFields.condition) setValue("condition", l.condition, { shouldValidate: true });
+      if (!dirtyFields.category) setValue("category", l.category, { shouldValidate: true });
+      if (l.audience && !dirtyFields.audience) setValue("audience", l.audience, { shouldValidate: true });
+      if (l.brand && !dirtyFields.brand) setValue("brand", l.brand);
+      if (l.size && !dirtyFields.size) setValue("size", l.size);
+      if (l.color && !dirtyFields.color) setValue("color", l.color);
+      if (l.material && !dirtyFields.material) setValue("material", l.material);
       toast.success("Listing fields filled from photo");
       wizard.goNextStep();
     } catch (err) {
@@ -476,6 +479,19 @@ export function ListingForm({ mode = "create", draftId, initialData, templates =
       return;
     }
 
+    if (mode === "edit" && editId) {
+      const result = await updateListing(editId, { ...data, photos: validPhotos });
+      if (result.error) {
+        toast.error(typeof result.error === "string" ? result.error : "Failed to save changes");
+        console.error(result.error);
+        return;
+      }
+      toast.success("Listing updated");
+      router.push(`/listings/${editId}`);
+      router.refresh();
+      return;
+    }
+
     if (mode === "draft" && draftId) {
       const result = await publishDraft(draftId, { ...data, photos: validPhotos });
       if (result.error) {
@@ -526,7 +542,17 @@ export function ListingForm({ mode = "create", draftId, initialData, templates =
       toast.error(`Listing created, but publishing failed: ${result.error}`);
       return [];
     }
-    return platforms;
+    // A request-level success can still contain per-platform rejections (e.g. Poshmark's
+    // pre-flight category check) -- carrying a rejected id into the confirmation dialog anyway
+    // leaves a phantom row stuck at "Queued" forever. Only the ids that actually queued belong
+    // in the redirect, and each rejection needs its own real reason surfaced now, not silence.
+    const failed = (result.results ?? []).filter((r) => !r.success);
+    for (const f of failed) {
+      const platformName = getPlatform(f.platformId)?.name ?? f.platformId;
+      toast.error(f.error ? `${platformName}: ${f.error}` : `Failed to queue ${platformName}`);
+    }
+    const failedIds = new Set(failed.map((f) => f.platformId));
+    return platforms.filter((id) => !failedIds.has(id));
   }
 
   function onInvalid(invalidErrors: FieldErrors<ListingFormData>) {
@@ -548,7 +574,7 @@ export function ListingForm({ mode = "create", draftId, initialData, templates =
   return (
     <Card>
       <CardHeader className="space-y-4">
-        <CardTitle>{mode === "draft" ? "Edit draft" : "Create new listing"}</CardTitle>
+        <CardTitle>{mode === "draft" ? "Edit draft" : mode === "edit" ? "Edit listing" : "Create new listing"}</CardTitle>
         <WizardStepper
           currentStep={wizard.currentStep}
           maxStepReached={wizard.maxStepReached}
@@ -611,6 +637,7 @@ export function ListingForm({ mode = "create", draftId, initialData, templates =
                 connectedPlatforms={connectedPlatforms}
                 selectedPlatforms={selectedPlatforms}
                 onTogglePlatform={togglePlatform}
+                hidePlatformPicker={mode === "edit"}
               />
             )}
 
@@ -623,11 +650,13 @@ export function ListingForm({ mode = "create", draftId, initialData, templates =
               onSaveDraft={onSaveDraft}
               saving={saving}
               submitLabel={
-                selectedPlatforms.size > 0
-                  ? `Publish to ${selectedPlatforms.size} marketplace${selectedPlatforms.size === 1 ? "" : "s"}`
-                  : mode === "draft"
-                    ? "Publish draft"
-                    : "Create listing"
+                mode === "edit"
+                  ? "Save changes"
+                  : selectedPlatforms.size > 0
+                    ? `Publish to ${selectedPlatforms.size} marketplace${selectedPlatforms.size === 1 ? "" : "s"}`
+                    : mode === "draft"
+                      ? "Publish draft"
+                      : "Create listing"
               }
               isSubmitting={isSubmitting}
               navDisabled={navDisabled}

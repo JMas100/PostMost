@@ -11,7 +11,7 @@ import { MarketplaceConnectTile } from "@/components/marketplace-connect-tile";
 import { ExtensionStatusFooter } from "@/components/extension-status-footer";
 import { PageHeader } from "@/components/page-header";
 import { Card, CardContent } from "@/components/ui/card";
-import { AlertTriangle } from "lucide-react";
+import { AlertTriangle, CheckCircle2, XCircle } from "lucide-react";
 
 const CONNECTABLE_PLATFORMS = PLATFORMS.filter((p) => p.authType !== "none");
 const DIRECT_API_PLATFORMS = PLATFORMS.filter((p) => p.authType === "oauth");
@@ -42,11 +42,17 @@ function accountNeedsAttention(a: {
   return { needs: false };
 }
 
-export default async function MarketplacesPage() {
+export default async function MarketplacesPage(props: {
+  searchParams: Promise<{ error?: string; connected?: string }>;
+}) {
   const session = await getServerSession(authOptions);
   if (!session?.user?.id) redirect("/login");
   const { workspaceUserId: userId, role } = await requireWorkspace();
   const canManage = role !== "MEMBER";
+  const searchParams = await props.searchParams;
+  const connectedName = searchParams.connected
+    ? PLATFORMS.find((p) => p.id === searchParams.connected)?.name ?? searchParams.connected
+    : null;
 
   const [accounts, platformListings, soldPlatformListings] = await Promise.all([
     getMarketplaceAccounts(),
@@ -84,6 +90,27 @@ export default async function MarketplacesPage() {
     <Shell>
       <div className="space-y-6">
         <PageHeader title="Marketplaces" description="Twelve places to sell. How each one connects depends on what it lets us do." />
+
+        {searchParams.error && (
+          <Card className="border-destructive/40">
+            <CardContent className="flex items-start gap-3 py-4">
+              <XCircle className="mt-0.5 h-5 w-5 shrink-0 text-destructive" />
+              <div>
+                <p className="font-medium">Couldn&apos;t connect that marketplace</p>
+                <p className="text-sm text-muted-foreground">{searchParams.error}</p>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {connectedName && (
+          <Card className="border-success/30 bg-success/10">
+            <CardContent className="flex items-start gap-3 py-4">
+              <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0 text-success" />
+              <p className="font-medium text-success">{connectedName} connected</p>
+            </CardContent>
+          </Card>
+        )}
 
         <div className="grid gap-4 sm:grid-cols-3">
           <Card>

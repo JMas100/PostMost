@@ -252,6 +252,67 @@ export async function updateListing(id: string, data: Partial<ListingFormData>) 
   return { success: true, listing };
 }
 
+/** A fresh, unpublished-anywhere copy of an existing listing -- same fields, no SKU (that should
+ *  be unique per physical item, not cloned), and deliberately no platformListings/jobs, so the
+ *  copy starts exactly like a brand-new listing rather than inheriting the original's publish
+ *  history. */
+export async function duplicateListing(id: string) {
+  const { actingUserId, workspaceUserId } = await requireWorkspace();
+  const existing = await prisma.listing.findFirst({
+    where: { id, userId: workspaceUserId },
+    include: { photos: { orderBy: { order: "asc" } } },
+  });
+  if (!existing) return { error: "Listing not found" };
+
+  const reserved = await reserveListingUsage(workspaceUserId);
+  if (!reserved.allowed) {
+    return { error: reserved.reason };
+  }
+
+  let listing;
+  try {
+    listing = await prisma.listing.create({
+      data: {
+        title: `${existing.title} (copy)`,
+        description: existing.description,
+        condition: existing.condition,
+        category: existing.category,
+        audience: existing.audience,
+        brand: existing.brand,
+        size: existing.size,
+        color: existing.color,
+        material: existing.material,
+        price: existing.price,
+        cost: existing.cost,
+        quantity: existing.quantity,
+        sku: null,
+        tags: existing.tags,
+        shippingProfileId: existing.shippingProfileId,
+        userId: workspaceUserId,
+        status: "PUBLISHED",
+        isDraft: false,
+        photos: {
+          create: existing.photos.map((p, index) => ({ url: p.url, order: index })),
+        },
+      },
+      include: { photos: true, platformListings: true },
+    });
+  } catch (err) {
+    await releaseListingUsage(workspaceUserId);
+    throw err;
+  }
+
+  await trackListingCompleted(actingUserId, workspaceUserId, listing.id);
+  await logAudit(
+    { workspaceUserId, actingUserId },
+    { action: "listing.created", targetType: "Listing", targetId: listing.id, message: `Duplicated "${existing.title}"` }
+  );
+
+  revalidatePath("/listings");
+  revalidatePath("/dashboard");
+  return { success: true, listing };
+}
+
 export async function deleteListing(id: string) {
   const ctx = await requireWorkspace();
   requireRole(ctx, ["OWNER", "ADMIN"]);

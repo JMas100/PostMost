@@ -6,21 +6,23 @@ import { requireWorkspace } from "@/lib/auth-helpers";
 import { Shell } from "@/components/sidebar";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { buttonVariants } from "@/components/ui/button";
 import { JobStatus } from "@/components/job-status";
 import { ListingForm } from "@/components/listing-form";
 import { getTemplates } from "@/lib/actions/templates";
 import { getShippingProfiles } from "@/lib/actions/shipping";
 import { getMarketplaceAccounts } from "@/lib/actions/accounts";
 import Link from "next/link";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, Pencil } from "lucide-react";
 import { PublishPanel } from "@/components/publish-panel";
 import { FailedCrossPostCard } from "@/components/publish-panel/failed-cross-post-card";
 import { PlatformLogo } from "@/components/platform-logo";
 import { getPlatform } from "@/lib/marketplaces/platforms";
 import { SoldButton } from "./sold-button";
 import { ListingDeleteButton } from "@/components/listing-delete-button";
+import { ListingDuplicateButton } from "@/components/listing-duplicate-button";
 
-export default async function ListingDetailPage(props: { params: Promise<{ id: string }>; searchParams: Promise<{ published?: string }> }) {
+export default async function ListingDetailPage(props: { params: Promise<{ id: string }>; searchParams: Promise<{ published?: string; edit?: string }> }) {
   const params = await props.params;
   const searchParams = await props.searchParams;
   const session = await getServerSession(authOptions);
@@ -39,7 +41,9 @@ export default async function ListingDetailPage(props: { params: Promise<{ id: s
   const shippingProfiles = await getShippingProfiles();
   const accounts = await getMarketplaceAccounts();
 
-  if (listing.isDraft) {
+  const isEditing = searchParams.edit === "1";
+
+  if (listing.isDraft || isEditing) {
     const initialData: Record<string, unknown> = {
       ...listing,
       photos: listing.photos.map((p) => p.url),
@@ -49,13 +53,30 @@ export default async function ListingDetailPage(props: { params: Promise<{ id: s
       <Shell>
         <div className="mx-auto max-w-2xl space-y-4">
           <div className="flex items-center justify-between">
-            <Link href="/listings?tab=drafts" className="inline-flex items-center text-sm text-muted-foreground hover:text-foreground">
-              <ArrowLeft className="mr-1 h-4 w-4" /> Back to drafts
+            <Link
+              href={listing.isDraft ? "/listings?tab=drafts" : `/listings/${listing.id}`}
+              className="inline-flex items-center text-sm text-muted-foreground hover:text-foreground"
+            >
+              <ArrowLeft className="mr-1 h-4 w-4" /> {listing.isDraft ? "Back to drafts" : "Back to listing"}
             </Link>
-            {canDelete && <ListingDeleteButton id={listing.id} title={listing.title || "Untitled draft"} redirectTo="/listings/drafts" />}
+            {canDelete && (
+              <ListingDeleteButton
+                id={listing.id}
+                title={listing.title || "Untitled draft"}
+                redirectTo={listing.isDraft ? "/listings/drafts" : "/listings"}
+              />
+            )}
           </div>
-          <h1 className="text-3xl font-bold">Edit draft</h1>
-          <ListingForm mode="draft" draftId={listing.id} initialData={initialData} templates={templates} shippingProfiles={shippingProfiles} accounts={accounts} />
+          <h1 className="text-3xl font-bold">{listing.isDraft ? "Edit draft" : "Edit listing"}</h1>
+          <ListingForm
+            mode={listing.isDraft ? "draft" : "edit"}
+            draftId={listing.isDraft ? listing.id : undefined}
+            editId={listing.isDraft ? undefined : listing.id}
+            initialData={initialData}
+            templates={templates}
+            shippingProfiles={shippingProfiles}
+            accounts={accounts}
+          />
         </div>
       </Shell>
     );
@@ -91,11 +112,20 @@ export default async function ListingDetailPage(props: { params: Promise<{ id: s
           <Link href="/listings" className="inline-flex items-center text-sm text-muted-foreground hover:text-foreground">
             <ArrowLeft className="mr-1 h-4 w-4" /> Back to listings
           </Link>
-          {canDelete && <ListingDeleteButton id={listing.id} title={listing.title} redirectTo="/listings" />}
+          <div className="flex items-center gap-2">
+            <Link href={`/listings/${listing.id}?edit=1`} className={buttonVariants({ variant: "outline", size: "sm" })}>
+              <Pencil className="mr-1.5 h-3.5 w-3.5" /> Edit
+            </Link>
+            <ListingDuplicateButton id={listing.id} />
+            {canDelete && <ListingDeleteButton id={listing.id} title={listing.title} redirectTo="/listings" />}
+          </div>
         </div>
 
         <div className="flex flex-col gap-4 lg:flex-row">
-          <div className="flex-1 space-y-6">
+          {/* Below lg (single column), actionable/time-sensitive content -- the fix card,
+              marketplace rows -- rises above the photo gallery and description; referential
+              content sinks. At lg+ this is a no-op and DOM order (main body first) takes over. */}
+          <div className="order-2 flex-1 space-y-6 lg:order-none">
             <div>
               <h1 className="text-3xl font-bold">{listing.title}</h1>
               <p className="text-2xl font-semibold text-primary">${listing.price.toFixed(2)}</p>
@@ -135,7 +165,7 @@ export default async function ListingDetailPage(props: { params: Promise<{ id: s
             </div>
           </div>
 
-          <div className="w-full space-y-6 lg:w-96">
+          <div className="order-1 w-full space-y-6 lg:order-none lg:w-96">
             {failedPlatformListings.length > 0 && (
               <div className="space-y-2">
                 {failedPlatformListings.map((pl) => (

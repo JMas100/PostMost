@@ -18,7 +18,7 @@ const ITEMS: ChecklistItem[] = [
     label: "Connect a marketplace",
     doneLabel: "Connected",
     hint: "Link an account so your listings can go live.",
-    action: { label: "Connect", href: "/settings" },
+    action: { label: "Connect", href: "/marketplaces" },
   },
   {
     key: "publishedFirst",
@@ -32,7 +32,7 @@ const ITEMS: ChecklistItem[] = [
     label: "Connect a second marketplace",
     doneLabel: "Connected",
     hint: "Sellers on more marketplaces reach more buyers.",
-    action: { label: "Connect", href: "/settings" },
+    action: { label: "Connect", href: "/marketplaces" },
   },
   {
     key: "soldFirst",

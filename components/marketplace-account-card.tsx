@@ -75,7 +75,10 @@ export function MarketplaceAccountCard({ platform, account, stats, canManage = t
     <div className="flex min-w-0 flex-col gap-3 rounded-lg border p-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex min-w-0 items-center gap-3">
-          <PlatformLogo platform={platform.id} size={40} />
+          {/* onDark: the card can render on either theme, and a pure-black brand (Grailed) is
+              invisible as plain colored text on a dark surface -- the white-tile fallback is
+              always readable. showLabel=false since platform.name already renders beside it. */}
+          <PlatformLogo platform={platform.id} size={40} onDark showLabel={false} />
           <div className="min-w-0">
             <p className="truncate font-medium">{platform.name}</p>
             <p className="truncate text-xs text-muted-foreground">
@@ -155,7 +158,7 @@ export function ConnectDialog({ platform, account }: DialogProps) {
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              <PlatformLogo platform={platform.id} size={40} />
+              <PlatformLogo platform={platform.id} size={40} onDark showLabel={false} />
               {account ? "Manage" : "Connect"} {platform.name}
             </DialogTitle>
             <DialogDescription>

@@ -100,14 +100,17 @@ export default async function InventoryPage(
                 </CardContent>
               </Card>
 
-              <Card>
+              <Card className={missingCostCount > 0 ? "border-warning/40" : undefined}>
                 <CardHeader className="pb-2">
                   <CardTitle className="text-sm font-medium text-muted-foreground">Cost basis</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-bold">${costBasis.toFixed(2)}</div>
-                  {missingCostCount > 0 && (
-                    <p className="mt-1 text-xs text-warning">{missingCostCount} items missing cost</p>
+                  {missingCostCount > 0 ? (
+                    <div className="text-2xl font-bold text-warning">
+                      —<span className="ml-2 text-sm font-semibold align-middle">{missingCostCount} missing</span>
+                    </div>
+                  ) : (
+                    <div className="text-2xl font-bold">${costBasis.toFixed(2)}</div>
                   )}
                 </CardContent>
               </Card>
