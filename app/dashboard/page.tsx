@@ -20,6 +20,7 @@ import { Badge } from "@/components/ui/badge";
 import { StatValue } from "@/components/stat-value";
 import { PageHeader } from "@/components/page-header";
 import { PlatformLogo } from "@/components/platform-logo";
+import { ListingDeleteButton } from "@/components/listing-delete-button";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
 import { DollarSign, TrendingUp, TrendingDown, AlertTriangle, CheckCircle2, Package2 } from "lucide-react";
@@ -38,7 +39,8 @@ export default async function DashboardPage(props: { searchParams: Promise<{ per
   const searchParams = await props.searchParams;
   const session = await getServerSession(authOptions);
   if (!session?.user?.id) redirect("/login");
-  const { workspaceUserId } = await requireWorkspace();
+  const { workspaceUserId, role } = await requireWorkspace();
+  const canDelete = role !== "MEMBER";
 
   const period: DashboardPeriod = searchParams.period === "all" ? "all" : "30d";
 
@@ -263,9 +265,9 @@ export default async function DashboardPage(props: { searchParams: Promise<{ per
                     const total = listing.platformListings.length;
                     const failed = listing.platformListings.find((pl) => pl.status === "FAILED");
                     return (
-                      <Link key={listing.id} href={`/listings/${listing.id}`}>
-                        <Card className="transition-colors hover:bg-muted/50">
-                          <CardContent className="flex items-center gap-4 py-3">
+                      <Card key={listing.id} className="transition-colors hover:bg-muted/50">
+                        <CardContent className="flex items-center gap-3 py-3">
+                          <Link href={`/listings/${listing.id}`} className="flex min-w-0 flex-1 items-center gap-4">
                             {listing.photos[0] ? (
                               // eslint-disable-next-line @next/next/no-img-element
                               <img src={listing.photos[0].url} alt="" className="h-12 w-12 rounded-md object-cover" />
@@ -289,9 +291,10 @@ export default async function DashboardPage(props: { searchParams: Promise<{ per
                                 Sold
                               </Badge>
                             )}
-                          </CardContent>
-                        </Card>
-                      </Link>
+                          </Link>
+                          {canDelete && <ListingDeleteButton id={listing.id} title={listing.title} variant="ghost" size="icon" />}
+                        </CardContent>
+                      </Card>
                     );
                   })}
                 </div>

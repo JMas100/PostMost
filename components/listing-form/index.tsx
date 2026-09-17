@@ -675,6 +675,7 @@ export function ListingForm({ mode = "create", draftId, editId, initialData, tem
               isSubmitting={isSubmitting}
               navDisabled={navDisabled}
               nextStepLabel={STEP_LABELS[STEPS[STEPS.indexOf(wizard.currentStep) + 1]]}
+              hideForward={wizard.currentStep === "photos"}
             />
           </form>
         </FormProvider>

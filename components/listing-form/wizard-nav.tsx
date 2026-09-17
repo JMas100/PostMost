@@ -15,6 +15,7 @@ export function WizardNav({
   isSubmitting,
   navDisabled,
   nextStepLabel,
+  hideForward = false,
 }: {
   isFirst: boolean;
   isLast: boolean;
@@ -27,6 +28,10 @@ export function WizardNav({
   isSubmitting: boolean;
   navDisabled: boolean;
   nextStepLabel?: string;
+  /** The Photos step owns its own two exits (Write it for me / I'll write it myself) --
+   *  a second, generic Next here would be the "two competing forward actions" problem the
+   *  redesign explicitly rules out. */
+  hideForward?: boolean;
 }) {
   return (
     <div className="flex flex-col-reverse gap-3 border-t pt-4 sm:flex-row sm:items-center sm:justify-between">
@@ -41,7 +46,7 @@ export function WizardNav({
             Back
           </Button>
         )}
-        {isLast ? (
+        {hideForward ? null : isLast ? (
           <Button type="button" onClick={onSubmitClick} disabled={isSubmitting || navDisabled}>
             {isSubmitting ? "Saving..." : submitLabel}
           </Button>
