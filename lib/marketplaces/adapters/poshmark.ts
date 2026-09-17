@@ -2,6 +2,7 @@ import { createManualAdapter } from "../automation/create-adapter";
 import { uploadPhotoOnPage } from "../automation/playwright-runner";
 import type { AutomationStep } from "../automation/playwright-runner";
 import type { ListingData } from "../types";
+import { matchPoshmarkCategory, checkPoshmarkListing } from "./poshmark-validation";
 
 // Poshmark's real create-listing form (verified live 2026-09-16, see chat history for the DOM
 // dump this was built from) doesn't use plain name/placeholder attributes the generic
@@ -10,59 +11,9 @@ import type { ListingData } from "../types";
 // <select> elements. The generic fallback silently filled nothing at all on this platform before
 // this was written -- every field stayed blank and the submit click never even fired (the button
 // says "Next", not "Post"/"Publish"/"List"/"Submit", and has no type="submit").
-// PostMost's own category taxonomy (components/listing-form/step-details.tsx) is organized by
-// item type -- "Clothing", "Shoes", "Accessories", "Electronics", "Home", "Toys", "Sports",
-// "Vintage", "Other". Poshmark's top-level taxonomy is organized by audience instead (Women/Men/
-// Kids/Home/Pets/Electronics), so three of ours (Electronics, Home, Toys) map straight across
-// with no ambiguity. For the rest, `listing.audience` ("Women"/"Men"/"Kids"/"Unisex", set via the
-// listing form's own "Who's it for?" field -- see prisma/schema.prisma's Listing.audience) is the
-// real signal now; keyword-matching the title/description is kept only as a fallback for listings
-// created before that field existed.
-const DIRECT_CATEGORY_MAP: Record<string, string> = {
-  electronics: "electronics",
-  home: "home",
-  toys: "kids",
-};
-
-const AUDIENCE_FIELD_MAP: Record<string, string> = {
-  women: "women",
-  men: "men",
-  kids: "kids",
-  // "Unisex" has no equivalent Poshmark bucket -- falls through to keyword-matching below.
-};
-
-const AUDIENCE_KEYWORDS: { slug: string; keywords: string[] }[] = [
-  { slug: "women", keywords: ["women", "woman", "womens", "ladies", "her", "hers", "girl", "girls"] },
-  { slug: "men", keywords: ["men", "man", "mens", "menswear", "his", "guy", "guys", "boy", "boys"] },
-  { slug: "kids", keywords: ["kid", "kids", "child", "children", "baby", "toddler", "youth", "infant"] },
-];
-
-function matchPoshmarkCategory(listing: ListingData): string {
-  const directMatch = DIRECT_CATEGORY_MAP[listing.category.toLowerCase()];
-  if (directMatch) return directMatch;
-
-  const audienceMatch = listing.audience ? AUDIENCE_FIELD_MAP[listing.audience.toLowerCase()] : undefined;
-  if (audienceMatch) return audienceMatch;
-
-  // TEMPORARY diagnostic (2026-09-17): a real production job failed here with audience
-  // confirmed "Women" in the database and in a local reproduction of this exact function against
-  // that exact data -- this surfaces the raw value actually received at runtime, to settle
-  // whether it's arriving intact over the worker HTTP boundary. Remove once resolved.
-  throw new Error(
-    `[diagnostic] matchPoshmarkCategory saw listing.audience = ${JSON.stringify(listing.audience)} (type ${typeof listing.audience}), category = ${JSON.stringify(listing.category)}, keys = ${JSON.stringify(Object.keys(listing))}`
-  );
-
-  const haystack = `${listing.title} ${listing.description}`.toLowerCase();
-  for (const { slug, keywords } of AUDIENCE_KEYWORDS) {
-    if (keywords.some((kw) => haystack.includes(kw))) return slug;
-  }
-  // Category is the one field Poshmark marks required with a hard asterisk -- fail loudly with
-  // an actionable message (and a fix the user can actually make) rather than silently guessing a
-  // bucket the item doesn't belong in.
-  throw new Error(
-    `Couldn't tell who this "${listing.category}" listing is for -- Poshmark requires a Women/Men/Kids/Home/Pets/Electronics category. Set "Who's it for?" on the listing (or add a word like "women's"/"men's" to the title) and try again.`
-  );
-}
+// Category/audience matching itself lives in ./poshmark-validation.ts -- kept free of Playwright
+// imports so the listing wizard (a "use client" component) can run the same check live, before
+// the user ever clicks Publish. See that file for the full mapping rationale.
 
 const CONDITION_MATCHERS: { code: string; keywords: string[] }[] = [
   { code: "nwt", keywords: ["new with tags", "nwt", "brand new", "new"] },
@@ -165,15 +116,10 @@ export const poshmarkAdapter = createManualAdapter({
   preSubmitSteps: poshmarkListingSteps,
   // Runs at publish time, before any browser automation, so the user finds out "Poshmark needs
   // to know who this is for" immediately in the publish UI -- not minutes later as a job failure
-  // after a real browser already spent time on it.
-  validateListing(listing) {
-    try {
-      matchPoshmarkCategory(listing);
-      return { valid: true };
-    } catch (err) {
-      return { valid: false, error: err instanceof Error ? err.message : String(err) };
-    }
-  },
+  // after a real browser already spent time on it. Same check the listing wizard runs live,
+  // client-side, via poshmark-validation.ts -- this is the server-side backstop for listings
+  // published without ever passing through that wizard (retries, CSV imports, the public API).
+  validateListing: checkPoshmarkListing,
   // Delete-flow selectors are still best-effort, written from general knowledge of Poshmark's
   // UI -- not verified against a live account like the create-listing flow above now is. Needs
   // real-account testing before it's trusted.

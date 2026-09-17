@@ -17,8 +17,10 @@ import { PLATFORMS } from "@/lib/marketplaces/platforms";
 import { PlatformLogo } from "@/components/platform-logo";
 import { Checkbox } from "@/components/ui/checkbox";
 import Link from "next/link";
+import { AlertTriangle } from "lucide-react";
 import { CaptionDialog } from "./caption-dialog";
 import { OptimizingState } from "./types";
+import { getPlatformListingWarning } from "@/lib/marketplaces/client-validation";
 
 export function StepReview({
   photoUrls,
@@ -61,6 +63,8 @@ export function StepReview({
   const title = watch("title");
   const description = watch("description");
   const price = watch("price");
+  const category = watch("category");
+  const audience = watch("audience");
   const validPhotos = photoUrls.filter((u) => u.trim().startsWith("http") || u.trim().startsWith("data:"));
   const unconnectedCount = PLATFORMS.filter((p) => p.authType !== "none" && !connectedPlatforms.includes(p.id)).length;
 
@@ -98,18 +102,26 @@ export function StepReview({
             <div className="space-y-1">
               {connectedPlatforms.map((platform) => {
                 const info = PLATFORMS.find((p) => p.id === platform);
+                // Checked live, before Publish is ever clicked -- so leaving something like
+                // "Who's it for?" blank surfaces right here instead of only failing later.
+                const warning = getPlatformListingWarning(platform, { category, audience, title, description });
                 return (
-                  <label
-                    key={platform}
-                    className="flex cursor-pointer items-center justify-between gap-3 rounded-md border p-2.5 hover:bg-muted"
-                  >
-                    <div className="flex items-center gap-2.5">
-                      <Checkbox checked={selectedPlatforms.has(platform)} onCheckedChange={() => onTogglePlatform(platform)} />
-                      <PlatformLogo platform={platform} size={22} />
-                      <span className="text-sm font-medium">{info?.name ?? platform}</span>
-                    </div>
-                    <span className="text-sm text-muted-foreground">${Number(price || 0).toFixed(2)}</span>
-                  </label>
+                  <div key={platform} className="rounded-md border">
+                    <label className="flex cursor-pointer items-center justify-between gap-3 p-2.5 hover:bg-muted">
+                      <div className="flex items-center gap-2.5">
+                        <Checkbox checked={selectedPlatforms.has(platform)} onCheckedChange={() => onTogglePlatform(platform)} />
+                        <PlatformLogo platform={platform} size={22} />
+                        <span className="text-sm font-medium">{info?.name ?? platform}</span>
+                      </div>
+                      <span className="text-sm text-muted-foreground">${Number(price || 0).toFixed(2)}</span>
+                    </label>
+                    {warning && (
+                      <div className="flex items-start gap-1.5 border-t bg-warning/5 p-2.5 text-xs text-warning">
+                        <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+                        <span>{warning}</span>
+                      </div>
+                    )}
+                  </div>
                 );
               })}
             </div>
