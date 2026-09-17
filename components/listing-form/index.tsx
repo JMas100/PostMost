@@ -66,6 +66,7 @@ export function ListingForm({ mode = "create", draftId, initialData, templates =
   const defaultValues: Partial<ListingFormData> = {
     condition: "Good",
     category: "Clothing",
+    audience: null,
     quantity: 1,
     photos: [],
     shippingProfileId: initialData?.shippingProfileId ?? null,
@@ -188,6 +189,7 @@ export function ListingForm({ mode = "create", draftId, initialData, templates =
       setValue("quantity", l.quantity, { shouldValidate: true });
       setValue("condition", l.condition, { shouldValidate: true });
       setValue("category", l.category, { shouldValidate: true });
+      if (l.audience) setValue("audience", l.audience, { shouldValidate: true });
       if (l.brand) setValue("brand", l.brand);
       if (l.size) setValue("size", l.size);
       if (l.color) setValue("color", l.color);

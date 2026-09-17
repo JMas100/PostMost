@@ -5,6 +5,7 @@ export interface GeneratedListing {
   quantity: number;
   condition: string;
   category: string;
+  audience?: string | null;
   brand?: string | null;
   size?: string | null;
   color?: string | null;
@@ -20,6 +21,8 @@ Respond with a JSON object containing exactly these keys:
 - quantity: always 1 unless the image clearly shows a multi-pack or lot (number)
 - condition: one of "New with tags", "New without tags", "Like new", "Good", "Fair", "Poor"
 - category: one of "Clothing", "Shoes", "Accessories", "Electronics", "Home", "Toys", "Sports", "Vintage", "Other"
+- audience: who the item is for -- one of "Women", "Men", "Kids", "Unisex", or null if not
+  applicable (e.g. Electronics, Home) or genuinely unclear from the image
 - brand: the visible brand name, or null if unknown
 - size: the size if visible or inferable, or null
 - color: the dominant color, or null
@@ -39,6 +42,12 @@ function pickCategory(raw?: string): string {
   const normalized = raw?.toLowerCase() ?? "";
   const match = categories.find((c) => c.toLowerCase() === normalized);
   return match ?? "Other";
+}
+
+function pickAudience(raw?: string | null): string | null {
+  const audiences = ["Women", "Men", "Kids", "Unisex"];
+  const normalized = raw?.toLowerCase() ?? "";
+  return audiences.find((a) => a.toLowerCase() === normalized) ?? null;
 }
 
 export async function generateListingFromImage(imageBase64: string): Promise<GeneratedListing> {
@@ -91,6 +100,7 @@ export async function generateListingFromImage(imageBase64: string): Promise<Gen
     quantity: typeof parsed.quantity === "number" ? Math.max(1, Math.round(parsed.quantity)) : 1,
     condition: pickCondition(parsed.condition),
     category: pickCategory(parsed.category),
+    audience: pickAudience(parsed.audience),
     brand: parsed.brand || null,
     size: parsed.size || null,
     color: parsed.color || null,

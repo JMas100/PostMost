@@ -75,6 +75,7 @@ export default async function ListingDetailPage(props: { params: Promise<{ id: s
     quantity: listing.quantity,
     condition: listing.condition,
     category: listing.category,
+    audience: listing.audience,
     brand: listing.brand,
     size: listing.size,
     color: listing.color,

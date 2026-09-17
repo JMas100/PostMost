@@ -12,15 +12,23 @@ import type { ListingData } from "../types";
 // says "Next", not "Post"/"Publish"/"List"/"Submit", and has no type="submit").
 // PostMost's own category taxonomy (components/listing-form/step-details.tsx) is organized by
 // item type -- "Clothing", "Shoes", "Accessories", "Electronics", "Home", "Toys", "Sports",
-// "Vintage", "Other" -- with no gender/audience field anywhere in the data model. Poshmark's
-// top-level taxonomy is organized by audience instead (Women/Men/Kids/Home/Pets/Electronics), so
-// three of ours (Electronics, Home, Toys) map straight across with no ambiguity, but the rest
-// (Clothing/Shoes/Accessories/Sports/Vintage/Other) only carry a real signal if the seller's own
-// title or description happens to mention who it's for.
+// "Vintage", "Other". Poshmark's top-level taxonomy is organized by audience instead (Women/Men/
+// Kids/Home/Pets/Electronics), so three of ours (Electronics, Home, Toys) map straight across
+// with no ambiguity. For the rest, `listing.audience` ("Women"/"Men"/"Kids"/"Unisex", set via the
+// listing form's own "Who's it for?" field -- see prisma/schema.prisma's Listing.audience) is the
+// real signal now; keyword-matching the title/description is kept only as a fallback for listings
+// created before that field existed.
 const DIRECT_CATEGORY_MAP: Record<string, string> = {
   electronics: "electronics",
   home: "home",
   toys: "kids",
+};
+
+const AUDIENCE_FIELD_MAP: Record<string, string> = {
+  women: "women",
+  men: "men",
+  kids: "kids",
+  // "Unisex" has no equivalent Poshmark bucket -- falls through to keyword-matching below.
 };
 
 const AUDIENCE_KEYWORDS: { slug: string; keywords: string[] }[] = [
@@ -33,6 +41,9 @@ function matchPoshmarkCategory(listing: ListingData): string {
   const directMatch = DIRECT_CATEGORY_MAP[listing.category.toLowerCase()];
   if (directMatch) return directMatch;
 
+  const audienceMatch = listing.audience ? AUDIENCE_FIELD_MAP[listing.audience.toLowerCase()] : undefined;
+  if (audienceMatch) return audienceMatch;
+
   const haystack = `${listing.title} ${listing.description}`.toLowerCase();
   for (const { slug, keywords } of AUDIENCE_KEYWORDS) {
     if (keywords.some((kw) => haystack.includes(kw))) return slug;
@@ -41,7 +52,7 @@ function matchPoshmarkCategory(listing: ListingData): string {
   // an actionable message (and a fix the user can actually make) rather than silently guessing a
   // bucket the item doesn't belong in.
   throw new Error(
-    `Couldn't tell who this "${listing.category}" listing is for -- Poshmark requires a Women/Men/Kids/Home/Pets/Electronics category, and the title/description don't mention an audience. Add a word like "women's" or "men's" to the title and try again.`
+    `Couldn't tell who this "${listing.category}" listing is for -- Poshmark requires a Women/Men/Kids/Home/Pets/Electronics category. Set "Who's it for?" on the listing (or add a word like "women's"/"men's" to the title) and try again.`
   );
 }
 

@@ -53,6 +53,14 @@ model Listing {
   description     String
   condition       String
   category        String
+  /// Who the item is for -- "Women" | "Men" | "Kids" | "Unisex" | null. Only meaningful for
+  /// categories where audience is ambiguous from item type alone (Clothing, Shoes, Accessories,
+  /// Sports, Vintage, Other); left null for categories that don't need it (Electronics, Home,
+  /// Toys). Exists so platforms with an audience-based taxonomy (Poshmark: Women/Men/Kids/Home/
+  /// Pets/Electronics) don't have to guess it from the title/description -- see
+  /// matchPoshmarkCategory() in lib/marketplaces/adapters/poshmark.ts, which still falls back to
+  /// that guess for listings created before this field existed.
+  audience        String?
   brand           String?
   size            String?
   color           String?

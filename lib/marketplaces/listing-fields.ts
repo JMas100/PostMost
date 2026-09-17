@@ -13,6 +13,7 @@ export interface ListingFieldsSource {
   quantity: number;
   condition: string;
   category: string;
+  audience: string | null;
   brand: string | null;
   size: string | null;
   color: string | null;
@@ -28,6 +29,7 @@ export function listingDescriptionFields(listing: ListingFieldsSource) {
     quantity: listing.quantity,
     condition: listing.condition,
     category: listing.category,
+    audience: listing.audience,
     brand: listing.brand,
     size: listing.size,
     color: listing.color,

@@ -20,6 +20,7 @@ export interface ExtensionListingPayload {
   quantity: number;
   condition: string;
   category: string;
+  audience: string | null;
   brand: string | null;
   size: string | null;
   color: string | null;

@@ -26,6 +26,7 @@ import { Trash2 } from "lucide-react";
 // shared file for two arrays that already exist independently in two other places.
 const CONDITIONS = ["New with tags", "New without tags", "Like new", "Good", "Fair", "Poor"];
 const CATEGORIES = ["Clothing", "Shoes", "Accessories", "Electronics", "Home", "Toys", "Sports", "Vintage", "Other"];
+const AUDIENCES = ["Women", "Men", "Kids", "Unisex"];
 const NO_SHIPPING_PROFILE = "__none__";
 
 interface TemplateEditFormProps {
@@ -138,6 +139,22 @@ export function TemplateEditForm({ template, shippingProfiles, platforms }: Temp
                 </SelectContent>
               </Select>
             </div>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="audience">Who&apos;s it for?</Label>
+            <Select value={fields.audience ?? ""} onValueChange={(v) => setField("audience", v || null)}>
+              <SelectTrigger id="audience" className="w-full">
+                <SelectValue placeholder="Not set" />
+              </SelectTrigger>
+              <SelectContent>
+                {AUDIENCES.map((a) => (
+                  <SelectItem key={a} value={a}>
+                    {a}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
 
           <div className="grid grid-cols-3 gap-4">

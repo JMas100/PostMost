@@ -18,6 +18,11 @@ import { OptimizingState } from "./types";
 
 const conditions = ["New with tags", "New without tags", "Like new", "Good", "Fair", "Poor"];
 const categories = ["Clothing", "Shoes", "Accessories", "Electronics", "Home", "Toys", "Sports", "Vintage", "Other"];
+const audiences = ["Women", "Men", "Kids", "Unisex"];
+// Categories where audience is genuinely ambiguous from item type alone -- matches
+// DIRECT_CATEGORY_MAP in lib/marketplaces/adapters/poshmark.ts, which maps the rest (Electronics/
+// Home/Toys) straight across without needing this field at all.
+const CATEGORIES_NEEDING_AUDIENCE = new Set(["Clothing", "Shoes", "Accessories", "Sports", "Vintage", "Other"]);
 
 export function StepDetails({
   optimizing,
@@ -32,8 +37,13 @@ export function StepDetails({
     register,
     control,
     getValues,
+    watch,
     formState: { errors },
   } = useFormContext<ListingFormData>();
+
+  const selectedCategory = watch("category");
+  const audienceValue = watch("audience");
+  const needsAudience = CATEGORIES_NEEDING_AUDIENCE.has(selectedCategory ?? "");
 
   return (
     <div className="space-y-6">
@@ -105,6 +115,35 @@ export function StepDetails({
           />
         </div>
       </div>
+
+      {needsAudience && (
+        <div className="space-y-2">
+          <Label htmlFor="audience">Who&apos;s it for?</Label>
+          <Controller
+            control={control}
+            name="audience"
+            render={({ field }) => (
+              <Select value={field.value ?? ""} onValueChange={(v) => field.onChange(v || null)}>
+                <SelectTrigger id="audience" className="w-full">
+                  <SelectValue placeholder="Select..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {audiences.map((a) => (
+                    <SelectItem key={a} value={a}>
+                      {a}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
+          />
+          {!audienceValue && (
+            <p className="text-sm text-muted-foreground">
+              Some marketplaces (like Poshmark) require this to categorize the listing correctly.
+            </p>
+          )}
+        </div>
+      )}
 
       <div className="grid grid-cols-2 gap-4">
         <div className="space-y-2">

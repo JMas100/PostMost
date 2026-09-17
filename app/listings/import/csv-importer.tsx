@@ -9,9 +9,9 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Upload, Link2, CheckCircle, AlertCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-const SAMPLE_CSV = `title,description,price,quantity,condition,category,brand,size,color,photos
-Vintage Denim Jacket,Blue denim jacket in great condition,24.99,1,Used,Jackets,Levi's,M,Blue,https://example.com/jacket1.jpg
-Nike Phantom GX Elite FG,Firm ground soccer cleats,150.00,1,New,Cleats,Nike,10,White/Pink,https://example.com/cleats1.jpg`;
+const SAMPLE_CSV = `title,description,price,quantity,condition,category,audience,brand,size,color,photos
+Vintage Denim Jacket,Blue denim jacket in great condition,24.99,1,Used,Jackets,Women,Levi's,M,Blue,https://example.com/jacket1.jpg
+Nike Phantom GX Elite FG,Firm ground soccer cleats,150.00,1,New,Cleats,,Nike,10,White/Pink,https://example.com/cleats1.jpg`;
 
 type Mode = "file" | "url";
 

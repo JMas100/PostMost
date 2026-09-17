@@ -5,6 +5,9 @@ export interface ListingData {
   quantity: number;
   condition: string;
   category: string;
+  /** Who the item is for -- "Women" | "Men" | "Kids" | "Unisex" | null. See the Listing model's
+   *  own field comment for why this exists (Poshmark's audience-based taxonomy). */
+  audience?: string | null;
   brand?: string | null;
   size?: string | null;
   color?: string | null;

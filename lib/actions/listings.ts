@@ -106,6 +106,7 @@ function normalizeDraft(data: Partial<ListingFormData>) {
     description: rest.description || "",
     condition: rest.condition || "",
     category: rest.category || "",
+    audience: rest.audience || null,
     brand: rest.brand || null,
     size: rest.size || null,
     color: rest.color || null,
