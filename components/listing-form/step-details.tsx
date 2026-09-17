@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect } from "react";
 import { Controller, useFormContext } from "react-hook-form";
 import { ListingFormData } from "@/lib/schemas/listing";
 import { Button } from "@/components/ui/button";
@@ -13,7 +14,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Tag, Megaphone } from "lucide-react";
+import { Tag, Megaphone, AlertTriangle } from "lucide-react";
 import { OptimizingState } from "./types";
 
 const conditions = ["New with tags", "New without tags", "Like new", "Good", "Fair", "Poor"];
@@ -28,10 +29,16 @@ export function StepDetails({
   optimizing,
   onOptimizeTitle,
   onOptimizeDescription,
+  requiredFieldNotice,
+  onRequiredFieldResolved,
 }: {
   optimizing: OptimizingState;
   onOptimizeTitle: () => void;
   onOptimizeDescription: () => void;
+  /** Set when a hard-blocked publish attempt sent the user back to this exact step -- shows the
+   *  real reason as a prominent, hard-to-miss notice instead of the normal quiet hint. */
+  requiredFieldNotice?: string | null;
+  onRequiredFieldResolved?: () => void;
 }) {
   const {
     register,
@@ -44,6 +51,10 @@ export function StepDetails({
   const selectedCategory = watch("category");
   const audienceValue = watch("audience");
   const needsAudience = CATEGORIES_NEEDING_AUDIENCE.has(selectedCategory ?? "");
+
+  useEffect(() => {
+    if (audienceValue) onRequiredFieldResolved?.();
+  }, [audienceValue, onRequiredFieldResolved]);
 
   return (
     <div className="space-y-6">
@@ -118,13 +129,19 @@ export function StepDetails({
 
       {needsAudience && (
         <div className="space-y-2">
+          {requiredFieldNotice && (
+            <div className="flex items-start gap-2 rounded-md border border-warning/40 bg-warning/10 p-3 text-sm text-warning">
+              <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+              <span>{requiredFieldNotice}</span>
+            </div>
+          )}
           <Label htmlFor="audience">Who&apos;s it for?</Label>
           <Controller
             control={control}
             name="audience"
             render={({ field }) => (
               <Select value={field.value ?? ""} onValueChange={(v) => field.onChange(v || null)}>
-                <SelectTrigger id="audience" className="w-full">
+                <SelectTrigger id="audience" className={requiredFieldNotice ? "w-full border-warning" : "w-full"}>
                   <SelectValue placeholder="Select..." />
                 </SelectTrigger>
                 <SelectContent>
@@ -137,7 +154,7 @@ export function StepDetails({
               </Select>
             )}
           />
-          {!audienceValue && (
+          {!audienceValue && !requiredFieldNotice && (
             <p className="text-sm text-muted-foreground">
               Some marketplaces (like Poshmark) require this to categorize the listing correctly.
             </p>

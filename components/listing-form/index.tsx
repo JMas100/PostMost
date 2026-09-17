@@ -60,6 +60,10 @@ export function ListingForm({ mode = "create", draftId, editId, initialData, tem
     });
   }
 
+  // Set only when a hard-blocked publish attempt sends the user back to this step -- clears the
+  // moment they actually fix the field, rather than lingering after it's no longer relevant.
+  const [requiredFieldNotice, setRequiredFieldNotice] = useState<string | null>(null);
+
   const [optimizing, setOptimizing] = useState<OptimizingState>("");
   const [selectedCaptionPlatform, setSelectedCaptionPlatform] = useState<string>("");
   const [captionDialogOpen, setCaptionDialogOpen] = useState(false);
@@ -483,12 +487,17 @@ export function ListingForm({ mode = "create", draftId, editId, initialData, tem
     // Never send a selected platform into a publish we already know will fail -- same check the
     // Review step's inline warning shows live; this is the hard gate on top of it. Blocks the
     // whole submit (rather than silently dropping just that platform) so the user fixes it or
-    // deselects it deliberately, instead of wondering later why it wasn't included.
+    // deselects it deliberately, instead of wondering later why it wasn't included. Also jumps
+    // straight back to the Details step (where the missing field actually lives) with a clear
+    // required-style message there, rather than leaving the user on Review to guess what to do
+    // with a toast that's already scrolled away.
     for (const platformId of selectedPlatforms) {
       const warning = getPlatformListingWarning(platformId, data);
       if (warning) {
         const platformName = getPlatform(platformId)?.name ?? platformId;
         toast.error(`${platformName}: ${warning}`);
+        setRequiredFieldNotice(warning);
+        wizard.goToStep("details");
         return;
       }
     }
@@ -629,7 +638,13 @@ export function ListingForm({ mode = "create", draftId, editId, initialData, tem
               />
             )}
             {wizard.currentStep === "details" && (
-              <StepDetails optimizing={optimizing} onOptimizeTitle={handleOptimizeTitle} onOptimizeDescription={handleOptimizeDescription} />
+              <StepDetails
+                optimizing={optimizing}
+                onOptimizeTitle={handleOptimizeTitle}
+                onOptimizeDescription={handleOptimizeDescription}
+                requiredFieldNotice={requiredFieldNotice}
+                onRequiredFieldResolved={() => setRequiredFieldNotice(null)}
+              />
             )}
             {wizard.currentStep === "pricing" && (
               <StepPricing optimizing={optimizing} onSuggestPrice={handleSuggestPrice} shippingProfiles={shippingProfiles} />
