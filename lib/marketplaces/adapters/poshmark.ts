@@ -10,24 +10,38 @@ import type { ListingData } from "../types";
 // <select> elements. The generic fallback silently filled nothing at all on this platform before
 // this was written -- every field stayed blank and the submit click never even fired (the button
 // says "Next", not "Post"/"Publish"/"List"/"Submit", and has no type="submit").
-const CATEGORY_MATCHERS: { slug: string; keywords: string[] }[] = [
-  { slug: "women", keywords: ["women", "woman", "ladies", "dress", "blouse", "skirt"] },
-  { slug: "men", keywords: ["men", "man", "mens", "menswear"] },
-  { slug: "kids", keywords: ["kid", "child", "baby", "toddler", "boys", "girls", "youth"] },
-  { slug: "home", keywords: ["home", "kitchen", "decor", "furniture", "bedding"] },
-  { slug: "pets", keywords: ["pet", "dog", "cat"] },
-  { slug: "electronics", keywords: ["electronic", "phone", "laptop", "camera", "tablet", "computer"] },
+// PostMost's own category taxonomy (components/listing-form/step-details.tsx) is organized by
+// item type -- "Clothing", "Shoes", "Accessories", "Electronics", "Home", "Toys", "Sports",
+// "Vintage", "Other" -- with no gender/audience field anywhere in the data model. Poshmark's
+// top-level taxonomy is organized by audience instead (Women/Men/Kids/Home/Pets/Electronics), so
+// three of ours (Electronics, Home, Toys) map straight across with no ambiguity, but the rest
+// (Clothing/Shoes/Accessories/Sports/Vintage/Other) only carry a real signal if the seller's own
+// title or description happens to mention who it's for.
+const DIRECT_CATEGORY_MAP: Record<string, string> = {
+  electronics: "electronics",
+  home: "home",
+  toys: "kids",
+};
+
+const AUDIENCE_KEYWORDS: { slug: string; keywords: string[] }[] = [
+  { slug: "women", keywords: ["women", "woman", "womens", "ladies", "her", "hers", "girl", "girls"] },
+  { slug: "men", keywords: ["men", "man", "mens", "menswear", "his", "guy", "guys", "boy", "boys"] },
+  { slug: "kids", keywords: ["kid", "kids", "child", "children", "baby", "toddler", "youth", "infant"] },
 ];
 
 function matchPoshmarkCategory(listing: ListingData): string {
-  const haystack = `${listing.category} ${listing.title}`.toLowerCase();
-  for (const { slug, keywords } of CATEGORY_MATCHERS) {
+  const directMatch = DIRECT_CATEGORY_MAP[listing.category.toLowerCase()];
+  if (directMatch) return directMatch;
+
+  const haystack = `${listing.title} ${listing.description}`.toLowerCase();
+  for (const { slug, keywords } of AUDIENCE_KEYWORDS) {
     if (keywords.some((kw) => haystack.includes(kw))) return slug;
   }
   // Category is the one field Poshmark marks required with a hard asterisk -- fail loudly with
-  // an actionable message rather than silently guessing a bucket the item doesn't belong in.
+  // an actionable message (and a fix the user can actually make) rather than silently guessing a
+  // bucket the item doesn't belong in.
   throw new Error(
-    `Couldn't map listing category "${listing.category}" to a Poshmark category (women/men/kids/home/pets/electronics) -- add a keyword for it in poshmark.ts.`
+    `Couldn't tell who this "${listing.category}" listing is for -- Poshmark requires a Women/Men/Kids/Home/Pets/Electronics category, and the title/description don't mention an audience. Add a word like "women's" or "men's" to the title and try again.`
   );
 }
 
