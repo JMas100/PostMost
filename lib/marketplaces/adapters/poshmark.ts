@@ -99,6 +99,13 @@ const poshmarkListingSteps: AutomationStep[] = [
       await page.locator('.listing-editor__category-container [data-test="dropdown"]').first().click();
       await page.waitForTimeout(200);
       await page.locator(`.listing-editor__category-container a[data-et-name="${slug}"]`).first().click();
+      // Confirmed live: this dropdown's own menu doesn't reliably close itself after a selection
+      // -- a leftover <li> from it was still intercepting clicks on the condition dropdown right
+      // below. Clicking a neutral, always-present target (the page's own heading, never covered
+      // by anything) forces it closed via the same "click outside" handler a real user clicking
+      // elsewhere on the page would trigger.
+      await page.locator('h1:has-text("Create Listing")').first().click();
+      await page.waitForTimeout(200);
     },
   },
   {
