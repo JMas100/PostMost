@@ -48,9 +48,19 @@ const poshmarkListingSteps: AutomationStep[] = [
   {
     name: "upload-photos",
     action: async (page, listing) => {
+      // Poshmark opens a crop/confirm modal after each individual photo upload (a real screenshot
+      // from a failed job showed it directly -- zoom slider, "Replace Photo", Cancel/Apply) that
+      // sits on top of the page and blocks every subsequent click, including the category
+      // dropdown, until dismissed. Best-effort and per-photo: if it doesn't appear (a future
+      // Poshmark change, or a different account state), this is a no-op rather than a failure.
+      const applyCropButton = page.locator('div[data-test="modal-container"] button:has-text("Apply")');
       for (let i = 0; i < Math.min(listing.photos.length, 16); i++) {
         const ok = await uploadPhotoOnPage(page, "#img-file-input", listing.photos[i], i);
         if (!ok) break;
+        if (await applyCropButton.isVisible({ timeout: 3000 }).catch(() => false)) {
+          await applyCropButton.click();
+          await page.waitForTimeout(300);
+        }
       }
     },
   },
