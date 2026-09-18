@@ -32,6 +32,19 @@ function matchPoshmarkCondition(listing: ListingData): string {
   return "ug";
 }
 
+/** The per-photo crop/confirm modal (see upload-photos below) still slipped through once with
+ *  only a 3s post-upload check -- real image processing on Poshmark's end apparently sometimes
+ *  takes longer than that to even start rendering it. Longer timeout here, and called again
+ *  defensively right before the category click (the step it was actually blocking) as a second
+ *  line of defense regardless of root timing cause. */
+async function dismissImageCropModalIfOpen(page: import("playwright-core").Page): Promise<void> {
+  const applyCropButton = page.locator('div[data-test="modal-container"] button:has-text("Apply")');
+  if (await applyCropButton.isVisible({ timeout: 8000 }).catch(() => false)) {
+    await applyCropButton.click();
+    await page.waitForTimeout(300);
+  }
+}
+
 const poshmarkListingSteps: AutomationStep[] = [
   {
     name: "dismiss-cookie-banner",
@@ -68,20 +81,20 @@ const poshmarkListingSteps: AutomationStep[] = [
       // sits on top of the page and blocks every subsequent click, including the category
       // dropdown, until dismissed. Best-effort and per-photo: if it doesn't appear (a future
       // Poshmark change, or a different account state), this is a no-op rather than a failure.
-      const applyCropButton = page.locator('div[data-test="modal-container"] button:has-text("Apply")');
       for (let i = 0; i < Math.min(listing.photos.length, 16); i++) {
         const ok = await uploadPhotoOnPage(page, "#img-file-input", listing.photos[i], i);
         if (!ok) break;
-        if (await applyCropButton.isVisible({ timeout: 3000 }).catch(() => false)) {
-          await applyCropButton.click();
-          await page.waitForTimeout(300);
-        }
+        await dismissImageCropModalIfOpen(page);
       }
     },
   },
   {
     name: "select-category",
     action: async (page, listing) => {
+      // Confirmed live: the per-photo dismissal above isn't always enough on its own -- a real
+      // job still hit the category dropdown with the crop modal still open. Checked again here,
+      // right before the click it was actually blocking, regardless of why the first check missed it.
+      await dismissImageCropModalIfOpen(page);
       const slug = matchPoshmarkCategory(listing);
       await page.locator('.listing-editor__category-container [data-test="dropdown"]').first().click();
       await page.waitForTimeout(200);
