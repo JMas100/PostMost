@@ -10,6 +10,7 @@ import { buttonVariants } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { EmptyState } from "@/components/ui/empty-state";
 import { getInventory } from "@/lib/actions/inventory";
+import { meetsMinimumTier } from "@/lib/plans";
 import { InventoryFilters } from "./inventory-filters";
 import { InventoryTable } from "./inventory-table";
 import { PageHeader } from "@/components/page-header";
@@ -41,7 +42,9 @@ export default async function InventoryPage(
     missingCostCount,
     costBasis,
     potentialProfit,
+    plan,
   } = await getInventory({ q: searchParams.q, missingCostOnly, page });
+  const stockSyncAvailable = meetsMinimumTier(plan.id, "pro");
 
   const isFiltered = Boolean(searchParams.q || missingCostOnly);
   const buildPageHref = (p: number) => {
@@ -168,7 +171,7 @@ export default async function InventoryPage(
               />
             ) : (
               <>
-              <InventoryTable listings={listings} canDelete={canDelete} />
+              <InventoryTable listings={listings} canDelete={canDelete} stockSyncAvailable={stockSyncAvailable} />
 
               {totalPages > 1 && (
                 <div className="flex items-center justify-between text-sm">

@@ -59,7 +59,15 @@ function downloadCsv(rows: InventoryRow[]) {
   URL.revokeObjectURL(url);
 }
 
-export function InventoryTable({ listings, canDelete }: { listings: InventoryRow[]; canDelete: boolean }) {
+export function InventoryTable({
+  listings,
+  canDelete,
+  stockSyncAvailable,
+}: {
+  listings: InventoryRow[];
+  canDelete: boolean;
+  stockSyncAvailable: boolean;
+}) {
   const router = useRouter();
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [isPending, startTransition] = useTransition();
@@ -317,6 +325,7 @@ export function InventoryTable({ listings, canDelete }: { listings: InventoryRow
         open={quantityDialogOpen}
         onOpenChange={setQuantityDialogOpen}
         listings={selectedListings.map((l) => ({ id: l.id, title: l.title, quantity: l.quantity }))}
+        stockSyncAvailable={stockSyncAvailable}
         onApplied={() => {
           setSelected(new Set());
           router.refresh();

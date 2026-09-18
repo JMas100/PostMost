@@ -28,11 +28,15 @@ export function BulkQuantityDialog({
   open,
   onOpenChange,
   listings,
+  stockSyncAvailable,
   onApplied,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   listings: BulkQuantityListing[];
+  /** Whether the workspace's plan already includes stock sync -- the over-1-quantity warning
+   *  below only means something for a seller who doesn't have it yet. */
+  stockSyncAvailable: boolean;
   onApplied: () => void;
 }) {
   const [mode, setMode] = useState<QuantityRule["mode"]>("add");
@@ -122,10 +126,11 @@ export function BulkQuantityDialog({
             </div>
           )}
 
-          {overOne > 0 && (
+          {overOne > 0 && !stockSyncAvailable && (
             <div className="rounded-md border bg-muted/30 p-3 text-xs leading-relaxed text-muted-foreground">
               Quantities above one need <span className="font-medium text-foreground">stock sync</span> to keep marketplaces in
-              step — it&apos;s a Pro plan rule.
+              step — it&apos;s a Pro rule, and {overOne} of these item{overOne === 1 ? "" : "s"}{" "}
+              {overOne === 1 ? "isn't" : "aren't"} covered by your plan.
             </div>
           )}
         </div>
