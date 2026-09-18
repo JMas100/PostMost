@@ -9,10 +9,11 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { PlatformBadgeRow } from "@/components/platform-badge-row";
-import { Trash2, Ban, RefreshCw, Tag } from "lucide-react";
+import { Trash2, Ban, RefreshCw, Tag, Share2 } from "lucide-react";
 import { bulkDeleteListings } from "@/lib/actions/listings";
 import { bulkDelist, bulkRelist } from "@/lib/actions/crosspost";
 import { BulkPriceDialog } from "@/components/bulk-price-dialog";
+import { BulkPostToMoreDialog } from "@/components/bulk-post-to-more-dialog";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import {
   Table,
@@ -38,11 +39,20 @@ function listingNeedsAttention(listing: ListingRow): boolean {
   return !listing.isDraft && listing.platformListings.some((pl) => pl.status === "FAILED");
 }
 
-export function ListingsTable({ listings, canDelete = true }: { listings: ListingRow[]; canDelete?: boolean }) {
+export function ListingsTable({
+  listings,
+  canDelete = true,
+  connectedPlatforms = [],
+}: {
+  listings: ListingRow[];
+  canDelete?: boolean;
+  connectedPlatforms?: string[];
+}) {
   const router = useRouter();
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [isPending, startTransition] = useTransition();
   const [priceDialogOpen, setPriceDialogOpen] = useState(false);
+  const [postToMoreOpen, setPostToMoreOpen] = useState(false);
   const [confirmAction, setConfirmAction] = useState<"delete" | "delist" | "relist" | null>(null);
 
   const allSelected = listings.length > 0 && selected.size === listings.length;
@@ -115,31 +125,39 @@ export function ListingsTable({ listings, canDelete = true }: { listings: Listin
   return (
     <div className="space-y-3">
       {selected.size > 0 && (
-        <div className="flex items-center justify-between rounded-md border bg-muted/50 px-4 py-2">
+        <div className="flex flex-wrap items-center gap-2 rounded-md border bg-muted/50 px-4 py-2">
           <p className="text-sm font-medium">{selected.size} selected</p>
-          <div className="flex items-center gap-2">
-            <Button variant="ghost" size="sm" onClick={() => setSelected(new Set())}>
-              Clear
+          <Button size="sm" onClick={() => setPriceDialogOpen(true)} disabled={isPending}>
+            <Tag className="mr-1 h-4 w-4" />
+            Edit price
+          </Button>
+          <Button variant="outline" size="sm" onClick={() => setConfirmAction("relist")} disabled={isPending}>
+            <RefreshCw className="mr-1 h-4 w-4" />
+            Refresh
+          </Button>
+          <Button variant="outline" size="sm" onClick={() => setConfirmAction("delist")} disabled={isPending}>
+            <Ban className="mr-1 h-4 w-4" />
+            Delist
+          </Button>
+          <Button variant="outline" size="sm" onClick={() => setPostToMoreOpen(true)} disabled={isPending}>
+            <Share2 className="mr-1 h-4 w-4" />
+            Post to more
+          </Button>
+          {canDelete && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setConfirmAction("delete")}
+              disabled={isPending}
+              className="text-destructive hover:bg-destructive/10 hover:text-destructive"
+            >
+              <Trash2 className="mr-1 h-4 w-4" />
+              Delete
             </Button>
-            <Button variant="outline" size="sm" onClick={() => setPriceDialogOpen(true)} disabled={isPending}>
-              <Tag className="mr-1 h-4 w-4" />
-              Edit price
-            </Button>
-            <Button variant="outline" size="sm" onClick={() => setConfirmAction("relist")} disabled={isPending}>
-              <RefreshCw className="mr-1 h-4 w-4" />
-              Refresh
-            </Button>
-            <Button variant="outline" size="sm" onClick={() => setConfirmAction("delist")} disabled={isPending}>
-              <Ban className="mr-1 h-4 w-4" />
-              Delist
-            </Button>
-            {canDelete && (
-              <Button variant="destructive" size="sm" onClick={() => setConfirmAction("delete")} disabled={isPending}>
-                <Trash2 className="mr-1 h-4 w-4" />
-                Delete
-              </Button>
-            )}
-          </div>
+          )}
+          <Button variant="ghost" size="sm" onClick={() => setSelected(new Set())} className="ml-auto text-muted-foreground">
+            Clear
+          </Button>
         </div>
       )}
 
@@ -266,6 +284,19 @@ export function ListingsTable({ listings, canDelete = true }: { listings: Listin
             cost: l.cost,
             hasLivePlatform: l.platformListings.some((pl) => pl.status === "POSTED"),
           }))}
+        onApplied={() => {
+          setSelected(new Set());
+          router.refresh();
+        }}
+      />
+
+      <BulkPostToMoreDialog
+        open={postToMoreOpen}
+        onOpenChange={setPostToMoreOpen}
+        listings={listings
+          .filter((l) => selected.has(l.id))
+          .map((l) => ({ id: l.id, title: l.title, platformListings: l.platformListings }))}
+        connectedPlatforms={connectedPlatforms}
         onApplied={() => {
           setSelected(new Set());
           router.refresh();

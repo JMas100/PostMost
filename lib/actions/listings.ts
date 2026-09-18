@@ -8,6 +8,17 @@ import { track } from "@/lib/analytics/track";
 import { requireWorkspace, requireRole } from "@/lib/auth-helpers";
 import { queueRepriceJobs } from "@/lib/actions/crosspost";
 import { previewBulkPrice, type BulkPriceRule, type BulkPriceResult } from "@/lib/pricing";
+import {
+  previewBulkCost,
+  previewBulkQuantity,
+  previewBulkSkus,
+  type CostRule,
+  type CostPreviewRow,
+  type QuantityRule,
+  type QuantityPreviewRow,
+  type SkuPreviewRow,
+} from "@/lib/inventory-bulk";
+import { getEffectivePlan, meetsMinimumTier, PLAN_ASSIGNMENT_SELECT } from "@/lib/plans";
 import { logAudit } from "@/lib/audit";
 
 /** `actingUserId` for the tracked event (who actually did it, for engagement signal);
@@ -415,4 +426,101 @@ export async function bulkUpdatePrice(
     skippedCount: results.length - toApply.length,
     queuedRepriceJobs,
   };
+}
+
+export type { CostRule, CostPreviewRow, QuantityRule, QuantityPreviewRow, SkuPreviewRow } from "@/lib/inventory-bulk";
+
+/** Inventory's own "Set cost" -- for items bought together at one price, distinct from the
+ *  per-row cost column (distinct facts) and from bulkUpdatePrice (a different field). Existing
+ *  costs are skipped, not overwritten, unless the caller opts in -- "existing values are never
+ *  silently overwritten" is the same rule Generate SKUs follows below. */
+export async function bulkSetCost(
+  ids: string[],
+  rule: CostRule
+): Promise<{ success: true; results: CostPreviewRow[]; appliedCount: number; skippedCount: number } | { error: string }> {
+  const { workspaceUserId } = await requireWorkspace();
+  if (ids.length === 0) return { success: true, results: [], appliedCount: 0, skippedCount: 0 };
+  if (!Number.isFinite(rule.value) || rule.value < 0) return { error: "Cost must be a non-negative number" };
+
+  const listings = await prisma.listing.findMany({
+    where: { id: { in: ids }, userId: workspaceUserId },
+    select: { id: true, title: true, cost: true },
+  });
+
+  const results = previewBulkCost(listings, rule);
+  const toApply = results.filter((r): r is CostPreviewRow & { status: "applied" } => r.status === "applied");
+
+  if (toApply.length > 0) {
+    await prisma.$transaction(
+      toApply.map((row) => prisma.listing.update({ where: { id: row.id }, data: { cost: row.newCost } }))
+    );
+  }
+
+  revalidatePath("/inventory");
+  return { success: true, results, appliedCount: toApply.length, skippedCount: results.length - toApply.length };
+}
+
+/** "Add"/"Subtract"/"Set" quantity across a selection -- after a restock or a stocktake. Reports
+ *  whether stock sync (the automation that keeps a quantity-over-one item's marketplaces in step)
+ *  is on the caller's plan, so the dialog can warn rather than silently letting a multi-quantity
+ *  item drift out of sync across marketplaces on a plan that can't keep it there. */
+export async function bulkAdjustQuantity(
+  ids: string[],
+  rule: QuantityRule
+): Promise<
+  | { success: true; results: QuantityPreviewRow[]; stockSyncAvailable: boolean; overStockSyncLimitCount: number }
+  | { error: string }
+> {
+  const { workspaceUserId } = await requireWorkspace();
+  if (ids.length === 0) return { success: true, results: [], stockSyncAvailable: true, overStockSyncLimitCount: 0 };
+  if (!Number.isFinite(rule.value)) return { error: "Enter a valid number" };
+
+  const [listings, user] = await Promise.all([
+    prisma.listing.findMany({ where: { id: { in: ids }, userId: workspaceUserId }, select: { id: true, title: true, quantity: true } }),
+    prisma.user.findUnique({ where: { id: workspaceUserId }, select: PLAN_ASSIGNMENT_SELECT }),
+  ]);
+
+  const results = previewBulkQuantity(listings, rule);
+  if (results.length > 0) {
+    await prisma.$transaction(
+      results.map((row) => prisma.listing.update({ where: { id: row.id }, data: { quantity: row.after } }))
+    );
+  }
+
+  const plan = getEffectivePlan(user);
+  const stockSyncAvailable = meetsMinimumTier(plan.id, "pro");
+  const overStockSyncLimitCount = stockSyncAvailable ? 0 : results.filter((r) => r.after > 1).length;
+
+  revalidatePath("/inventory");
+  return { success: true, results, stockSyncAvailable, overStockSyncLimitCount };
+}
+
+/** Never replaces an existing SKU -- it's how a seller finds an item in a physical bin, so
+ *  overwriting one silently strands the box it's written on. Only listings missing a SKU
+ *  consume a sequence number, so re-running the same pattern after adding more unSKU'd items
+ *  doesn't renumber ones already generated. */
+export async function bulkGenerateSkus(
+  ids: string[],
+  pattern: string
+): Promise<{ success: true; results: SkuPreviewRow[]; appliedCount: number; skippedCount: number } | { error: string }> {
+  const { workspaceUserId } = await requireWorkspace();
+  if (ids.length === 0) return { success: true, results: [], appliedCount: 0, skippedCount: 0 };
+  if (!pattern.trim()) return { error: "Enter a SKU pattern" };
+
+  const listings = await prisma.listing.findMany({
+    where: { id: { in: ids }, userId: workspaceUserId },
+    select: { id: true, title: true, sku: true, brand: true, category: true },
+  });
+
+  const results = previewBulkSkus(listings, pattern);
+  const toApply = results.filter((r): r is SkuPreviewRow & { status: "applied" } => r.status === "applied");
+
+  if (toApply.length > 0) {
+    await prisma.$transaction(
+      toApply.map((row) => prisma.listing.update({ where: { id: row.id }, data: { sku: row.newSku } }))
+    );
+  }
+
+  revalidatePath("/inventory");
+  return { success: true, results, appliedCount: toApply.length, skippedCount: results.length - toApply.length };
 }

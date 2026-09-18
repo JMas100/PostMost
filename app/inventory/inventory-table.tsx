@@ -4,13 +4,17 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { toast } from "sonner";
-import { Trash2 } from "lucide-react";
+import { Trash2, DollarSign, Tag, Boxes, Hash, Download } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { PlatformBadgeRow } from "@/components/platform-badge-row";
 import { InventoryCostCell } from "@/components/inventory-cost-cell";
 import { bulkDeleteListings } from "@/lib/actions/listings";
+import { BulkPriceDialog } from "@/components/bulk-price-dialog";
+import { BulkCostDialog } from "@/components/bulk-cost-dialog";
+import { BulkQuantityDialog } from "@/components/bulk-quantity-dialog";
+import { BulkSkuDialog } from "@/components/bulk-sku-dialog";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { cn } from "@/lib/utils";
 import {
@@ -26,6 +30,8 @@ export interface InventoryRow {
   id: string;
   title: string;
   sku: string | null;
+  brand: string | null;
+  category: string;
   quantity: number;
   price: number;
   cost: number | null;
@@ -33,15 +39,40 @@ export interface InventoryRow {
   platformListings: { id: string; platform: string; status: string }[];
 }
 
+function downloadCsv(rows: InventoryRow[]) {
+  const header = ["Title", "SKU", "Quantity", "Price", "Cost", "Margin %"];
+  const body = rows.map((l) => {
+    const margin = l.cost !== null && l.price > 0 ? (((l.price - l.cost) / l.price) * 100).toFixed(0) : "";
+    return [l.title, l.sku ?? "", String(l.quantity), l.price.toFixed(2), l.cost !== null ? l.cost.toFixed(2) : "", margin];
+  });
+  const csv = [header, ...body]
+    .map((row) => row.map((cell) => `"${String(cell).replace(/"/g, '""')}"`).join(","))
+    .join("\n");
+  const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `inventory-export-${new Date().toISOString().slice(0, 10)}.csv`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
 export function InventoryTable({ listings, canDelete }: { listings: InventoryRow[]; canDelete: boolean }) {
   const router = useRouter();
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [isPending, startTransition] = useTransition();
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [priceDialogOpen, setPriceDialogOpen] = useState(false);
+  const [costDialogOpen, setCostDialogOpen] = useState(false);
+  const [quantityDialogOpen, setQuantityDialogOpen] = useState(false);
+  const [skuDialogOpen, setSkuDialogOpen] = useState(false);
 
   const allSelected = listings.length > 0 && selected.size === listings.length;
   const someSelected = selected.size > 0 && !allSelected;
   const count = selected.size;
+  const selectedListings = listings.filter((l) => selected.has(l.id));
 
   function toggleAll() {
     setSelected(allSelected ? new Set() : new Set(listings.map((l) => l.id)));
@@ -72,18 +103,44 @@ export function InventoryTable({ listings, canDelete }: { listings: InventoryRow
 
   return (
     <div className="space-y-3">
-      {canDelete && selected.size > 0 && (
-        <div className="flex items-center justify-between rounded-md border bg-muted/50 px-4 py-2">
+      {selected.size > 0 && (
+        <div className="flex flex-wrap items-center gap-2 rounded-md border bg-muted/50 px-4 py-2">
           <p className="text-sm font-medium">{selected.size} selected</p>
-          <div className="flex items-center gap-2">
-            <Button variant="ghost" size="sm" onClick={() => setSelected(new Set())}>
-              Clear
-            </Button>
-            <Button variant="destructive" size="sm" onClick={() => setConfirmDelete(true)} disabled={isPending}>
+          <Button size="sm" onClick={() => setCostDialogOpen(true)} disabled={isPending}>
+            <DollarSign className="mr-1 h-4 w-4" />
+            Set cost
+          </Button>
+          <Button variant="outline" size="sm" onClick={() => setPriceDialogOpen(true)} disabled={isPending}>
+            <Tag className="mr-1 h-4 w-4" />
+            Edit price
+          </Button>
+          <Button variant="outline" size="sm" onClick={() => setQuantityDialogOpen(true)} disabled={isPending}>
+            <Boxes className="mr-1 h-4 w-4" />
+            Adjust quantity
+          </Button>
+          <Button variant="outline" size="sm" onClick={() => setSkuDialogOpen(true)} disabled={isPending}>
+            <Hash className="mr-1 h-4 w-4" />
+            Generate SKUs
+          </Button>
+          <Button variant="outline" size="sm" onClick={() => downloadCsv(selectedListings)} disabled={isPending}>
+            <Download className="mr-1 h-4 w-4" />
+            Export selected
+          </Button>
+          {canDelete && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setConfirmDelete(true)}
+              disabled={isPending}
+              className="text-destructive hover:bg-destructive/10 hover:text-destructive"
+            >
               <Trash2 className="mr-1 h-4 w-4" />
               Delete
             </Button>
-          </div>
+          )}
+          <Button variant="ghost" size="sm" onClick={() => setSelected(new Set())} className="ml-auto text-muted-foreground">
+            Clear
+          </Button>
         </div>
       )}
 
@@ -92,11 +149,9 @@ export function InventoryTable({ listings, canDelete }: { listings: InventoryRow
           <Table>
             <TableHeader>
               <TableRow>
-                {canDelete && (
-                  <TableHead className="w-10">
-                    <Checkbox checked={allSelected} indeterminate={someSelected} onCheckedChange={toggleAll} aria-label="Select all" />
-                  </TableHead>
-                )}
+                <TableHead className="w-10">
+                  <Checkbox checked={allSelected} indeterminate={someSelected} onCheckedChange={toggleAll} aria-label="Select all" />
+                </TableHead>
                 <TableHead className="hidden xl:table-cell"></TableHead>
                 <TableHead>Item</TableHead>
                 <TableHead className="hidden xl:table-cell">SKU</TableHead>
@@ -115,15 +170,13 @@ export function InventoryTable({ listings, canDelete }: { listings: InventoryRow
                 const margin = hasCost && listing.price > 0 ? ((listing.price - listing.cost!) / listing.price) * 100 : null;
                 return (
                   <TableRow key={listing.id} data-state={selected.has(listing.id) ? "selected" : undefined}>
-                    {canDelete && (
-                      <TableCell>
-                        <Checkbox
-                          checked={selected.has(listing.id)}
-                          onCheckedChange={() => toggleOne(listing.id)}
-                          aria-label={`Select ${listing.title}`}
-                        />
-                      </TableCell>
-                    )}
+                    <TableCell>
+                      <Checkbox
+                        checked={selected.has(listing.id)}
+                        onCheckedChange={() => toggleOne(listing.id)}
+                        aria-label={`Select ${listing.title}`}
+                      />
+                    </TableCell>
                     <TableCell className="hidden xl:table-cell">
                       {listing.photos[0] ? (
                         // eslint-disable-next-line @next/next/no-img-element
@@ -195,14 +248,12 @@ export function InventoryTable({ listings, canDelete }: { listings: InventoryRow
           return (
             <Card key={listing.id}>
               <CardContent className="flex gap-3 p-3">
-                {canDelete && (
-                  <Checkbox
-                    checked={selected.has(listing.id)}
-                    onCheckedChange={() => toggleOne(listing.id)}
-                    aria-label={`Select ${listing.title}`}
-                    className="mt-1"
-                  />
-                )}
+                <Checkbox
+                  checked={selected.has(listing.id)}
+                  onCheckedChange={() => toggleOne(listing.id)}
+                  aria-label={`Select ${listing.title}`}
+                  className="mt-1"
+                />
                 <div className="flex min-w-0 flex-1 gap-3">
                   <Link href={`/listings/${listing.id}`} className="shrink-0">
                     {listing.photos[0] ? (
@@ -235,6 +286,52 @@ export function InventoryTable({ listings, canDelete }: { listings: InventoryRow
           );
         })}
       </div>
+
+      <BulkPriceDialog
+        open={priceDialogOpen}
+        onOpenChange={setPriceDialogOpen}
+        listings={selectedListings.map((l) => ({
+          id: l.id,
+          title: l.title,
+          price: l.price,
+          cost: l.cost,
+          hasLivePlatform: l.platformListings.some((pl) => pl.status === "POSTED"),
+        }))}
+        onApplied={() => {
+          setSelected(new Set());
+          router.refresh();
+        }}
+      />
+
+      <BulkCostDialog
+        open={costDialogOpen}
+        onOpenChange={setCostDialogOpen}
+        listings={selectedListings.map((l) => ({ id: l.id, title: l.title, cost: l.cost }))}
+        onApplied={() => {
+          setSelected(new Set());
+          router.refresh();
+        }}
+      />
+
+      <BulkQuantityDialog
+        open={quantityDialogOpen}
+        onOpenChange={setQuantityDialogOpen}
+        listings={selectedListings.map((l) => ({ id: l.id, title: l.title, quantity: l.quantity }))}
+        onApplied={() => {
+          setSelected(new Set());
+          router.refresh();
+        }}
+      />
+
+      <BulkSkuDialog
+        open={skuDialogOpen}
+        onOpenChange={setSkuDialogOpen}
+        listings={selectedListings.map((l) => ({ id: l.id, title: l.title, sku: l.sku, brand: l.brand, category: l.category }))}
+        onApplied={() => {
+          setSelected(new Set());
+          router.refresh();
+        }}
+      />
 
       <ConfirmDialog
         open={confirmDelete}

@@ -173,6 +173,105 @@ export async function bulkRelist(listingIds: string[]) {
   return queueBulkJob(listingIds, "RELIST");
 }
 
+/** The bulk counterpart to a single listing's Publish panel picking up a new marketplace --
+ *  Inventory deliberately doesn't get this (it's a listing action, not bookkeeping; see the
+ *  design handoff), Listings does. Reuses crossPost's own per-platform validation logic rather
+ *  than a second implementation of it, but doesn't call crossPost() itself in a loop: that
+ *  action's own per-request rate limit (30/5min) exists for a single publish click, and would
+ *  start failing partway through a 100-listing batch. This applies the bulk-scoped limit once,
+ *  like queueBulkJob/queueRepriceJobs above, and fires one worker trigger at the end instead of
+ *  one per listing. A listing already live/pending on a platform is silently skipped for that
+ *  platform -- "post to more" means the ones it isn't on yet, not a resend. */
+export async function bulkPostToMore(
+  listingIds: string[],
+  platformIds: string[]
+): Promise<
+  | {
+      success: true;
+      queuedCount: number;
+      skippedCount: number;
+      skipped: { listingTitle: string; platformId: string; reason: string }[];
+    }
+  | { error: string }
+> {
+  const { actingUserId, workspaceUserId: userId } = await requireWorkspace();
+
+  if (listingIds.length === 0 || platformIds.length === 0) {
+    return { success: true, queuedCount: 0, skippedCount: 0, skipped: [] };
+  }
+  if (listingIds.length > BULK_ACTION_MAX_LISTINGS) {
+    return { error: `Select at most ${BULK_ACTION_MAX_LISTINGS} listings at a time` };
+  }
+
+  const rateCheck = await checkRateLimit(`bulk-crosspost:${userId}`, { windowMs: BULK_ACTION_WINDOW_MS, max: BULK_ACTION_MAX_PER_WINDOW });
+  if (!rateCheck.allowed) {
+    return { error: "You're doing that too quickly. Please wait a bit and try again." };
+  }
+
+  const [listings, accounts] = await Promise.all([
+    prisma.listing.findMany({
+      where: { id: { in: listingIds }, userId },
+      include: { photos: true, platformListings: true },
+    }),
+    prisma.marketplaceAccount.findMany({ where: { userId, platform: { in: platformIds }, isActive: true } }),
+  ]);
+  const accountByPlatform = new Map(accounts.map((a) => [a.platform, a]));
+
+  await track("publish_started", actingUserId, { listingIds, platformIds, bulk: true });
+
+  let queuedCount = 0;
+  const skipped: { listingTitle: string; platformId: string; reason: string }[] = [];
+
+  for (const listing of listings) {
+    const alreadyHas = new Set(listing.platformListings.map((pl) => pl.platform));
+    const targets = platformIds.filter((p) => !alreadyHas.has(p));
+
+    for (const platformId of targets) {
+      const adapter = getAdapter(platformId);
+      if (!adapter) {
+        skipped.push({ listingTitle: listing.title, platformId, reason: "Unsupported platform" });
+        continue;
+      }
+
+      const validation = adapter.validateListing?.({
+        ...listingDescriptionFields(listing),
+        photos: listing.photos.map((p) => p.url),
+      });
+      if (validation && !validation.valid) {
+        skipped.push({ listingTitle: listing.title, platformId, reason: validation.error });
+        continue;
+      }
+
+      const account = accountByPlatform.get(platformId);
+
+      await prisma.platformListing.upsert({
+        where: { listingId_platform: { listingId: listing.id, platform: platformId } },
+        create: { listingId: listing.id, platform: platformId, status: PlatformListingStatus.PENDING },
+        update: { status: PlatformListingStatus.PENDING, errorMessage: null },
+      });
+
+      await prisma.crossPostJob.create({
+        data: {
+          userId,
+          listingId: listing.id,
+          platform: platformId,
+          status: "PENDING",
+          payload: JSON.stringify({ listingId: listing.id, platformId, accountId: account?.id }),
+        },
+      });
+
+      queuedCount += 1;
+    }
+  }
+
+  if (queuedCount > 0) triggerJobWorker();
+
+  revalidatePath("/listings");
+  for (const listing of listings) revalidatePath(`/listings/${listing.id}`);
+
+  return { success: true, queuedCount, skippedCount: skipped.length, skipped };
+}
+
 /** Queues a REPRICE job for every currently-POSTED platform listing that (a) doesn't have its
  *  own per-marketplace price override -- PlatformListing.price set means the seller deliberately
  *  priced it differently there, and a base-price change shouldn't silently flatten that -- and

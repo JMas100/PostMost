@@ -9,6 +9,7 @@ import { buttonVariants } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
 import Link from "next/link";
 import { getPlatform } from "@/lib/marketplaces/platforms";
+import { getMarketplaceAccounts } from "@/lib/actions/accounts";
 import { ListingsFilters } from "./listings-filters";
 import { ListingsTabs, type ListingsTab } from "./listings-tabs";
 import { ListingsTable } from "./listings-table";
@@ -57,7 +58,7 @@ export default async function ListingsPage(
     ...(platform ? { platformListings: { some: { platform } } } : {}),
   };
 
-  const [totalCount, filteredCount, platformRows, tabCounts] = await Promise.all([
+  const [totalCount, filteredCount, platformRows, tabCounts, marketplaceAccounts] = await Promise.all([
     prisma.listing.count({ where: { userId } }),
     prisma.listing.count({ where }),
     prisma.platformListing.findMany({
@@ -71,7 +72,9 @@ export default async function ListingsPage(
         await prisma.listing.count({ where: tabWhere(t, userId) }),
       ] as const)
     ),
+    getMarketplaceAccounts(),
   ]);
+  const connectedPlatforms = [...new Set(marketplaceAccounts.map((a) => a.platform))];
 
   const totalPages = Math.max(1, Math.ceil(filteredCount / PAGE_SIZE));
   const clampedPage = Math.min(page, totalPages);
@@ -131,7 +134,7 @@ export default async function ListingsPage(
             primaryAction={{ label: "Clear filters", href: "/listings" }}
           />
         ) : (
-          <ListingsTable listings={listings} canDelete={canDelete} />
+          <ListingsTable listings={listings} canDelete={canDelete} connectedPlatforms={connectedPlatforms} />
         )}
 
         {listings.length > 0 && totalPages > 1 && (
