@@ -11,12 +11,18 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { StatusPill } from "@/components/status-pill";
 import { PlatformTileRow } from "@/components/platform-tile-row";
 import { computeListingStatus } from "@/lib/listing-status";
-import { Trash2, Ban, RefreshCw, Tag, Share2 } from "lucide-react";
-import { bulkDeleteListings } from "@/lib/actions/listings";
+import { Trash2, Ban, RefreshCw, Tag, Share2, MoreVertical, Pencil, Copy } from "lucide-react";
+import { bulkDeleteListings, duplicateListing, deleteListing } from "@/lib/actions/listings";
 import { bulkDelist, bulkRelist } from "@/lib/actions/crosspost";
 import { BulkPriceDialog } from "@/components/bulk-price-dialog";
 import { BulkPostToMoreDialog } from "@/components/bulk-post-to-more-dialog";
 import { ConfirmDialog } from "@/components/confirm-dialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { formatCurrency } from "@/lib/utils";
 import {
   Table,
@@ -56,6 +62,9 @@ export function ListingsTable({
   const [priceDialogOpen, setPriceDialogOpen] = useState(false);
   const [postToMoreOpen, setPostToMoreOpen] = useState(false);
   const [confirmAction, setConfirmAction] = useState<"delete" | "delist" | "relist" | null>(null);
+  const [duplicatingId, setDuplicatingId] = useState<string | null>(null);
+  const [rowDeleteTarget, setRowDeleteTarget] = useState<{ id: string; title: string } | null>(null);
+  const [rowDeletePending, startRowDeleteTransition] = useTransition();
 
   const allSelected = listings.length > 0 && selected.size === listings.length;
   const someSelected = selected.size > 0 && !allSelected;
@@ -124,6 +133,35 @@ export function ListingsTable({
     });
   }
 
+  function handleDuplicate(id: string) {
+    setDuplicatingId(id);
+    startTransition(async () => {
+      const result = await duplicateListing(id);
+      if ("error" in result && result.error) {
+        toast.error(typeof result.error === "string" ? result.error : "Couldn't duplicate this listing.");
+        setDuplicatingId(null);
+        return;
+      }
+      toast.success("Listing duplicated");
+      setDuplicatingId(null);
+      router.refresh();
+    });
+  }
+
+  function performRowDelete() {
+    if (!rowDeleteTarget) return;
+    startRowDeleteTransition(async () => {
+      try {
+        await deleteListing(rowDeleteTarget.id);
+        toast.success(`Deleted "${rowDeleteTarget.title}"`);
+        router.refresh();
+      } catch (err) {
+        toast.error(err instanceof Error ? err.message : "Couldn't delete this listing.");
+      }
+      setRowDeleteTarget(null);
+    });
+  }
+
   return (
     <div className="space-y-3">
       {selected.size > 0 && (
@@ -185,6 +223,7 @@ export function ListingsTable({
                 <TableHead className="w-28">Status</TableHead>
                 <TableHead className="hidden w-40 lg:table-cell">Live on</TableHead>
                 <TableHead className="hidden w-28 lg:table-cell">Updated</TableHead>
+                <TableHead className="w-11"></TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -249,6 +288,46 @@ export function ListingsTable({
                     <TableCell className="hidden text-sm text-muted-foreground lg:table-cell">
                       {formatDistanceToNowStrict(listing.updatedAt, { addSuffix: true })}
                     </TableCell>
+                    <TableCell>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger
+                          render={
+                            <Button
+                              variant="ghost"
+                              size="icon-sm"
+                              className="text-muted-foreground"
+                              aria-label={`More actions for ${listing.title}`}
+                            >
+                              <MoreVertical className="h-4 w-4" />
+                            </Button>
+                          }
+                        />
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem
+                            render={<Link href={`/listings/${listing.id}?edit=1`} />}
+                          >
+                            <Pencil className="h-4 w-4" />
+                            Edit
+                          </DropdownMenuItem>
+                          <DropdownMenuItem
+                            disabled={duplicatingId === listing.id}
+                            onClick={() => handleDuplicate(listing.id)}
+                          >
+                            <Copy className="h-4 w-4" />
+                            {duplicatingId === listing.id ? "Duplicating…" : "Duplicate"}
+                          </DropdownMenuItem>
+                          {canDelete && (
+                            <DropdownMenuItem
+                              variant="destructive"
+                              onClick={() => setRowDeleteTarget({ id: listing.id, title: listing.title })}
+                            >
+                              <Trash2 className="h-4 w-4" />
+                              Delete
+                            </DropdownMenuItem>
+                          )}
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </TableCell>
                   </TableRow>
                 );
               })}
@@ -287,6 +366,42 @@ export function ListingsTable({
                     <StatusPill status={statusInfo} />
                   </div>
                 </Link>
+                <DropdownMenu>
+                  <DropdownMenuTrigger
+                    render={
+                      <Button
+                        variant="ghost"
+                        size="icon-sm"
+                        className="mt-1 shrink-0 text-muted-foreground"
+                        aria-label={`More actions for ${listing.title}`}
+                      >
+                        <MoreVertical className="h-4 w-4" />
+                      </Button>
+                    }
+                  />
+                  <DropdownMenuContent align="end">
+                    <DropdownMenuItem render={<Link href={`/listings/${listing.id}?edit=1`} />}>
+                      <Pencil className="h-4 w-4" />
+                      Edit
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
+                      disabled={duplicatingId === listing.id}
+                      onClick={() => handleDuplicate(listing.id)}
+                    >
+                      <Copy className="h-4 w-4" />
+                      {duplicatingId === listing.id ? "Duplicating…" : "Duplicate"}
+                    </DropdownMenuItem>
+                    {canDelete && (
+                      <DropdownMenuItem
+                        variant="destructive"
+                        onClick={() => setRowDeleteTarget({ id: listing.id, title: listing.title })}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                        Delete
+                      </DropdownMenuItem>
+                    )}
+                  </DropdownMenuContent>
+                </DropdownMenu>
               </CardContent>
             </Card>
           );
@@ -349,6 +464,17 @@ export function ListingsTable({
           else if (confirmAction === "delist") performDelist();
           else if (confirmAction === "relist") performRelist();
         }}
+      />
+
+      <ConfirmDialog
+        open={rowDeleteTarget !== null}
+        onOpenChange={(open) => !open && setRowDeleteTarget(null)}
+        pending={rowDeletePending}
+        variant="destructive"
+        title={`Delete "${rowDeleteTarget?.title}"?`}
+        description="This can't be undone."
+        confirmLabel="Delete"
+        onConfirm={performRowDelete}
       />
     </div>
   );
