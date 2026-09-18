@@ -34,6 +34,21 @@ function matchPoshmarkCondition(listing: ListingData): string {
 
 const poshmarkListingSteps: AutomationStep[] = [
   {
+    name: "dismiss-cookie-banner",
+    action: async (page) => {
+      // Confirmed via a real job's Playwright error trace: a `.cookie-banner` sits on the page
+      // and intercepts clicks on the category/condition dropdowns further down (and likely the
+      // sticky header interceptions seen in the same trace too -- both plausibly downstream of
+      // this banner still occupying layout space). Dismissed once, up front, rather than worked
+      // around at each dropdown. Best-effort: a no-op if it's not there.
+      const cookieBannerButton = page.locator(".cookie-banner button").first();
+      if (await cookieBannerButton.isVisible({ timeout: 3000 }).catch(() => false)) {
+        await cookieBannerButton.click();
+        await page.waitForTimeout(200);
+      }
+    },
+  },
+  {
     name: "fill-title",
     action: async (page, listing) => {
       await page.locator('input[data-vv-name="title"]').fill(listing.title.slice(0, 80));
