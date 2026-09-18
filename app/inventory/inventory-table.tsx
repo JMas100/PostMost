@@ -8,7 +8,8 @@ import { Trash2, DollarSign, Tag, Boxes, Hash, Download } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
-import { PlatformBadgeRow } from "@/components/platform-badge-row";
+import { StatusPill } from "@/components/status-pill";
+import { computeListingStatus } from "@/lib/listing-status";
 import { InventoryCostCell } from "@/components/inventory-cost-cell";
 import { bulkDeleteListings } from "@/lib/actions/listings";
 import { BulkPriceDialog } from "@/components/bulk-price-dialog";
@@ -16,7 +17,7 @@ import { BulkCostDialog } from "@/components/bulk-cost-dialog";
 import { BulkQuantityDialog } from "@/components/bulk-quantity-dialog";
 import { BulkSkuDialog } from "@/components/bulk-sku-dialog";
 import { ConfirmDialog } from "@/components/confirm-dialog";
-import { cn } from "@/lib/utils";
+import { cn, formatCurrency } from "@/lib/utils";
 import {
   Table,
   TableBody,
@@ -35,8 +36,16 @@ export interface InventoryRow {
   quantity: number;
   price: number;
   cost: number | null;
+  status: string;
+  isDraft: boolean;
   photos: { id: string; url: string }[];
   platformListings: { id: string; platform: string; status: string }[];
+}
+
+function marginColorClass(margin: number | null): string {
+  if (margin === null) return "text-muted-foreground";
+  if (margin < 0) return "text-destructive";
+  return "text-success";
 }
 
 function downloadCsv(rows: InventoryRow[]) {
@@ -163,12 +172,11 @@ export function InventoryTable({
                 <TableHead className="hidden xl:table-cell"></TableHead>
                 <TableHead>Item</TableHead>
                 <TableHead className="hidden xl:table-cell">SKU</TableHead>
-                <TableHead className="hidden text-right xl:table-cell">Quantity</TableHead>
-                <TableHead className="text-right">Price</TableHead>
+                <TableHead className="hidden text-right xl:table-cell">Qty</TableHead>
                 <TableHead className="text-right">Cost</TableHead>
+                <TableHead className="text-right">List price</TableHead>
                 <TableHead className="hidden text-right xl:table-cell">Margin</TableHead>
-                <TableHead className="hidden text-right xl:table-cell">Value</TableHead>
-                <TableHead>Platforms</TableHead>
+                <TableHead>Status</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -193,7 +201,7 @@ export function InventoryTable({
                         <div className="h-10 w-10 rounded-md bg-muted" />
                       )}
                     </TableCell>
-                    <TableCell className="max-w-[200px] md:max-w-[260px] xl:max-w-none">
+                    <TableCell className="max-w-[200px] md:max-w-[260px] xl:max-w-[420px]">
                       <div className="flex min-w-0 items-center gap-3">
                         {/* Below xl there's no separate photo column, and SKU/quantity join this
                             cell's second line instead of their own columns. */}
@@ -209,13 +217,14 @@ export function InventoryTable({
                           <Link href={`/listings/${listing.id}`} className="block truncate font-medium hover:underline">
                             {listing.title}
                           </Link>
-                          <p className="tnum truncate text-xs text-muted-foreground xl:hidden">
-                            {listing.sku || "No SKU"} · Qty {soldOut ? "0" : listing.quantity}
+                          <p className="truncate text-xs text-muted-foreground xl:hidden">
+                            {listing.category} · {listing.sku || "no SKU"} · <span className="tnum">Qty {soldOut ? "0" : listing.quantity}</span>
                           </p>
+                          <p className="hidden truncate text-xs text-muted-foreground xl:block">{listing.category}</p>
                         </div>
                       </div>
                     </TableCell>
-                    <TableCell className="hidden text-muted-foreground xl:table-cell">{listing.sku || "—"}</TableCell>
+                    <TableCell className="hidden font-mono text-xs text-muted-foreground xl:table-cell">{listing.sku || "—"}</TableCell>
                     <TableCell className="tnum hidden text-right xl:table-cell">
                       {soldOut ? (
                         <span className="text-xs font-medium text-muted-foreground">Sold out</span>
@@ -223,22 +232,21 @@ export function InventoryTable({
                         listing.quantity
                       )}
                     </TableCell>
+                    <TableCell className="text-right">
+                      <InventoryCostCell id={listing.id} initialCost={listing.cost} rowIndex={index} />
+                    </TableCell>
                     <TableCell className="tnum text-right">
-                      <div>${listing.price.toFixed(2)}</div>
+                      <div>{formatCurrency(listing.price)}</div>
                       {/* Margin joins the price cell below xl, where it has no column of its own. */}
-                      <div className="text-xs text-muted-foreground xl:hidden">
+                      <div className={cn("text-xs xl:hidden", marginColorClass(margin))}>
                         {margin !== null ? `${margin.toFixed(0)}% margin` : "— margin"}
                       </div>
                     </TableCell>
-                    <TableCell className="tnum text-right">
-                      <InventoryCostCell id={listing.id} initialCost={listing.cost} rowIndex={index} />
-                    </TableCell>
-                    <TableCell className={cn("tnum hidden text-right xl:table-cell", hasCost ? undefined : "text-muted-foreground")}>
+                    <TableCell className={cn("tnum hidden text-right xl:table-cell", marginColorClass(margin))}>
                       {margin !== null ? `${margin.toFixed(0)}%` : "—"}
                     </TableCell>
-                    <TableCell className="tnum hidden text-right xl:table-cell">${(listing.price * listing.quantity).toFixed(2)}</TableCell>
                     <TableCell>
-                      <PlatformBadgeRow platformListings={listing.platformListings} />
+                      <StatusPill status={computeListingStatus(listing)} showPublishingCount={false} />
                     </TableCell>
                   </TableRow>
                 );
@@ -276,17 +284,19 @@ export function InventoryTable({
                       <Link href={`/listings/${listing.id}`} className="truncate font-medium hover:underline">
                         {listing.title}
                       </Link>
-                      <p className="tnum shrink-0 font-medium">${listing.price.toFixed(2)}</p>
+                      <p className="tnum shrink-0 font-medium">{formatCurrency(listing.price)}</p>
                     </div>
-                    <p className="tnum text-xs text-muted-foreground">
-                      {listing.sku || "No SKU"} · {soldOut ? "Sold out" : `Qty ${listing.quantity}`} ·{" "}
-                      {margin !== null ? `${margin.toFixed(0)}% margin` : "no cost recorded"}
+                    <p className="text-xs text-muted-foreground">
+                      {listing.category} · {listing.sku || "no SKU"} · <span className="tnum">{soldOut ? "Sold out" : `Qty ${listing.quantity}`}</span> ·{" "}
+                      <span className={margin !== null ? marginColorClass(margin) : undefined}>
+                        {margin !== null ? `${margin.toFixed(0)}% margin` : "no cost recorded"}
+                      </span>
                     </p>
                     <div className="flex items-center gap-2 text-xs">
                       <span className="text-muted-foreground">Cost:</span>
                       <InventoryCostCell id={listing.id} initialCost={listing.cost} rowIndex={index} />
                     </div>
-                    <PlatformBadgeRow platformListings={listing.platformListings} />
+                    <StatusPill status={computeListingStatus(listing)} showPublishingCount={false} />
                   </div>
                 </div>
               </CardContent>

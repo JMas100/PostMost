@@ -37,7 +37,7 @@ function tabWhere(tab: ListingsTab, userId: string): Prisma.ListingWhereInput {
 
 export default async function ListingsPage(
   props: {
-    searchParams: Promise<{ q?: string; platform?: string; page?: string; tab?: string }>;
+    searchParams: Promise<{ q?: string; platform?: string; page?: string; tab?: string; sort?: string }>;
   }
 ) {
   const searchParams = await props.searchParams;
@@ -50,6 +50,7 @@ export default async function ListingsPage(
   const tab = (["all", "live", "drafts", "sold", "attention"].includes(searchParams.tab ?? "")
     ? searchParams.tab
     : "all") as ListingsTab;
+  const sort = searchParams.sort === "price" ? "price" : undefined;
   const page = Math.max(1, parseInt(searchParams.page ?? "1", 10) || 1);
 
   const where: Prisma.ListingWhereInput = {
@@ -82,7 +83,7 @@ export default async function ListingsPage(
   const listings = await prisma.listing.findMany({
     where,
     include: { photos: true, platformListings: true },
-    orderBy: { createdAt: "desc" },
+    orderBy: sort === "price" ? { price: "desc" } : { createdAt: "desc" },
     take: PAGE_SIZE,
     skip: (clampedPage - 1) * PAGE_SIZE,
   });
@@ -91,6 +92,7 @@ export default async function ListingsPage(
     if (q) params.set("q", q);
     if (platform) params.set("platform", platform);
     if (tab !== "all") params.set("tab", tab);
+    if (sort) params.set("sort", sort);
     if (p > 1) params.set("page", String(p));
     const qs = params.toString();
     return qs ? `/listings?${qs}` : "/listings";
@@ -107,10 +109,16 @@ export default async function ListingsPage(
       <div className="space-y-6">
         <PageHeader
           title="Listings"
+          description="Everything you've posted, and where it's live."
           actions={
-            <Link href="/listings/new" className={buttonVariants()}>
-              Create listing
-            </Link>
+            <>
+              <Link href="/listings/import" className={buttonVariants({ variant: "outline", size: "lg" })}>
+                Import
+              </Link>
+              <Link href="/listings/new" className={buttonVariants({ size: "lg" })}>
+                New listing
+              </Link>
+            </>
           }
         />
 

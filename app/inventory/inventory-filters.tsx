@@ -4,6 +4,7 @@ import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import { useState, useTransition } from "react";
 import { Input } from "@/components/ui/input";
 import { buttonVariants } from "@/components/ui/button";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 import Link from "next/link";
 
@@ -14,7 +15,8 @@ export function InventoryFilters() {
   const [, startTransition] = useTransition();
   const [q, setQ] = useState(searchParams?.get("q") ?? "");
   const missingCostOnly = searchParams?.get("filter") === "missing-cost";
-  const hasFilters = q || missingCostOnly;
+  const sort = searchParams?.get("sort") === "value" ? "value" : "newest";
+  const hasFilters = q || missingCostOnly || sort !== "newest";
 
   function updateParams(next: Record<string, string>) {
     const params = new URLSearchParams(searchParams?.toString());
@@ -43,11 +45,21 @@ export function InventoryFilters() {
         type="button"
         onClick={() => updateParams({ filter: missingCostOnly ? "" : "missing-cost" })}
         className={cn(
-          buttonVariants({ variant: missingCostOnly ? "default" : "outline", size: "sm" })
+          buttonVariants({ variant: missingCostOnly ? "default" : "outline", size: "sm" }),
+          missingCostOnly && "border-warning bg-transparent text-foreground hover:bg-transparent"
         )}
       >
         Missing cost
       </button>
+      <Select value={sort} onValueChange={(v) => updateParams({ sort: v === "value" ? "value" : "" })}>
+        <SelectTrigger className="h-7 w-40 text-[0.8rem]">
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="newest">Newest first</SelectItem>
+          <SelectItem value="value">Highest value</SelectItem>
+        </SelectContent>
+      </Select>
       {hasFilters && (
         <Link
           href={pathname}

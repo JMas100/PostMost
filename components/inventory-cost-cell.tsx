@@ -1,43 +1,54 @@
 "use client";
 
-import { useRef, useState, useTransition, type KeyboardEvent } from "react";
+import { useEffect, useRef, useState, useTransition, type KeyboardEvent } from "react";
 import { setCost } from "@/lib/actions/listings";
+import { formatCurrency } from "@/lib/utils";
 import { cn } from "@/lib/utils";
 
 /**
- * A single cost cell, editable in place -- Tab/Enter commits and moves to the next row's cost
- * field (via data-cost-index, since native tab order would otherwise stop at every other
- * focusable thing in the row first), Esc reverts. Doubles as the "Add cost" affordance for rows
- * with no cost on file: there's no separate dedicated editor view, this cell IS it, reachable
- * whether you got here from the missing-cost filter, the banner, or just scrolling the table.
+ * A cost cell that reads as a formatted value (or a dashed "Add cost" target when empty) at rest,
+ * and becomes a plain number input only while editing -- a bare `<input type=number>` at rest is
+ * how this cell used to render "500" with browser spinner arrows next to Price's "$1000.00".
+ * Click/Enter/Space opens it; Tab/Enter commits and moves to the next row (data-cost-index, since
+ * native tab order would otherwise stop at other focusable things in the row first); Esc reverts.
  */
 export function InventoryCostCell({ id, initialCost, rowIndex }: { id: string; initialCost: number | null; rowIndex: number }) {
+  const [editing, setEditing] = useState(false);
   const [value, setValue] = useState(initialCost !== null ? String(initialCost) : "");
   const [saved, setSaved] = useState(initialCost);
   const [isPending, startTransition] = useTransition();
   const inputRef = useRef<HTMLInputElement>(null);
 
+  useEffect(() => {
+    if (editing) {
+      inputRef.current?.focus();
+      inputRef.current?.select();
+    }
+  }, [editing]);
+
   function focusNext() {
-    const next = document.querySelector<HTMLInputElement>(`[data-cost-index="${rowIndex + 1}"]`);
+    const next = document.querySelector<HTMLElement>(`[data-cost-index="${rowIndex + 1}"]`);
     next?.focus();
-    next?.select();
+    next?.click();
   }
 
   function commit(advance: boolean) {
     const trimmed = value.trim();
     if (trimmed === "") {
-      // setCost has no "clear" mode -- revert rather than silently no-op on an empty field.
       setValue(saved !== null ? String(saved) : "");
+      setEditing(false);
       if (advance) focusNext();
       return;
     }
     const num = Number(trimmed);
     if (!Number.isFinite(num) || num < 0) {
       setValue(saved !== null ? String(saved) : "");
+      setEditing(false);
       if (advance) focusNext();
       return;
     }
     if (num === saved) {
+      setEditing(false);
       if (advance) focusNext();
       return;
     }
@@ -48,6 +59,7 @@ export function InventoryCostCell({ id, initialCost, rowIndex }: { id: string; i
       } else {
         setSaved(num);
       }
+      setEditing(false);
       if (advance) focusNext();
     });
   }
@@ -61,27 +73,50 @@ export function InventoryCostCell({ id, initialCost, rowIndex }: { id: string; i
       commit(true);
     } else if (e.key === "Escape") {
       setValue(saved !== null ? String(saved) : "");
-      inputRef.current?.blur();
+      setEditing(false);
     }
   }
 
+  if (editing) {
+    return (
+      <input
+        ref={inputRef}
+        type="number"
+        step="0.01"
+        min="0"
+        value={value}
+        onChange={(e) => setValue(e.target.value)}
+        onKeyDown={handleKeyDown}
+        onBlur={() => commit(false)}
+        disabled={isPending}
+        className="w-24 rounded-sm border border-ring bg-background px-1.5 py-1 text-sm outline-none ring-2 ring-ring/30"
+      />
+    );
+  }
+
+  if (saved === null) {
+    return (
+      <button
+        type="button"
+        data-cost-index={rowIndex}
+        onClick={() => setEditing(true)}
+        className="inline-flex h-[26px] items-center rounded-md border border-dashed border-warning px-2 text-[12.5px] font-semibold text-warning outline-none focus-visible:ring-2 focus-visible:ring-ring/30"
+      >
+        Add cost
+      </button>
+    );
+  }
+
   return (
-    <input
-      ref={inputRef}
+    <button
+      type="button"
       data-cost-index={rowIndex}
-      type="number"
-      step="0.01"
-      min="0"
-      value={value}
-      onChange={(e) => setValue(e.target.value)}
-      onKeyDown={handleKeyDown}
-      onBlur={() => commit(false)}
-      placeholder="Add cost"
-      disabled={isPending}
+      onClick={() => setEditing(true)}
       className={cn(
-        "w-24 rounded-sm border border-transparent bg-transparent px-1.5 py-1 text-sm outline-none transition-colors hover:border-border focus:border-ring focus:bg-background focus:ring-2 focus:ring-ring/30",
-        saved === null ? "text-warning placeholder:text-warning/70" : "text-foreground"
+        "tnum rounded-sm px-1.5 py-1 text-sm outline-none hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring/30"
       )}
-    />
+    >
+      {formatCurrency(saved)}
+    </button>
   );
 }

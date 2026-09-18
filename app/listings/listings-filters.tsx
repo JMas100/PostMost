@@ -15,6 +15,14 @@ interface PlatformOption {
   name: string;
 }
 
+const STATUS_OPTIONS: Record<string, string> = {
+  all: "All statuses",
+  live: "Live",
+  drafts: "Drafts",
+  sold: "Sold",
+  attention: "Needs attention",
+};
+
 export function ListingsFilters({ platformOptions }: { platformOptions: PlatformOption[] }) {
   const router = useRouter();
   const pathname = usePathname() ?? "/listings";
@@ -23,7 +31,9 @@ export function ListingsFilters({ platformOptions }: { platformOptions: Platform
   const [q, setQ] = useState(searchParams?.get("q") ?? "");
 
   const platform = searchParams?.get("platform") ?? "all";
-  const hasFilters = q || platform !== "all";
+  const status = searchParams?.get("tab") ?? "all";
+  const sort = searchParams?.get("sort") === "price" ? "price" : "newest";
+  const hasFilters = q || platform !== "all" || status !== "all" || sort !== "newest";
 
   const platformLabels: Record<string, string> = { all: "All platforms" };
   for (const p of platformOptions) platformLabels[p.id] = p.name;
@@ -39,11 +49,7 @@ export function ListingsFilters({ platformOptions }: { platformOptions: Platform
     });
   }
 
-  const activeCount = (q ? 1 : 0) + (platform !== "all" ? 1 : 0);
-  const clearHref = (() => {
-    const tab = searchParams?.get("tab");
-    return tab ? `${pathname}?tab=${tab}` : pathname;
-  })();
+  const activeCount = (q ? 1 : 0) + (platform !== "all" ? 1 : 0) + (status !== "all" ? 1 : 0) + (sort !== "newest" ? 1 : 0);
 
   const searchInput = (
     <Input
@@ -56,6 +62,20 @@ export function ListingsFilters({ platformOptions }: { platformOptions: Platform
       onBlur={() => updateParams({ q })}
       className="w-full sm:w-64"
     />
+  );
+  const statusSelect = (
+    <Select value={status} onValueChange={(v) => updateParams({ tab: v ?? "all" })}>
+      <SelectTrigger className="w-full sm:w-40">
+        <SelectValue>{(v: string) => STATUS_OPTIONS[v] ?? v}</SelectValue>
+      </SelectTrigger>
+      <SelectContent>
+        {Object.entries(STATUS_OPTIONS).map(([value, label]) => (
+          <SelectItem key={value} value={value}>
+            {label}
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
   );
   const platformSelect = (
     <Select value={platform} onValueChange={(v) => updateParams({ platform: v ?? "all" })}>
@@ -72,8 +92,19 @@ export function ListingsFilters({ platformOptions }: { platformOptions: Platform
       </SelectContent>
     </Select>
   );
+  const sortSelect = (
+    <Select value={sort} onValueChange={(v) => updateParams({ sort: v === "price" ? "price" : "" })}>
+      <SelectTrigger className="w-full sm:w-40">
+        <SelectValue />
+      </SelectTrigger>
+      <SelectContent>
+        <SelectItem value="newest">Newest first</SelectItem>
+        <SelectItem value="price">Price: high to low</SelectItem>
+      </SelectContent>
+    </Select>
+  );
   const clearLink = hasFilters && (
-    <Link href={clearHref} onClick={() => setQ("")} className={cn(buttonVariants({ variant: "ghost", size: "sm" }))}>
+    <Link href={pathname} onClick={() => setQ("")} className={cn(buttonVariants({ variant: "ghost", size: "sm" }))}>
       Clear filters
     </Link>
   );
@@ -83,7 +114,9 @@ export function ListingsFilters({ platformOptions }: { platformOptions: Platform
       {/* lg+: controls stay inline, as before. */}
       <div className="hidden items-center gap-2 lg:flex">
         {searchInput}
+        {statusSelect}
         {platformSelect}
+        {sortSelect}
         {clearLink}
       </div>
 
@@ -106,7 +139,9 @@ export function ListingsFilters({ platformOptions }: { platformOptions: Platform
           />
           <PopoverContent className="w-72 space-y-2 p-3">
             {searchInput}
+            {statusSelect}
             {platformSelect}
+            {sortSelect}
           </PopoverContent>
         </Popover>
         {clearLink}

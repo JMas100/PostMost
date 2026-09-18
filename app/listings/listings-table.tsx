@@ -4,17 +4,20 @@ import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import Link from "next/link";
 import { toast } from "sonner";
+import { formatDistanceToNowStrict } from "date-fns";
 import { Card, CardContent } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
-import { PlatformBadgeRow } from "@/components/platform-badge-row";
+import { StatusPill } from "@/components/status-pill";
+import { PlatformTileRow } from "@/components/platform-tile-row";
+import { computeListingStatus } from "@/lib/listing-status";
 import { Trash2, Ban, RefreshCw, Tag, Share2 } from "lucide-react";
 import { bulkDeleteListings } from "@/lib/actions/listings";
 import { bulkDelist, bulkRelist } from "@/lib/actions/crosspost";
 import { BulkPriceDialog } from "@/components/bulk-price-dialog";
 import { BulkPostToMoreDialog } from "@/components/bulk-post-to-more-dialog";
 import { ConfirmDialog } from "@/components/confirm-dialog";
+import { formatCurrency } from "@/lib/utils";
 import {
   Table,
   TableBody,
@@ -29,14 +32,13 @@ export interface ListingRow {
   title: string;
   price: number;
   cost: number | null;
+  category: string;
+  sku: string | null;
   status: string;
   isDraft: boolean;
+  updatedAt: Date;
   photos: { id: string; url: string }[];
   platformListings: { id: string; platform: string; status: string }[];
-}
-
-function listingNeedsAttention(listing: ListingRow): boolean {
-  return !listing.isDraft && listing.platformListings.some((pl) => pl.status === "FAILED");
 }
 
 export function ListingsTable({
@@ -178,15 +180,28 @@ export function ListingsTable({
                   />
                 </TableHead>
                 <TableHead className="hidden xl:table-cell"></TableHead>
-                <TableHead>Title</TableHead>
+                <TableHead>Item</TableHead>
                 <TableHead className="text-right">Price</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Platforms</TableHead>
+                <TableHead className="w-28">Status</TableHead>
+                <TableHead className="hidden w-40 lg:table-cell">Live on</TableHead>
+                <TableHead className="hidden w-28 lg:table-cell">Updated</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {listings.map((listing) => {
-                const needsAttention = listingNeedsAttention(listing);
+                const statusInfo = computeListingStatus(listing);
+                const liveOnCell =
+                  statusInfo.kind === "draft" ? (
+                    <span className="text-xs text-muted-foreground">Not published</span>
+                  ) : statusInfo.kind === "sold" ? (
+                    <span className="text-xs text-muted-foreground">
+                      {listing.platformListings.length > 0
+                        ? `Delisted from ${listing.platformListings.length}`
+                        : "—"}
+                    </span>
+                  ) : (
+                    <PlatformTileRow platformListings={listing.platformListings} />
+                  );
                 return (
                   <TableRow key={listing.id} data-state={selected.has(listing.id) ? "selected" : undefined}>
                     <TableCell>
@@ -204,29 +219,35 @@ export function ListingsTable({
                         <div className="h-10 w-10 rounded-md bg-muted" />
                       )}
                     </TableCell>
-                    <TableCell className="max-w-[220px] md:max-w-[280px] xl:max-w-none">
-                      <Link href={`/listings/${listing.id}`} className="flex min-w-0 items-center gap-3 font-medium hover:underline">
+                    <TableCell className="max-w-[220px] md:max-w-[280px] xl:max-w-[380px]">
+                      <Link href={`/listings/${listing.id}`} className="flex min-w-0 items-center gap-3 hover:underline">
                         {/* Below xl there's no separate photo column, so the thumbnail moves in
                             here instead of disappearing. */}
-                        <span className="xl:hidden">
+                        <span className="shrink-0 xl:hidden">
                           {listing.photos[0] ? (
                             // eslint-disable-next-line @next/next/no-img-element
-                            <img src={listing.photos[0].url} alt="" className="h-9 w-9 shrink-0 rounded-md object-cover" />
+                            <img src={listing.photos[0].url} alt="" className="h-9 w-9 rounded-md object-cover" />
                           ) : (
-                            <span className="block h-9 w-9 shrink-0 rounded-md bg-muted" />
+                            <span className="block h-9 w-9 rounded-md bg-muted" />
                           )}
                         </span>
-                        <span className="truncate">{listing.title}</span>
+                        <div className="min-w-0 flex-1">
+                          <p className="truncate font-medium">{listing.title}</p>
+                          <p className="truncate text-xs text-muted-foreground">
+                            {listing.category} · {listing.sku || "no SKU"}
+                          </p>
+                        </div>
                       </Link>
                     </TableCell>
-                    <TableCell className="tnum text-right">${listing.price.toFixed(2)}</TableCell>
+                    <TableCell className="tnum text-right">{formatCurrency(listing.price)}</TableCell>
                     <TableCell>
-                      <Badge variant={needsAttention ? "warning" : listing.status === "SOLD" ? "success" : "outline"}>
-                        {needsAttention ? "Needs attention" : listing.isDraft ? "Draft" : listing.status === "SOLD" ? "Sold" : "Published"}
-                      </Badge>
+                      <StatusPill status={statusInfo} />
                     </TableCell>
-                    <TableCell>
-                      <PlatformBadgeRow platformListings={listing.platformListings} />
+                    <TableCell className="hidden lg:table-cell">
+                      <div className="max-w-[140px] overflow-hidden">{liveOnCell}</div>
+                    </TableCell>
+                    <TableCell className="hidden text-sm text-muted-foreground lg:table-cell">
+                      {formatDistanceToNowStrict(listing.updatedAt, { addSuffix: true })}
                     </TableCell>
                   </TableRow>
                 );
@@ -238,7 +259,7 @@ export function ListingsTable({
 
       <div className="space-y-2 md:hidden">
         {listings.map((listing) => {
-          const needsAttention = listingNeedsAttention(listing);
+          const statusInfo = computeListingStatus(listing);
           return (
             <Card key={listing.id}>
               <CardContent className="flex gap-3 p-3">
@@ -258,12 +279,12 @@ export function ListingsTable({
                   <div className="min-w-0 flex-1 space-y-1.5">
                     <div className="flex items-start justify-between gap-2">
                       <p className="truncate font-medium">{listing.title}</p>
-                      <p className="tnum shrink-0 font-medium">${listing.price.toFixed(2)}</p>
+                      <p className="tnum shrink-0 font-medium">{formatCurrency(listing.price)}</p>
                     </div>
-                    <Badge variant={needsAttention ? "warning" : listing.status === "SOLD" ? "success" : "outline"}>
-                      {needsAttention ? "Needs attention" : listing.isDraft ? "Draft" : listing.status === "SOLD" ? "Sold" : "Published"}
-                    </Badge>
-                    <PlatformBadgeRow platformListings={listing.platformListings} />
+                    <p className="truncate text-xs text-muted-foreground">
+                      {listing.category} · {listing.sku || "no SKU"}
+                    </p>
+                    <StatusPill status={statusInfo} />
                   </div>
                 </Link>
               </CardContent>

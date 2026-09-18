@@ -56,6 +56,7 @@ export function PlatformLogo({
   size = 28,
   onDark = false,
   showLabel = onDark,
+  tone = "default",
   className,
 }: {
   platform: string;
@@ -64,6 +65,9 @@ export function PlatformLogo({
   /** Dark ground → always render a white tile + label (dark wordmarks vanish on obsidian). */
   onDark?: boolean;
   showLabel?: boolean;
+  /** Per-listing platform status, not connection state: "failed" tints the tile red with a
+   *  dimmed mark, "pending" mutes it dark, matching the Listings/Inventory row tiles. */
+  tone?: "default" | "failed" | "pending";
   className?: string;
 }) {
   const info = getPlatform(platform);
@@ -74,15 +78,27 @@ export function PlatformLogo({
 
   const tile = (
     <span
-      className="inline-flex shrink-0 items-center justify-center rounded-md bg-white px-1.5"
+      className={cn(
+        "inline-flex shrink-0 items-center justify-center rounded-md px-1.5",
+        tone === "failed" && "border border-destructive bg-destructive/10",
+        tone === "pending" && "bg-[#24282D]",
+        tone === "default" && "bg-white"
+      )}
       style={isWordmark ? { height: size, minWidth: size, width: "auto" } : { height: size, width: size, paddingInline: 0 }}
     >
       {letter ? (
-        <span className="font-heading font-bold text-[#090B0D]" style={{ fontSize: size * 0.4 }}>
+        <span
+          className={cn("font-heading font-bold text-[#090B0D]", tone !== "default" && "opacity-50")}
+          style={{ fontSize: size * 0.4 }}
+        >
           {letter}
         </span>
       ) : (
-        <PlatformMark platformId={platform} className="h-auto w-auto overflow-visible whitespace-nowrap" style={{ height: glyphHeight }} />
+        <PlatformMark
+          platformId={platform}
+          className={cn("h-auto w-auto overflow-visible whitespace-nowrap", tone !== "default" && "opacity-50")}
+          style={{ height: glyphHeight }}
+        />
       )}
     </span>
   );

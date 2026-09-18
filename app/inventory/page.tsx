@@ -14,12 +14,12 @@ import { meetsMinimumTier } from "@/lib/plans";
 import { InventoryFilters } from "./inventory-filters";
 import { InventoryTable } from "./inventory-table";
 import { PageHeader } from "@/components/page-header";
-import { cn } from "@/lib/utils";
+import { cn, formatCurrency } from "@/lib/utils";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 
 export default async function InventoryPage(
   props: {
-    searchParams: Promise<{ q?: string; filter?: string; page?: string }>;
+    searchParams: Promise<{ q?: string; filter?: string; page?: string; sort?: string }>;
   }
 ) {
   const searchParams = await props.searchParams;
@@ -29,6 +29,7 @@ export default async function InventoryPage(
   const canDelete = role !== "MEMBER";
 
   const missingCostOnly = searchParams.filter === "missing-cost";
+  const sort = searchParams.sort === "value" ? "value" : undefined;
   const page = Math.max(1, parseInt(searchParams.page ?? "1", 10) || 1);
   const {
     listings,
@@ -43,7 +44,7 @@ export default async function InventoryPage(
     costBasis,
     potentialProfit,
     plan,
-  } = await getInventory({ q: searchParams.q, missingCostOnly, page });
+  } = await getInventory({ q: searchParams.q, missingCostOnly, page, sort });
   const stockSyncAvailable = meetsMinimumTier(plan.id, "pro");
 
   const isFiltered = Boolean(searchParams.q || missingCostOnly);
@@ -51,6 +52,7 @@ export default async function InventoryPage(
     const params = new URLSearchParams();
     if (searchParams.q) params.set("q", searchParams.q);
     if (missingCostOnly) params.set("filter", "missing-cost");
+    if (sort) params.set("sort", sort);
     if (p > 1) params.set("page", String(p));
     const qs = params.toString();
     return qs ? `/inventory?${qs}` : "/inventory";
@@ -64,14 +66,14 @@ export default async function InventoryPage(
           description="Track stock, price, and marketplace status for every item."
           actions={
             <>
-              <Link href="/listings/import" className={buttonVariants({ variant: "outline" })}>
+              <Link href="/listings/import" className={buttonVariants({ variant: "outline", size: "lg" })}>
                 Import CSV
                 <Badge variant="outline" className="ml-1.5 border-primary/30 bg-primary/10 text-primary">
                   GROW
                 </Badge>
               </Link>
-              <Link href="/listings/new" className={buttonVariants()}>
-                New Listing
+              <Link href="/listings/new" className={buttonVariants({ size: "lg" })}>
+                Add item
               </Link>
             </>
           }
@@ -113,7 +115,7 @@ export default async function InventoryPage(
                       —<span className="ml-2 text-sm font-semibold align-middle">{missingCostCount} missing</span>
                     </div>
                   ) : (
-                    <div className="text-2xl font-bold">${costBasis.toFixed(2)}</div>
+                    <div className="tnum text-2xl font-bold">{formatCurrency(costBasis)}</div>
                   )}
                 </CardContent>
               </Card>
@@ -123,7 +125,7 @@ export default async function InventoryPage(
                   <CardTitle className="text-sm font-medium text-muted-foreground">Listed value</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-bold">${totalValue.toFixed(2)}</div>
+                  <div className="tnum text-2xl font-bold">{formatCurrency(totalValue)}</div>
                 </CardContent>
               </Card>
 
@@ -132,7 +134,9 @@ export default async function InventoryPage(
                   <CardTitle className="text-sm font-medium text-muted-foreground">Potential profit</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-bold">${potentialProfit.toFixed(2)}</div>
+                  <div className={cn("tnum text-2xl font-bold", potentialProfit < 0 && "text-destructive")}>
+                    {formatCurrency(potentialProfit)}
+                  </div>
                   <p className="mt-1 text-xs text-muted-foreground">Items with a recorded cost only</p>
                 </CardContent>
               </Card>

@@ -143,7 +143,7 @@ export async function markListingSold(listingId: string, soldPlatform?: string, 
   return { success: true, results };
 }
 
-export async function getInventory(filters: { q?: string; missingCostOnly?: boolean; page?: number } = {}) {
+export async function getInventory(filters: { q?: string; missingCostOnly?: boolean; page?: number; sort?: string } = {}) {
   const { workspaceUserId: userId } = await requireWorkspace();
   const page = Math.max(1, filters.page ?? 1);
 
@@ -188,7 +188,7 @@ export async function getInventory(filters: { q?: string; missingCostOnly?: bool
   const listings = await prisma.listing.findMany({
     where,
     include: { photos: true, platformListings: true },
-    orderBy: { createdAt: "desc" },
+    orderBy: filters.sort === "value" ? { price: "desc" } : { createdAt: "desc" },
     take: PAGE_SIZE,
     skip: (clampedPage - 1) * PAGE_SIZE,
   });
