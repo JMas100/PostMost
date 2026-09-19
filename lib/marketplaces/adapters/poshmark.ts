@@ -47,6 +47,26 @@ async function dismissImageCropModalIfOpen(page: import("playwright-core").Page)
 
 const poshmarkListingSteps: AutomationStep[] = [
   {
+    name: "dismiss-transient-error-dialog",
+    action: async (page) => {
+      // Confirmed live and reproducible manually: Poshmark shows a dismissible "Error / Sorry!
+      // You cannot currently perform this request. Please reach out to Poshmark Support for
+      // assistance." dialog on a fresh page load sometimes -- confirmed with the account owner
+      // that clicking it away lets the page work normally afterward, so this isn't a real block,
+      // just a startup notice to clear first. It sits on top of everything else (including the
+      // cookie banner below), so checked first. Best-effort: a no-op if it's not there.
+      const errorDialogButton = page
+        .locator('div[data-test="modal-container"]')
+        .filter({ hasText: "Sorry! You cannot currently perform this request" })
+        .getByRole("button")
+        .first();
+      if (await errorDialogButton.isVisible({ timeout: 3000 }).catch(() => false)) {
+        await errorDialogButton.click();
+        await page.waitForTimeout(300);
+      }
+    },
+  },
+  {
     name: "dismiss-cookie-banner",
     action: async (page) => {
       // Confirmed via a real job's Playwright error trace: a `.cookie-banner` sits on the page
