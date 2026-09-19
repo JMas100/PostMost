@@ -99,10 +99,21 @@ const poshmarkListingSteps: AutomationStep[] = [
       await page.locator('.listing-editor__category-container [data-test="dropdown"]').first().click();
       await page.waitForTimeout(200);
       await page.locator(`.listing-editor__category-container a[data-et-name="${slug}"]`).first().click();
-      // Confirmed live: the selection itself needs a moment to actually commit in Poshmark's own
-      // Vue state -- the force-close click below was firing immediately after and a real job
-      // still showed the "Select Category" placeholder afterward, meaning it interrupted the
-      // selection before it landed rather than just closing an already-committed dropdown.
+      await page.waitForTimeout(400);
+      // Confirmed live (real session exploration, 2026-09-19): clicking the top-level link above
+      // only drills into a second-level list -- it does NOT finalize Category by itself, which is
+      // the real reason it kept showing "Select Category" no matter how long we waited after that
+      // click alone. A second-level item has to be picked too. Those items carry no stable
+      // data-et-name (unlike the top-level ones), only visible text, so matched by exact text --
+      // "Other" always exists as a catch-all in every list and was confirmed live to both finalize
+      // Category *and* auto-default Size to "OS", sidestepping needing a real size-taxonomy
+      // mapping entirely. Trade-off: every listing lands under ".../Other" rather than a more
+      // specific, more discoverable subcategory -- correct/complete over ideal, revisit later.
+      await page.locator(".listing-editor__category-container").getByText("Other", { exact: true }).first().click();
+      // The selection itself needs a moment to actually commit in Poshmark's own Vue state -- the
+      // force-close click below was firing immediately after and a real job still showed the
+      // "Select Category" placeholder afterward, meaning it interrupted the selection before it
+      // landed rather than just closing an already-committed dropdown.
       await page.waitForTimeout(500);
       // This dropdown's own menu doesn't reliably close itself after a selection either -- a
       // leftover <li> from it was separately seen intercepting clicks on the condition dropdown
@@ -151,6 +162,28 @@ const poshmarkListingSteps: AutomationStep[] = [
       // "Submit")) ever matched it, so the click never fired at all before this was written.
       await page.locator('button[data-et-name="next"]').first().click();
       await page.waitForTimeout(2000);
+      // Confirmed live: "Next" doesn't actually submit the listing -- it advances to a second
+      // "Share Listing" step (promote to Pinterest/Facebook/a Posh Party) with its own "List
+      // This Item" button, which is the real, final submit. Critically, the URL does NOT change
+      // on the "Next" transition at all (confirmed directly), so the generic success check this
+      // runner falls back to afterward (page.url() !== the create-listing URL) would always have
+      // read this as a failure even on a real success -- this second click is what actually
+      // produces the URL change ("Next" stays on /create-listing, "List This Item" redirects to
+      // the seller's own closet page) that check needs to correctly detect success.
+      const listItemButton = page.locator('button:has-text("List This Item")');
+      if (await listItemButton.isVisible({ timeout: 8000 }).catch(() => false)) {
+        await listItemButton.click();
+        await page.waitForTimeout(2000);
+      }
+      // KNOWN LIMITATION, not yet resolved: the post-submit redirect lands on the seller's own
+      // closet page (poshmark.com/closet/<username>), not the new listing's own permalink -- so
+      // the externalUrl/externalId this run captures (create-adapter.ts's post(), generically,
+      // from whatever URL the page ends on) identifies the seller, not this specific listing.
+      // Every listing from the same account would collide on that id. Delist/updatePrice below
+      // navigate by externalId to find the listing to act on -- until this is fixed, expect them
+      // not to reliably target the right one. Needs finding the real per-listing URL (e.g. on the
+      // closet page once the new listing appears there, which showed a real indexing delay in
+      // testing) before delist/reprice for Poshmark can be trusted.
     },
   },
 ];
