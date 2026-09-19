@@ -9,18 +9,18 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { buttonVariants } from "@/components/ui/button";
-import { AlertCircle, Download } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { PlatformLogo } from "@/components/platform-logo";
+import { Upload } from "lucide-react";
+import { cn, formatCurrency } from "@/lib/utils";
 import { PageHeader } from "@/components/page-header";
 
 function StatusBadge({ status }: { status: string }) {
-  const variant =
-    status === "SUCCESS" || status === "POSTED" || status === "SOLD"
-      ? "default"
-      : status === "FAILED"
-      ? "destructive"
-      : "secondary";
-  return <Badge variant={variant}>{status}</Badge>;
+  // Solid fill stays reserved for exactly one urgent state (a failure); every other outcome,
+  // including success, is tinted -- a bare "SUCCESS"/"POSTED" pill in the same bold treatment as
+  // a failure reads as equally alarming, which is backwards.
+  if (status === "FAILED") return <Badge variant="warning">{status}</Badge>;
+  if (status === "SUCCESS" || status === "POSTED" || status === "SOLD") return <Badge variant="live">{status}</Badge>;
+  return <Badge variant="outline">{status}</Badge>;
 }
 
 export default async function AnalyticsPage(
@@ -37,43 +37,21 @@ export default async function AnalyticsPage(
   const data = await getAnalytics(range);
   const maxListingsPerDay = Math.max(...data.listingsByDay.map((d) => d.count), 1);
   const maxCategoryCount = Math.max(...data.categoryBreakdown.map((c) => c.count), 1);
+  const topFailurePlatform = [...data.platformBreakdown].filter((p) => p.failed > 0).sort((a, b) => b.failed - a.failed)[0];
 
   return (
     <Shell>
       <div className="space-y-6">
         <PageHeader
           title="Analytics"
-          description="Track your listings and cross-post performance."
+          description="Where your listings go, where they sell, and what you keep."
           actions={
             <a href="/api/analytics/export" className={buttonVariants({ variant: "outline" })}>
-              <Download className="h-4 w-4" />
+              <Upload className="h-4 w-4" />
               Export CSV
             </a>
           }
         />
-
-        {data.failures.total > 0 && (
-          <Card className="border-destructive/40 bg-destructive/5">
-            <CardContent className="flex items-center justify-between gap-4 py-4">
-              <div className="flex items-center gap-3">
-                <AlertCircle className="h-5 w-5 shrink-0 text-destructive" />
-                <div>
-                  <p className="font-medium">
-                    {data.failures.total} platform post{data.failures.total === 1 ? "" : "s"} failed and need
-                    {data.failures.total === 1 ? "s" : ""} attention
-                  </p>
-                  <p className="text-sm text-muted-foreground">
-                    {data.failures.listings.map((l) => l.title).join(", ")}
-                    {data.failures.total > data.failures.listings.length ? ", and more" : ""}
-                  </p>
-                </div>
-              </div>
-              <Link href="/listings?tab=attention" className={buttonVariants({ variant: "outline", size: "sm" })}>
-                Review
-              </Link>
-            </CardContent>
-          </Card>
-        )}
 
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           <Card>
@@ -81,7 +59,7 @@ export default async function AnalyticsPage(
               <CardTitle className="text-sm font-medium text-muted-foreground">Revenue</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-3xl font-bold">${data.financials.totalRevenue.toFixed(2)}</div>
+              <div className="tnum font-heading text-3xl font-bold">{formatCurrency(data.financials.totalRevenue)}</div>
               <p className="text-xs text-muted-foreground">from {data.soldListings} sale{data.soldListings === 1 ? "" : "s"}</p>
             </CardContent>
           </Card>
@@ -90,7 +68,7 @@ export default async function AnalyticsPage(
               <CardTitle className="text-sm font-medium text-muted-foreground">Profit</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-3xl font-bold">${data.financials.totalProfit.toFixed(2)}</div>
+              <div className="tnum font-heading text-3xl font-bold">{formatCurrency(data.financials.totalProfit)}</div>
               <p className="text-xs text-muted-foreground">{data.financials.profitMargin.toFixed(1)}% after fees, shipping and cost</p>
             </CardContent>
           </Card>
@@ -108,10 +86,10 @@ export default async function AnalyticsPage(
               <CardTitle className="text-sm font-medium text-muted-foreground">Cross-posts</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-3xl font-bold">{data.totalPlatformListings}</div>
+              <div className="tnum text-3xl font-bold">{data.totalPlatformListings}</div>
               <p className="text-xs text-muted-foreground">
                 {data.publishedListings > 0 ? (data.totalPlatformListings / data.publishedListings).toFixed(1) : "0"} per item
-                {data.failures.total > 0 && <span className="text-destructive"> · {data.failures.total} failed and unresolved</span>}
+                {data.failures.total > 0 && <span className="text-warning"> · {data.failures.total} failed and unresolved</span>}
               </p>
             </CardContent>
           </Card>
@@ -121,14 +99,14 @@ export default async function AnalyticsPage(
           <Card className="min-w-0 lg:col-span-2">
             <CardHeader className="flex-row flex-wrap items-center justify-between gap-2 space-y-0">
               <CardTitle className="min-w-0">Listings over the last {days} days</CardTitle>
-              <div className="flex flex-none items-center gap-1 rounded-md border p-0.5 text-xs">
+              <div className="flex flex-none items-center gap-1 rounded-md border bg-muted p-0.5 text-xs">
                 {(["7d", "30d"] as const).map((r) => (
                   <Link
                     key={r}
                     href={`/analytics?range=${r}`}
                     className={cn(
                       "rounded-[5px] px-2 py-1 font-medium transition-colors",
-                      range === r ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"
+                      range === r ? "bg-background text-foreground" : "text-muted-foreground hover:text-foreground"
                     )}
                   >
                     {r === "7d" ? "7 days" : "30 days"}
@@ -138,20 +116,30 @@ export default async function AnalyticsPage(
             </CardHeader>
             <CardContent>
               {data.listingsByDay.length > 0 ? (
-                <div className="flex h-40 items-end gap-1">
-                  {data.listingsByDay.map((day) => (
-                    <div key={day.date} className="flex min-w-0 flex-1 flex-col items-center gap-1">
-                      <div
-                        className="w-full rounded-t bg-primary"
-                        style={{ height: `${(day.count / maxListingsPerDay) * 100}%`, minHeight: day.count > 0 ? "4px" : "0" }}
-                        title={`${day.count} on ${format(new Date(day.date), "MMM d")}`}
-                      />
-                      <span className="text-[10px] text-muted-foreground">
-                        {format(new Date(day.date), "d")}
-                      </span>
-                    </div>
-                  ))}
-                </div>
+                <>
+                  <div className="flex h-40 items-end gap-1">
+                    {data.listingsByDay.map((day) => (
+                      <div key={day.date} className="flex min-w-0 flex-1 flex-col items-center gap-1">
+                        <div
+                          className={cn("w-full rounded-t", day.count > 0 ? "bg-primary" : "bg-muted")}
+                          style={{ height: `${(day.count / maxListingsPerDay) * 100}%`, minHeight: "4px" }}
+                          title={`${day.count} on ${format(new Date(day.date), "MMM d")}`}
+                        />
+                        <span className="text-[10px] text-muted-foreground">
+                          {format(new Date(day.date), "d")}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                  <div className="mt-3 flex items-center gap-4 text-xs text-muted-foreground">
+                    <span className="flex items-center gap-1.5">
+                      <span className="h-2 w-2 rounded-sm bg-primary" /> Posted
+                    </span>
+                    <span className="flex items-center gap-1.5">
+                      <span className="h-2 w-2 rounded-sm bg-muted" /> No activity
+                    </span>
+                  </div>
+                </>
               ) : (
                 <p className="text-muted-foreground">No listing activity in the last {days} days.</p>
               )}
@@ -165,8 +153,8 @@ export default async function AnalyticsPage(
             <CardContent className="space-y-4">
               <div>
                 <div className="mb-1 flex justify-between text-sm">
-                  <span>{data.usage.plan.name}</span>
-                  <span className="text-muted-foreground">
+                  <span>Listings this month</span>
+                  <span className="tnum text-muted-foreground">
                     {data.usage.listingsLimit === -1 ? "Unlimited" : `${data.usage.listingsThisMonth} / ${data.usage.listingsLimit}`}
                   </span>
                 </div>
@@ -177,7 +165,7 @@ export default async function AnalyticsPage(
               <div>
                 <div className="mb-1 flex justify-between text-sm">
                   <span>AI credits</span>
-                  <span className="text-muted-foreground">
+                  <span className="tnum text-muted-foreground">
                     {data.usage.aiLimit === -1 ? "Unlimited" : `${data.usage.aiCreditsUsed} / ${data.usage.aiLimit}`}
                   </span>
                 </div>
@@ -185,6 +173,9 @@ export default async function AnalyticsPage(
                   <Progress value={Math.min((data.usage.aiCreditsUsed / data.usage.aiLimit) * 100, 100)} />
                 )}
               </div>
+              <Link href="/settings/billing" className="block text-xs font-medium text-primary hover:underline">
+                Manage plan
+              </Link>
             </CardContent>
           </Card>
         </div>
@@ -223,7 +214,18 @@ export default async function AnalyticsPage(
                 Sorted by profit. This table is the answer to &quot;where should I post next?&quot;
               </p>
             </CardHeader>
-            <CardContent>
+            <CardContent className="space-y-4">
+              {topFailurePlatform && (
+                <div className="flex items-center justify-between gap-3 rounded-md border border-warning/30 bg-warning/5 p-3 text-sm">
+                  <p>
+                    <span className="font-medium text-foreground">{topFailurePlatform.platform}</span> has failed{" "}
+                    {topFailurePlatform.failed} time{topFailurePlatform.failed === 1 ? "" : "s"} this month.
+                  </p>
+                  <Link href="/listings?tab=attention" className={buttonVariants({ variant: "outline", size: "sm" })}>
+                    Review {topFailurePlatform.failed}
+                  </Link>
+                </div>
+              )}
               {data.platformBreakdown.some((p) => p.sold > 0) ? (
                 <div className="overflow-x-auto">
                   <table className="w-full text-sm">
@@ -241,13 +243,25 @@ export default async function AnalyticsPage(
                     <tbody>
                       {data.platformBreakdown.map((platform) => (
                         <tr key={platform.platform} className="border-b last:border-0">
-                          <td className="py-2 font-medium">{platform.platform}</td>
-                          <td className="py-2">{platform.posted}</td>
-                          <td className="py-2">{platform.sold}</td>
-                          <td className={platform.failed > 0 ? "py-2 text-destructive" : "py-2"}>{platform.failed}</td>
-                          <td className="py-2">${platform.revenue.toFixed(2)}</td>
-                          <td className="py-2">${platform.profit.toFixed(2)}</td>
-                          <td className="py-2">{platform.sellThrough.toFixed(0)}%</td>
+                          <td className="py-2 font-medium">
+                            <div className="flex items-center gap-2">
+                              <PlatformLogo platform={platform.platform} size={22} onDark showLabel={false} />
+                              {platform.platform}
+                            </div>
+                          </td>
+                          <td className="tnum py-2">{platform.posted}</td>
+                          <td className="tnum py-2">{platform.sold}</td>
+                          <td className={cn("tnum py-2", platform.failed > 0 && "text-warning")}>{platform.failed}</td>
+                          <td className="tnum py-2">{formatCurrency(platform.revenue)}</td>
+                          <td className="tnum py-2">{formatCurrency(platform.profit)}</td>
+                          <td className="py-2">
+                            <div className="flex items-center gap-2">
+                              <div className="h-1.5 w-16 overflow-hidden rounded-full bg-muted">
+                                <div className="h-full rounded-full bg-primary" style={{ width: `${Math.min(100, platform.sellThrough)}%` }} />
+                              </div>
+                              <span className="tnum">{platform.sellThrough.toFixed(0)}%</span>
+                            </div>
+                          </td>
                         </tr>
                       ))}
                     </tbody>
@@ -280,7 +294,12 @@ export default async function AnalyticsPage(
                     {data.recentJobs.map((job) => (
                       <tr key={job.id} className="border-b last:border-0">
                         <td className="py-2">{job.listing?.title || "Untitled"}</td>
-                        <td className="py-2">{job.platform}</td>
+                        <td className="py-2">
+                          <div className="flex items-center gap-2">
+                            <PlatformLogo platform={job.platform} size={20} onDark showLabel={false} />
+                            {job.platform}
+                          </div>
+                        </td>
                         <td className="py-2">
                           <StatusBadge status={job.status} />
                         </td>

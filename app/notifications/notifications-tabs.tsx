@@ -37,12 +37,19 @@ export function NotificationsTabs({ counts }: { counts: Record<NotificationsTab,
             className={cn(
               "border-b-2 px-3 py-2 text-sm font-medium transition-colors",
               isActive
-                ? "border-primary text-foreground"
+                ? "border-foreground text-foreground"
                 : "border-transparent text-muted-foreground hover:text-foreground"
             )}
           >
             {tab.label}
-            {counts[tab.value] > 0 && <span className="ml-1.5 text-xs text-muted-foreground">{counts[tab.value]}</span>}
+            {counts[tab.value] > 0 &&
+              (tab.value === "needs_you" ? (
+                <span className="ml-1.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-warning px-1 text-[10px] font-semibold text-warning-foreground">
+                  {counts[tab.value]}
+                </span>
+              ) : (
+                <span className="ml-1.5 text-xs text-muted-foreground">{counts[tab.value]}</span>
+              ))}
           </Link>
         );
       })}

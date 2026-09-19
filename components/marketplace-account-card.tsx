@@ -20,11 +20,12 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
+import { Card, CardContent } from "@/components/ui/card";
 import { PlatformLogo } from "@/components/platform-logo";
 import { AutoDelistToggle } from "@/components/automation/auto-delist-toggle";
 import { toast } from "sonner";
 import { ExternalLink, Link2, Unlink, ShieldCheck } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { cn, formatCurrency } from "@/lib/utils";
 
 export type AccountView = {
   id: string;
@@ -72,7 +73,8 @@ interface MarketplaceAccountCardProps {
 
 export function MarketplaceAccountCard({ platform, account, stats, canManage = true }: MarketplaceAccountCardProps) {
   return (
-    <div className="flex min-w-0 flex-col gap-3 rounded-lg border p-4">
+    <Card>
+      <CardContent className="flex min-w-0 flex-col gap-3">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex min-w-0 items-center gap-3">
           {/* onDark: the card can render on either theme, and a pure-black brand (Grailed) is
@@ -90,7 +92,7 @@ export function MarketplaceAccountCard({ platform, account, stats, canManage = t
           </div>
         </div>
         <div className="flex flex-none items-center gap-2">
-          <Badge variant={!account ? "secondary" : account.needsReauth ? "warning" : "default"}>
+          <Badge variant={!account ? "secondary" : account.needsReauth ? "warningTint" : "live"}>
             {!account ? "Not connected" : account.needsReauth ? "Needs reconnecting" : "Connected"}
           </Badge>
           {canManage ? (
@@ -112,24 +114,25 @@ export function MarketplaceAccountCard({ platform, account, stats, canManage = t
       {account && stats && (
         <div className="grid grid-cols-4 gap-2 border-t pt-3 text-center text-sm">
           <div>
-            <p className="font-semibold">{stats.posted}</p>
+            <p className="tnum font-semibold">{stats.posted}</p>
             <p className="text-xs text-muted-foreground">Live</p>
           </div>
           <div>
-            <p className={stats.failed > 0 ? "font-semibold text-destructive" : "font-semibold"}>{stats.failed}</p>
+            <p className={cn("tnum font-semibold", stats.failed > 0 && "text-warning")}>{stats.failed}</p>
             <p className="text-xs text-muted-foreground">Failed</p>
           </div>
           <div>
-            <p className="font-semibold">{stats.sold}</p>
+            <p className="tnum font-semibold">{stats.sold}</p>
             <p className="text-xs text-muted-foreground">Sold</p>
           </div>
           <div>
-            <p className="font-semibold">${stats.revenue.toFixed(0)}</p>
+            <p className="tnum font-semibold">{formatCurrency(stats.revenue)}</p>
             <p className="text-xs text-muted-foreground">Revenue</p>
           </div>
         </div>
       )}
-    </div>
+      </CardContent>
+    </Card>
   );
 }
 

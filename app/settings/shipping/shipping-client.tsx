@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { formatCurrency } from "@/lib/utils";
 import { toast } from "sonner";
 
 type Profile = {
@@ -125,13 +126,14 @@ export function ShippingClient({ profiles }: ShippingClientProps) {
       {profiles.length > 0 && (
         <div className="space-y-3">
           {profiles.map((profile) => (
-            <div key={profile.id} className="flex items-center justify-between rounded-lg border p-4">
+            <Card key={profile.id}>
+              <CardContent className="flex items-center justify-between">
               <div>
                 <div className="flex items-center gap-2">
                   <p className="font-medium">{profile.name}</p>
-                  {profile.isDefault && <Badge>Default</Badge>}
+                  {profile.isDefault && <Badge variant="live">Default</Badge>}
                 </div>
-                <p className="text-sm text-muted-foreground">{profile.carrier} {profile.service} · ${profile.cost.toFixed(2)}</p>
+                <p className="tnum text-sm text-muted-foreground">{profile.carrier} {profile.service} · {formatCurrency(profile.cost)}</p>
                 <p className="text-xs text-muted-foreground">
                   {profile._count?.listings ? `Used on ${profile._count.listings} listing${profile._count.listings === 1 ? "" : "s"}` : "Not used on any listings yet"}
                 </p>
@@ -151,7 +153,8 @@ export function ShippingClient({ profiles }: ShippingClientProps) {
                   Delete
                 </Button>
               </div>
-            </div>
+              </CardContent>
+            </Card>
           ))}
         </div>
       )}

@@ -8,6 +8,7 @@ import { getShippingProfiles } from "@/lib/actions/shipping";
 import { TemplatesList } from "./templates-list";
 import { PageHeader } from "@/components/page-header";
 import { buttonVariants } from "@/components/ui/button";
+import { Plus } from "lucide-react";
 
 export default async function TemplatesPage() {
   const session = await getServerSession(authOptions);
@@ -17,12 +18,13 @@ export default async function TemplatesPage() {
 
   return (
     <Shell>
-      <div className="mx-auto max-w-3xl space-y-6">
+      <div className="space-y-6">
         <PageHeader
           title="Templates"
           description="Reusable starting points. Pick one in the composer and it fills the fields it holds."
           actions={
             <Link href="/listings/new" className={buttonVariants()}>
+              <Plus className="mr-1 h-4 w-4" />
               New template
             </Link>
           }

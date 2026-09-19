@@ -21,6 +21,9 @@ import { getPlatform } from "@/lib/marketplaces/platforms";
 import { SoldButton } from "./sold-button";
 import { ListingDeleteButton } from "@/components/listing-delete-button";
 import { ListingDuplicateButton } from "@/components/listing-duplicate-button";
+import { StatusPill } from "@/components/status-pill";
+import { computeListingStatus } from "@/lib/listing-status";
+import { cn, formatCurrency } from "@/lib/utils";
 
 export default async function ListingDetailPage(props: { params: Promise<{ id: string }>; searchParams: Promise<{ published?: string; edit?: string }> }) {
   const params = await props.params;
@@ -128,23 +131,35 @@ export default async function ListingDetailPage(props: { params: Promise<{ id: s
           <div className="order-2 flex-1 space-y-6 lg:order-none">
             <div>
               <h1 className="text-3xl font-bold">{listing.title}</h1>
-              <p className="text-2xl font-semibold text-primary">${listing.price.toFixed(2)}</p>
-              {listing.cost !== null && listing.cost !== undefined && (
-                <p className="text-sm text-muted-foreground">Cost: ${listing.cost.toFixed(2)}</p>
-              )}
-              <Badge variant={listing.status === "ACTIVE" ? "default" : "secondary"} className="mt-2">
-                {listing.status}
-              </Badge>
+              <div className="flex items-center gap-2">
+                <p className="tnum font-heading text-2xl font-semibold text-primary">{formatCurrency(listing.price)}</p>
+                {listing.cost !== null && listing.cost !== undefined && listing.price > 0 && (
+                  <p className="tnum text-sm text-muted-foreground">
+                    Cost {formatCurrency(listing.cost)} · margin {(((listing.price - listing.cost) / listing.price) * 100).toFixed(0)}%
+                  </p>
+                )}
+              </div>
+              <div className="mt-2">
+                <StatusPill status={computeListingStatus(listing)} />
+              </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-2 text-sm text-muted-foreground">
-              <p><span className="font-medium text-foreground">Condition:</span> {listing.condition}</p>
-              <p><span className="font-medium text-foreground">Category:</span> {listing.category}</p>
-              {listing.brand && <p><span className="font-medium text-foreground">Brand:</span> {listing.brand}</p>}
-              {listing.size && <p><span className="font-medium text-foreground">Size:</span> {listing.size}</p>}
-              {listing.color && <p><span className="font-medium text-foreground">Color:</span> {listing.color}</p>}
-              {listing.material && <p><span className="font-medium text-foreground">Material:</span> {listing.material}</p>}
-            </div>
+            <Card>
+              <CardHeader>
+                <CardTitle>Details</CardTitle>
+              </CardHeader>
+              <CardContent className="grid grid-cols-2 gap-2 text-sm text-muted-foreground sm:grid-cols-3">
+                <p><span className="font-medium text-foreground">Condition:</span> {listing.condition}</p>
+                <p><span className="font-medium text-foreground">Category:</span> {listing.category}</p>
+                {listing.brand && <p><span className="font-medium text-foreground">Brand:</span> {listing.brand}</p>}
+                {listing.size && <p><span className="font-medium text-foreground">Size:</span> {listing.size}</p>}
+                {listing.color && <p><span className="font-medium text-foreground">Color:</span> {listing.color}</p>}
+                {listing.material && <p><span className="font-medium text-foreground">Material:</span> {listing.material}</p>}
+                <p><span className="font-medium text-foreground">SKU:</span> {listing.sku || "—"}</p>
+                <p><span className="font-medium text-foreground">Quantity:</span> <span className="tnum">{listing.quantity}</span></p>
+                {listing.shippingProfile && <p><span className="font-medium text-foreground">Shipping:</span> {listing.shippingProfile.name}</p>}
+              </CardContent>
+            </Card>
 
             <Card>
               <CardHeader>
@@ -202,21 +217,21 @@ export default async function ListingDetailPage(props: { params: Promise<{ id: s
                     return (
                       <div key={pl.id} className="flex items-center justify-between gap-3 px-4 py-3">
                         <div className="flex items-center gap-3">
-                          <PlatformLogo platform={pl.platform} size={26} />
+                          <PlatformLogo platform={pl.platform} size={26} onDark />
                           <div>
                             <p className="text-sm font-medium">{getPlatform(pl.platform)?.name ?? pl.platform}</p>
-                            <p className="text-xs text-muted-foreground">
-                              ${price.toFixed(2)}
-                              {overridden && ` (base $${listing.price.toFixed(2)})`}
+                            <p className="tnum text-xs text-muted-foreground">
+                              {formatCurrency(price)}
+                              {overridden && ` (base ${formatCurrency(listing.price)})`}
                             </p>
                           </div>
                         </div>
                         {pl.externalUrl ? (
                           <a href={pl.externalUrl} target="_blank" rel="noopener noreferrer">
-                            <Badge variant="success">{pl.status === "SOLD" ? "Sold" : "Live"}</Badge>
+                            <Badge variant="live">{pl.status === "SOLD" ? "Sold" : "Live"}</Badge>
                           </a>
                         ) : (
-                          <Badge variant={pl.status === "SOLD" ? "success" : "outline"}>
+                          <Badge variant={pl.status === "SOLD" || pl.status === "POSTED" ? "live" : "outline"}>
                             {pl.status === "DELISTED" ? "Delisted" : pl.status === "SOLD" ? "Sold" : pl.status}
                           </Badge>
                         )}
@@ -248,7 +263,17 @@ export default async function ListingDetailPage(props: { params: Promise<{ id: s
                 <CardHeader>
                   <CardTitle>Inventory</CardTitle>
                 </CardHeader>
-                <CardContent>
+                <CardContent className="space-y-3">
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-muted-foreground">Quantity</span>
+                    <span className="tnum">{listing.quantity} in stock</span>
+                  </div>
+                  {listing.cost !== null && listing.cost !== undefined && (
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="text-muted-foreground">Cost basis</span>
+                      <span className="tnum">{formatCurrency(listing.cost * listing.quantity)}</span>
+                    </div>
+                  )}
                   <SoldButton
                     listingId={listing.id}
                     postedPlatforms={listing.platformListings.filter((pl) => pl.status === "POSTED").map((pl) => pl.platform)}
@@ -266,13 +291,19 @@ export default async function ListingDetailPage(props: { params: Promise<{ id: s
                   {(() => {
                     const sale = listing.platformListings.find((pl) => pl.profit !== null);
                     if (!sale) return <p className="text-muted-foreground">Profit not yet recorded.</p>;
+                    const fees = sale.soldFees ?? 0;
+                    const shipping = sale.soldShippingCost ?? 0;
+                    const cost = listing.cost ?? 0;
+                    const profit = sale.profit ?? 0;
                     return (
                       <>
-                        <p><span className="font-medium">Sold price:</span> ${(sale.soldPrice ?? listing.price).toFixed(2)}</p>
-                        <p><span className="font-medium">Fees:</span> ${(sale.soldFees ?? 0).toFixed(2)}</p>
-                        <p><span className="font-medium">Shipping:</span> ${(sale.soldShippingCost ?? 0).toFixed(2)}</p>
-                        <p><span className="font-medium">Cost:</span> ${(listing.cost ?? 0).toFixed(2)}</p>
-                        <p className="font-semibold">Profit: ${(sale.profit ?? 0).toFixed(2)}</p>
+                        <div className="flex justify-between"><span className="font-medium">Sold price</span><span className="tnum">{formatCurrency(sale.soldPrice ?? listing.price)}</span></div>
+                        <div className="flex justify-between text-muted-foreground"><span>Fees</span><span className="tnum">{formatCurrency(-fees)}</span></div>
+                        <div className="flex justify-between text-muted-foreground"><span>Shipping</span><span className="tnum">{formatCurrency(-shipping)}</span></div>
+                        <div className="flex justify-between text-muted-foreground"><span>Cost</span><span className="tnum">{formatCurrency(-cost)}</span></div>
+                        <div className={cn("flex justify-between border-t pt-2 font-semibold", profit >= 0 ? "text-primary" : "text-destructive")}>
+                          <span>Profit</span><span className="tnum">{formatCurrency(profit)}</span>
+                        </div>
                       </>
                     );
                   })()}

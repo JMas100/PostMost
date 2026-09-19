@@ -116,7 +116,7 @@ export function BulkPostToMoreDialog({
                 >
                   <div className="flex items-center gap-2.5">
                     <Checkbox checked={selected.has(platform)} onCheckedChange={() => toggle(platform)} />
-                    <PlatformLogo platform={platform} size={22} />
+                    <PlatformLogo platform={platform} size={22} onDark />
                     <span className="text-sm font-medium">{getPlatform(platform)?.name ?? platform}</span>
                   </div>
                   <span className="text-xs text-muted-foreground">

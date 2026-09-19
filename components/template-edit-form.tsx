@@ -259,7 +259,7 @@ export function TemplateEditForm({ template, shippingProfiles, platforms }: Temp
                 className="flex cursor-pointer items-center gap-2 rounded-md border p-2 text-sm"
               >
                 <Checkbox checked={selectedPlatforms.has(platform.id)} onCheckedChange={() => togglePlatform(platform.id)} />
-                <PlatformLogo platform={platform.id} size={18} />
+                <PlatformLogo platform={platform.id} size={18} onDark />
                 <span className="truncate">{platform.name}</span>
               </label>
             ))}

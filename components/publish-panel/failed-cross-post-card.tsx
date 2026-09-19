@@ -86,7 +86,7 @@ export function FailedCrossPostCard({
         <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-warning" />
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-1.5">
-            <PlatformLogo platform={platform} size={16} />
+            <PlatformLogo platform={platform} size={16} onDark />
             <span className="text-sm font-medium">{platformName} didn&apos;t post</span>
           </div>
           <p className="mt-1 text-sm text-muted-foreground">

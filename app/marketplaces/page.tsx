@@ -218,16 +218,18 @@ export default async function MarketplacesPage(props: {
           </div>
           <div className="grid gap-4 sm:grid-cols-2">
             {NOT_AVAILABLE_PLATFORMS.map((platform) => (
-              <div key={platform.id} className="flex items-start gap-3 rounded-lg border p-4 opacity-75">
-                <div className="min-w-0 flex-1">
-                  <p className="font-medium">{platform.name}</p>
-                  <p className="text-sm text-muted-foreground">
-                    {platform.id === "whatnot"
-                      ? "In review — our API application is with the marketplace. We'll email you the day it opens."
-                      : "In development — your own storefront rather than a marketplace, so it needs a different sync model. Not connectable today."}
-                  </p>
-                </div>
-              </div>
+              <Card key={platform.id} className="opacity-75">
+                <CardContent className="flex items-start gap-3 py-4">
+                  <div className="min-w-0 flex-1">
+                    <p className="font-medium">{platform.name}</p>
+                    <p className="text-sm text-muted-foreground">
+                      {platform.id === "whatnot"
+                        ? "In review — our API application is with the marketplace. We'll email you the day it opens."
+                        : "In development — your own storefront rather than a marketplace, so it needs a different sync model. Not connectable today."}
+                    </p>
+                  </div>
+                </CardContent>
+              </Card>
             ))}
           </div>
         </div>

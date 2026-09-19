@@ -15,7 +15,12 @@ export function StatValue({
   className?: string;
 }) {
   const motionValue = useMotionValue(0);
-  const rounded = useTransform(motionValue, (v) => `${prefix}${v.toFixed(decimals)}`);
+  const rounded = useTransform(motionValue, (v) => {
+    // toLocaleString (not toFixed) so large values get thousands separators mid-count-up, and the
+    // minus sign is placed before the prefix rather than after it ($-50 -> -$50).
+    const formatted = Math.abs(v).toLocaleString("en-US", { minimumFractionDigits: decimals, maximumFractionDigits: decimals });
+    return v < 0 ? `-${prefix}${formatted}` : `${prefix}${formatted}`;
+  });
   const hasAnimated = useRef(false);
 
   useEffect(() => {

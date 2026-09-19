@@ -22,7 +22,7 @@ import { BgRemovalTier } from "@/lib/plans";
 import { getPlatform } from "@/lib/marketplaces/platforms";
 import { getPlatformListingWarning } from "@/lib/marketplaces/client-validation";
 import { DEFAULT_PHOTO_PRESET, PhotoBackground } from "@/lib/images/presets";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { toast } from "sonner";
 import { uploadDataUrl, uploadImages } from "@/lib/upload-client";
 import { computeInitialStep, isPhotoUrl, ListingFormProps, OptimizingState, STEP_FIELDS, STEP_LABELS, STEPS } from "./types";
@@ -597,7 +597,9 @@ export function ListingForm({ mode = "create", draftId, editId, initialData, tem
   return (
     <Card>
       <CardHeader className="space-y-4">
-        <CardTitle>{mode === "draft" ? "Edit draft" : mode === "edit" ? "Edit listing" : "Create new listing"}</CardTitle>
+        {/* No CardTitle here -- every page that renders this form already has its own h1
+            ("Create listing" / "Edit listing" / "Edit draft"), and stacking a second, differently-
+            worded heading directly beneath it read as two competing titles for one page. */}
         <WizardStepper
           currentStep={wizard.currentStep}
           maxStepReached={wizard.maxStepReached}

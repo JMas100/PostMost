@@ -60,18 +60,18 @@ export function ApiClient({ keys }: ApiClientProps) {
   return (
     <div className="space-y-6">
       {newKey && (
-        <Card className="border-amber-500">
+        <Card className="border-primary">
           <CardHeader>
             <CardTitle>Copy your new API key now</CardTitle>
           </CardHeader>
           <CardContent>
             <p className="mb-3 text-sm text-muted-foreground">
-              This is the only time the full key will be shown. Store it somewhere safe.
+              This is the only time the full key will be shown. We store a hash, not the key itself — if you lose it, you&apos;ll need to create a new one.
             </p>
             <div className="flex items-center gap-2">
               <code className="flex-1 truncate rounded bg-muted px-2 py-1 text-xs">{newKey}</code>
-              <Button variant="outline" size="sm" onClick={() => copy(newKey)}>Copy</Button>
-              <Button variant="outline" size="sm" onClick={() => setNewKey(null)}>Dismiss</Button>
+              <Button size="sm" onClick={() => copy(newKey)}>Copy</Button>
+              <Button variant="ghost" size="sm" onClick={() => setNewKey(null)}>Dismiss</Button>
             </div>
           </CardContent>
         </Card>
@@ -97,21 +97,23 @@ export function ApiClient({ keys }: ApiClientProps) {
       {keys.length > 0 && (
         <div className="space-y-3">
           {keys.map((k) => (
-            <div key={k.id} className="rounded-lg border p-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="font-medium">{k.name}</p>
-                  <p className="text-xs text-muted-foreground">
-                    Created {new Date(k.createdAt).toLocaleDateString()} ·{" "}
-                    {k.lastUsedAt ? `last used ${formatDistanceToNow(k.lastUsedAt, { addSuffix: true })}` : "never used"}
-                  </p>
+            <Card key={k.id}>
+              <CardContent>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="font-medium">{k.name}</p>
+                    <p className="text-xs text-muted-foreground">
+                      Created {new Date(k.createdAt).toLocaleDateString()} ·{" "}
+                      {k.lastUsedAt ? `last used ${formatDistanceToNow(k.lastUsedAt, { addSuffix: true })}` : "never used"}
+                    </p>
+                  </div>
+                  <Button variant="destructive" size="sm" onClick={() => remove(k.id)}>Delete</Button>
                 </div>
-                <Button variant="destructive" size="sm" onClick={() => remove(k.id)}>Delete</Button>
-              </div>
-              <div className="mt-3 flex items-center gap-2">
-                <code className="flex-1 truncate rounded bg-muted px-2 py-1 text-xs">{k.keyPrefix}...</code>
-              </div>
-            </div>
+                <div className="mt-3 flex items-center gap-2">
+                  <code className="flex-1 truncate rounded bg-muted px-2 py-1 text-xs">{k.keyPrefix}...</code>
+                </div>
+              </CardContent>
+            </Card>
           ))}
         </div>
       )}

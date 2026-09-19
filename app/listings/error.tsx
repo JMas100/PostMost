@@ -15,7 +15,7 @@ export default function ListingsError({ error, reset }: { error: Error & { diges
     <Shell>
       <div className="space-y-6">
         <h1 className="text-3xl font-bold">Listings</h1>
-        <Card className="border-destructive/40">
+        <Card className="border-destructive">
           <CardContent className="flex flex-col items-center gap-3 py-12 text-center">
             <AlertCircle className="h-8 w-8 text-destructive" />
             <p className="font-semibold">We couldn&apos;t load your listings</p>

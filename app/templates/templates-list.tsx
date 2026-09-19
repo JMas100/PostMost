@@ -8,12 +8,36 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { EmptyState } from "@/components/ui/empty-state";
-import { Plus, Trash2, Pencil } from "lucide-react";
+import { PlatformLogo } from "@/components/platform-logo";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { Plus, Trash2, Pencil, MoreVertical } from "lucide-react";
 import type { ListingFormData } from "@/lib/schemas/listing";
 
 interface TemplatesListProps {
-  templates: { id: string; name: string; payload: string; usageCount: number; lastUsedAt: Date | null; createdAt: Date }[];
+  templates: {
+    id: string;
+    name: string;
+    payload: string;
+    platforms: string | null;
+    usageCount: number;
+    lastUsedAt: Date | null;
+    createdAt: Date;
+  }[];
   shippingProfiles: { id: string; name: string }[];
+}
+
+function attributeChip(label: string, value?: string | null) {
+  if (!value) return null;
+  return (
+    <span key={label} className="rounded-md border bg-muted/50 px-2 py-1 text-xs text-muted-foreground">
+      {label}: {value}
+    </span>
+  );
 }
 
 /** Fields that make a template worth reaching for -- past four or five, "add a title pattern and
@@ -33,12 +57,13 @@ export function TemplatesList({ templates, shippingProfiles }: TemplatesListProp
         headline="No templates yet"
         body="If you list similar things repeatedly, save one listing's wording, category and shipping as a template and the next one starts half-written."
         primaryAction={{ label: "Create a template", href: "/listings/new" }}
+        secondaryAction={{ label: "Save from a listing", href: "/listings" }}
       />
     );
   }
 
   return (
-    <div className="space-y-4">
+    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
       {templates.map((template) => {
         let payload: Partial<ListingFormData> = {};
         try {
@@ -46,25 +71,55 @@ export function TemplatesList({ templates, shippingProfiles }: TemplatesListProp
         } catch {
           // fall through with an empty payload -- card below handles missing fields honestly
         }
+        let platforms: string[] = [];
+        try {
+          platforms = template.platforms ? (JSON.parse(template.platforms) as string[]) : [];
+        } catch {
+          // malformed platforms JSON -- fall back to "no preference" rather than crash the card
+        }
         const filledCount = SUBSTANTIAL_FIELDS.filter((f) => payload[f]).length;
         const neverUsed = template.usageCount === 0;
         const needsFinishing = neverUsed && filledCount <= 2;
 
         return (
-          <Card key={template.id}>
+          <Card key={template.id} className="flex flex-col">
             <CardHeader className="pb-2">
-              <div className="flex items-center justify-between gap-3">
+              <div className="flex items-start justify-between gap-3">
                 <CardTitle className="text-lg">{template.name}</CardTitle>
-                <span className="shrink-0 text-xs text-muted-foreground">
-                  {neverUsed
-                    ? `Never used · created ${formatDistanceToNow(template.createdAt, { addSuffix: true })}`
-                    : `Used ${template.usageCount} time${template.usageCount === 1 ? "" : "s"}${
-                        template.lastUsedAt ? ` · last used ${formatDistanceToNow(template.lastUsedAt, { addSuffix: true })}` : ""
-                      }`}
-                </span>
+                <DropdownMenu>
+                  <DropdownMenuTrigger
+                    render={
+                      <Button variant="ghost" size="icon-sm" className="shrink-0 text-muted-foreground" aria-label={`More actions for ${template.name}`}>
+                        <MoreVertical className="h-4 w-4" />
+                      </Button>
+                    }
+                  />
+                  <DropdownMenuContent align="end">
+                    <DropdownMenuItem
+                      variant="destructive"
+                      disabled={isPending}
+                      onClick={() =>
+                        startTransition(async () => {
+                          await deleteTemplate(template.id);
+                          router.refresh();
+                        })
+                      }
+                    >
+                      <Trash2 className="h-4 w-4" />
+                      Delete
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
               </div>
+              <span className="text-xs text-muted-foreground">
+                {neverUsed
+                  ? `Never used · created ${formatDistanceToNow(template.createdAt, { addSuffix: true })}`
+                  : `Used ${template.usageCount} time${template.usageCount === 1 ? "" : "s"}${
+                      template.lastUsedAt ? ` · last used ${formatDistanceToNow(template.lastUsedAt, { addSuffix: true })}` : ""
+                    }`}
+              </span>
             </CardHeader>
-            <CardContent className="space-y-3">
+            <CardContent className="flex flex-1 flex-col space-y-3">
               <div>
                 <p className="text-xs font-medium tracking-wide text-muted-foreground uppercase">Title pattern</p>
                 <p className="text-sm">
@@ -78,22 +133,35 @@ export function TemplatesList({ templates, shippingProfiles }: TemplatesListProp
                 </div>
               )}
 
-              <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm text-muted-foreground">
-                {payload.category && <span>Category: {payload.category}</span>}
-                {payload.condition && <span>Condition: {payload.condition}</span>}
-                {payload.brand && <span>Brand: {payload.brand}</span>}
-                {profileName(payload.shippingProfileId) && <span>Shipping: {profileName(payload.shippingProfileId)}</span>}
-                <span>{payload.price ? `$${Number(payload.price).toFixed(2)}` : "Price not set"}</span>
+              <div className="flex flex-wrap gap-1.5">
+                {attributeChip("Category", payload.category)}
+                {attributeChip("Condition", payload.condition)}
+                {attributeChip("Brand", payload.brand)}
+                {attributeChip("Shipping", profileName(payload.shippingProfileId))}
+                {payload.price ? (
+                  attributeChip("Price", `$${Number(payload.price).toFixed(2)}`)
+                ) : (
+                  <span className="rounded-md border border-dashed px-2 py-1 text-xs text-muted-foreground">Price not set</span>
+                )}
               </div>
 
-              {needsFinishing && (
-                <p className="text-xs text-warning">
-                  Holds {filledCount} field{filledCount === 1 ? "" : "s"}. Templates get useful past four or five — add a title pattern and a
-                  condition.
-                </p>
+              {platforms.length > 0 && (
+                <div className="flex items-center gap-1.5">
+                  {platforms.map((p) => (
+                    <PlatformLogo key={p} platform={p} size={20} onDark showLabel={false} />
+                  ))}
+                  <span className="text-xs text-muted-foreground">posts to {platforms.length}</span>
+                </div>
               )}
 
-              <div className="flex flex-wrap items-center gap-2 pt-1">
+              {needsFinishing && (
+                <div className="rounded-md border border-dashed p-2.5 text-xs text-warning">
+                  Holds {filledCount} field{filledCount === 1 ? "" : "s"}. Templates get useful past four or five — add a title pattern and a
+                  condition.
+                </div>
+              )}
+
+              <div className="flex flex-wrap items-center gap-2 pt-1 mt-auto">
                 <Button size="sm" onClick={() => router.push(`/listings/new?templateId=${template.id}`)}>
                   <Plus className="mr-2 h-4 w-4" />
                   {needsFinishing ? "Finish it" : "Use template"}
@@ -101,20 +169,6 @@ export function TemplatesList({ templates, shippingProfiles }: TemplatesListProp
                 <Button size="sm" variant="outline" onClick={() => router.push(`/templates/${template.id}/edit`)}>
                   <Pencil className="mr-2 h-4 w-4" />
                   Edit
-                </Button>
-                <Button
-                  size="sm"
-                  variant="destructive"
-                  disabled={isPending}
-                  onClick={() =>
-                    startTransition(async () => {
-                      await deleteTemplate(template.id);
-                      router.refresh();
-                    })
-                  }
-                >
-                  <Trash2 className="mr-2 h-4 w-4" />
-                  Delete
                 </Button>
                 {needsFinishing && <Badge variant="outline">Unfinished</Badge>}
               </div>

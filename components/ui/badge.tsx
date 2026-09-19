@@ -24,6 +24,10 @@ const badgeVariants = cva(
           "border-transparent bg-destructive text-destructive-foreground hover:bg-destructive/80",
         outline: "text-foreground",
         live: "border-success/30 bg-success/10 text-success",
+        /** Tinted-amber -- the handoff's convention reserves solid `warning` for the single most
+         *  urgent state on a page; every other amber/near-limit reading (a tier tag, a "default"
+         *  marker, a non-urgent count) wants this instead. */
+        warningTint: "border-warning/30 bg-warning/10 text-warning",
       },
     },
     defaultVariants: {

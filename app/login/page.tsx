@@ -160,7 +160,7 @@ export default function LoginPage() {
               )}
               {fieldError && <p className="text-xs font-medium text-destructive">{fieldError}</p>}
             </div>
-            <Button type="submit" className="w-full" disabled={loading}>
+            <Button type="submit" size="marketing" className="w-full" disabled={loading}>
               {loading ? "Please wait..." : isRegister ? "Create account" : "Sign in"}
             </Button>
           </form>

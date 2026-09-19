@@ -76,20 +76,31 @@ export function PlatformLogo({
   const isWordmark = WORDMARK_IDS.has(platform);
   const glyphHeight = isWordmark ? size * 0.32 : size * 0.4;
 
+  // A lettermark tile is the platform's own brand color with white type -- a pure-black brand
+  // (Grailed) is the one documented exception, since black-on-black-obsidian is invisible, and
+  // inverts to a white tile with black type instead. Real logo-asset platforms always sit on
+  // white regardless of tone, since the SVGs themselves are multi-color and need a plain backdrop.
+  const isBlackBrand = info?.color?.toLowerCase() === "#000000";
+  const letterTileBg = !info?.color || isBlackBrand ? "#fff" : info.color;
+  const letterTextColor = !info?.color || isBlackBrand ? "#090B0D" : "#fff";
+
   const tile = (
     <span
       className={cn(
         "inline-flex shrink-0 items-center justify-center rounded-md px-1.5",
         tone === "failed" && "border border-destructive bg-destructive/10",
         tone === "pending" && "bg-[#24282D]",
-        tone === "default" && "bg-white"
+        tone === "default" && !letter && "bg-white"
       )}
-      style={isWordmark ? { height: size, minWidth: size, width: "auto" } : { height: size, width: size, paddingInline: 0 }}
+      style={{
+        ...(isWordmark ? { height: size, minWidth: size, width: "auto" } : { height: size, width: size, paddingInline: 0 }),
+        ...(tone === "default" && letter ? { backgroundColor: letterTileBg } : {}),
+      }}
     >
       {letter ? (
         <span
-          className={cn("font-heading font-bold text-[#090B0D]", tone !== "default" && "opacity-50")}
-          style={{ fontSize: size * 0.4 }}
+          className={cn("font-heading font-bold", tone !== "default" && "opacity-50")}
+          style={{ fontSize: size * 0.4, color: tone === "default" ? letterTextColor : "#090B0D" }}
         >
           {letter}
         </span>

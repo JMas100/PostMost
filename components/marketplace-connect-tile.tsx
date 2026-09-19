@@ -1,5 +1,6 @@
 import { PlatformLogo } from "@/components/platform-logo";
 import { ConnectDialog } from "@/components/marketplace-account-card";
+import { Card, CardContent } from "@/components/ui/card";
 import { PLATFORMS } from "@/lib/marketplaces/platforms";
 
 /** The compressed form for an unconnected platform: a name and a button, not a full row. An
@@ -9,10 +10,12 @@ import { PLATFORMS } from "@/lib/marketplaces/platforms";
  *  other card uses, not a simplified stand-in. */
 export function MarketplaceConnectTile({ platform, canManage = true }: { platform: (typeof PLATFORMS)[number]; canManage?: boolean }) {
   return (
-    <div className="flex flex-col items-center gap-2 rounded-lg border p-4 text-center">
-      <PlatformLogo platform={platform.id} size={32} onDark showLabel={false} />
-      <span className="text-sm font-medium">{platform.name}</span>
-      {canManage ? <ConnectDialog platform={platform} /> : <span className="text-xs text-muted-foreground">Ask an admin</span>}
-    </div>
+    <Card>
+      <CardContent className="flex flex-col items-center gap-2 text-center">
+        <PlatformLogo platform={platform.id} size={32} onDark showLabel={false} />
+        <span className="text-sm font-medium">{platform.name}</span>
+        {canManage ? <ConnectDialog platform={platform} /> : <span className="text-xs text-muted-foreground">Ask an admin</span>}
+      </CardContent>
+    </Card>
   );
 }

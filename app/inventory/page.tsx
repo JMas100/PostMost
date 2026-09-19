@@ -153,11 +153,11 @@ export default async function InventoryPage(
                       <p className="text-sm font-medium">Profit needs a cost per item</p>
                       <p className="text-sm text-muted-foreground">
                         {missingCostCount} of {totalCount} items have no cost recorded, so profit and margin
-                        stay blank rather than wrong.
+                        stay blank rather than wrong. Adding costs takes about a minute in bulk edit.
                       </p>
                     </div>
                   </div>
-                  <Link href="/inventory?filter=missing-cost" className={buttonVariants({ variant: "outline" })}>
+                  <Link href="/inventory?filter=missing-cost" className={buttonVariants()}>
                     Add costs
                   </Link>
                 </CardContent>

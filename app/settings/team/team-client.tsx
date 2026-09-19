@@ -105,23 +105,25 @@ export function TeamClient({ team, viewerRole, viewerActingUserId }: TeamClientP
           {team.members.map((member) => {
             const isSelf = member.userId === viewerActingUserId;
             return (
-              <div key={member.id} className="flex items-center justify-between rounded-lg border p-4">
-                <div>
-                  <p className="font-medium">
-                    {member.email}
-                    {isSelf && <span className="ml-2 text-xs text-muted-foreground">(you)</span>}
-                  </p>
-                  <div className="flex gap-2 text-sm text-muted-foreground">
-                    <Badge variant="secondary">{member.role}</Badge>
-                    <span>{member.status === "PENDING" ? "Invite pending" : "Active"}</span>
+              <Card key={member.id}>
+                <CardContent className="flex items-center justify-between">
+                  <div>
+                    <p className="font-medium">
+                      {member.email}
+                      {isSelf && <span className="ml-2 text-xs text-muted-foreground">(you)</span>}
+                    </p>
+                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                      <Badge variant="live">{member.role}</Badge>
+                      <span>{member.status === "PENDING" ? "Invite pending" : "Active"}</span>
+                    </div>
                   </div>
-                </div>
-                {(canManageTeam || isSelf) && (
-                  <Button variant="destructive" size="sm" onClick={() => remove(member.id, isSelf)} disabled={isPending}>
-                    {isSelf ? "Leave" : "Remove"}
-                  </Button>
-                )}
-              </div>
+                  {(canManageTeam || isSelf) && (
+                    <Button variant="destructive" size="sm" onClick={() => remove(member.id, isSelf)} disabled={isPending}>
+                      {isSelf ? "Leave" : "Remove"}
+                    </Button>
+                  )}
+                </CardContent>
+              </Card>
             );
           })}
         </div>

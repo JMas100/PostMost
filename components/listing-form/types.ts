@@ -14,7 +14,7 @@ export const STEP_LABELS: Record<StepId, string> = {
   photos: "Photos",
   details: "Details",
   pricing: "Pricing",
-  review: "Review",
+  review: "Review & publish",
 };
 
 export function isPhotoUrl(value: string): boolean {

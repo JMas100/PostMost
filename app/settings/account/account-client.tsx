@@ -151,7 +151,7 @@ function AppearanceCard() {
         <CardDescription>Follows your operating system unless you pick one.</CardDescription>
       </CardHeader>
       <CardContent>
-        <div className="inline-flex gap-1 rounded-md border p-1">
+        <div className="inline-flex gap-1 rounded-md border bg-muted p-1">
           {options.map((opt) => (
             <button
               key={opt.value}
@@ -160,7 +160,7 @@ function AppearanceCard() {
               disabled={!mounted}
               className={cn(
                 "flex items-center gap-2 rounded-sm px-3 py-1.5 text-sm font-medium transition-colors",
-                mounted && theme === opt.value ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"
+                mounted && theme === opt.value ? "bg-background text-foreground" : "text-muted-foreground hover:text-foreground"
               )}
             >
               <opt.icon className="h-4 w-4" />

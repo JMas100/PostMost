@@ -58,7 +58,7 @@ export function PlatformRow({
         )}
       >
         <div className="flex min-w-0 items-center gap-3">
-          <PlatformLogo platform={platform.id} size={40} className="shrink-0" />
+          <PlatformLogo platform={platform.id} size={40} onDark className="shrink-0" />
           <p className="truncate text-sm font-medium">{platform.name}</p>
         </div>
         <div className="flex flex-none items-center gap-2">

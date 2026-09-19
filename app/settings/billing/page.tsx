@@ -9,10 +9,8 @@ import { BillingPortalButton } from "@/components/billing-portal-button";
 import { buttonVariants } from "@/components/ui/button";
 import { ChangePlan } from "./change-plan";
 import { redirect } from "next/navigation";
-import { AlertTriangle } from "lucide-react";
 import { PageHeader } from "@/components/page-header";
 import { Badge } from "@/components/ui/badge";
-import { cn } from "@/lib/utils";
 
 function getLimitLabel(value: number, limit: number) {
   if (limit === -1) return "Unlimited";
@@ -31,14 +29,11 @@ function indicatorColor(pct: number) {
 }
 
 /** The percentage only earns a badge once it's actually worth a seller's attention -- a "12%"
- *  badge next to every meter, always, is just noise. */
+ *  badge next to every meter, always, is just noise. Solid fill (not tinted) once it does --
+ *  this is the one state on the page meant to read as an alarm. */
 function PctBadge({ pct }: { pct: number }) {
   if (pct < 80) return null;
-  return (
-    <Badge variant="outline" className={cn("border-warning/30 bg-warning/10 text-warning", pct >= 100 && "border-destructive/30 bg-destructive/10 text-destructive")}>
-      {Math.round(pct)}%
-    </Badge>
-  );
+  return <Badge variant={pct >= 100 ? "error" : "warning"}>{Math.round(pct)}%</Badge>;
 }
 
 export default async function BillingPage(props: { searchParams: Promise<{ success?: string; canceled?: string }> }) {
@@ -186,23 +181,26 @@ export default async function BillingPage(props: { searchParams: Promise<{ succe
         </Card>
 
         {showUpgradePrompt && (
-          <Card className="border-warning/40">
+          <Card className="border-primary">
             <CardContent className="flex flex-wrap items-center justify-between gap-4 py-4">
-              <div className="flex items-center gap-3">
-                <AlertTriangle className="h-5 w-5 shrink-0 text-warning" />
-                <div>
-                  <p className="text-sm font-medium">
-                    You&apos;re close to your {closestToLimit.label} limit ({closestToLimit.value} of{" "}
-                    {closestToLimit.limit})
-                  </p>
-                  <p className="text-sm text-muted-foreground">
-                    Upgrade to {nextPlan.name} for more room.
-                  </p>
-                </div>
+              <div>
+                <p className="text-sm font-medium">
+                  You&apos;re close to your {closestToLimit.label} limit ({closestToLimit.value} of{" "}
+                  {closestToLimit.limit})
+                </p>
+                <p className="text-sm text-muted-foreground">
+                  {nextPlan.name} raises it to {nextPlan.listingsPerMonth === -1 ? "unlimited" : nextPlan.listingsPerMonth} listings and{" "}
+                  {nextPlan.activeInventoryLimit === -1 ? "unlimited" : nextPlan.activeInventoryLimit} active items, for {formatPrice(nextPlan.priceMonthly - plan.priceMonthly)} more a month.
+                </p>
               </div>
-              <Link href="#change-plan" className={buttonVariants({ variant: "outline" })}>
-                View plans
-              </Link>
+              <div className="flex shrink-0 items-center gap-3">
+                <Link href="#change-plan" className="text-sm font-medium text-primary hover:underline">
+                  Compare plans
+                </Link>
+                <Link href="#change-plan" className={buttonVariants()}>
+                  Upgrade to {nextPlan.name}
+                </Link>
+              </div>
             </CardContent>
           </Card>
         )}

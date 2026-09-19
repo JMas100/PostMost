@@ -110,7 +110,7 @@ export function StepReview({
                     <label className="flex cursor-pointer items-center justify-between gap-3 p-2.5 hover:bg-muted">
                       <div className="flex items-center gap-2.5">
                         <Checkbox checked={selectedPlatforms.has(platform)} onCheckedChange={() => onTogglePlatform(platform)} />
-                        <PlatformLogo platform={platform} size={22} />
+                        <PlatformLogo platform={platform} size={22} onDark />
                         <span className="text-sm font-medium">{info?.name ?? platform}</span>
                       </div>
                       <span className="text-sm text-muted-foreground">${Number(price || 0).toFixed(2)}</span>

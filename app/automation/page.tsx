@@ -2,17 +2,42 @@ import { getServerSession } from "next-auth";
 import { redirect } from "next/navigation";
 import { authOptions } from "@/lib/auth";
 import { Shell } from "@/components/sidebar";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { EmptyState } from "@/components/ui/empty-state";
 import { StockSyncToggle } from "@/components/automation/stock-sync-toggle";
 import { RelistToggle } from "@/components/automation/relist-toggle";
 import { getAutomationOverview } from "@/lib/actions/automation";
+import { PlatformLogo } from "@/components/platform-logo";
 import { formatDistanceToNow } from "date-fns";
-import { AlertCircle } from "lucide-react";
+import { CheckCircle2, RefreshCw, TrendingDown, Repeat, type LucideIcon } from "lucide-react";
 import Link from "next/link";
-import { cn } from "@/lib/utils";
+import { buttonVariants } from "@/components/ui/button";
+import { cn, formatCurrency } from "@/lib/utils";
 import { PageHeader } from "@/components/page-header";
+import { STOCK_SYNC_RULE, DELIST_ON_SALE_RULE, RELIST_STALE_RULE } from "@/lib/automation/rule-types";
+
+const RULE_LABEL: Record<string, { done: string; failed: string }> = {
+  [DELIST_ON_SALE_RULE]: { done: "Delisted", failed: "Couldn't delist" },
+  [RELIST_STALE_RULE]: { done: "Relisted", failed: "Couldn't relist" },
+  [STOCK_SYNC_RULE]: { done: "Synced", failed: "Couldn't sync" },
+};
+
+function EventStatusPill({ ruleType, success }: { ruleType: string; success: boolean }) {
+  const label = RULE_LABEL[ruleType];
+  if (!label) return null;
+  // Solid fill is reserved for the one urgent state on this page too -- a failed automated action
+  // is exactly that, everything else (a successful delist/relist/sync) is tinted.
+  return success ? (
+    <Badge variant="live" className="shrink-0">
+      {label.done}
+    </Badge>
+  ) : (
+    <Badge variant="warning" className="shrink-0">
+      {label.failed}
+    </Badge>
+  );
+}
 
 function parseEventMessage(message: string) {
   const [rest, screenshotPart] = message.split(" | Screenshot: ");
@@ -24,11 +49,26 @@ function parseEventMessage(message: string) {
   };
 }
 
-function TierBadge({ label }: { label: string }) {
+/** "ALL PLANS" is a neutral fact, not an upsell -- it stays gray. GROW/PRO are lime-tinted tags
+ *  precisely because they're doing upsell work; using the same treatment for both erases that
+ *  distinction. */
+function TierBadge({ label }: { label: "ALL PLANS" | "GROW" | "PRO" }) {
+  if (label === "ALL PLANS") return <Badge variant="secondary">{label}</Badge>;
+  return <Badge variant="live">{label}</Badge>;
+}
+
+function RuleIcon({ icon: Icon, tone }: { icon: LucideIcon; tone: "success" | "primary" | "muted" }) {
   return (
-    <Badge variant="outline" className="border-primary/30 bg-primary/10 text-primary">
-      {label}
-    </Badge>
+    <span
+      className={cn(
+        "flex h-9 w-9 shrink-0 items-center justify-center rounded-md",
+        tone === "success" && "bg-success/10 text-success",
+        tone === "primary" && "bg-primary/10 text-primary",
+        tone === "muted" && "bg-muted text-muted-foreground"
+      )}
+    >
+      <Icon className="h-4.5 w-4.5" />
+    </span>
   );
 }
 
@@ -42,37 +82,34 @@ export default async function AutomationPage() {
   return (
     <Shell>
       <div className="space-y-6">
-        <PageHeader title="Automation" description="Set rules that relist, delist, price, and sync without you." />
+        <PageHeader
+          title="Automation"
+          description="Set rules that relist, delist, price, and sync without you."
+          actions={
+            <Link href="#activity" className={buttonVariants({ variant: "outline" })}>
+              Activity log
+            </Link>
+          }
+        />
 
         {hasActivity && (
-          <div className="grid gap-4 sm:grid-cols-3">
-            <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-medium text-muted-foreground">Actions this month</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">{overview.actionsThisMonth}</div>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-medium text-muted-foreground">
-                  Listings pulled after a sale
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">{overview.listingsPulledAfterSale}</div>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-medium text-muted-foreground">Double-sale exposure avoided</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">${overview.amountSaved.toFixed(2)}</div>
-              </CardContent>
-            </Card>
-          </div>
+          <Card>
+            <CardContent className="grid gap-6 py-4 sm:grid-cols-3">
+              <div>
+                <p className="text-xs text-muted-foreground">Actions this month</p>
+                <div className="tnum text-2xl font-bold">{overview.actionsThisMonth}</div>
+              </div>
+              <div>
+                <p className="text-xs text-muted-foreground">Listings pulled after a sale</p>
+                <div className="tnum text-2xl font-bold">{overview.listingsPulledAfterSale}</div>
+              </div>
+              <div>
+                <p className="text-xs text-muted-foreground">Double-sale exposure avoided</p>
+                <div className="tnum text-2xl font-bold text-success">{formatCurrency(overview.amountSaved)}</div>
+              </div>
+              <p className="col-span-full text-xs text-muted-foreground">Every action is reversible from the activity log.</p>
+            </CardContent>
+          </Card>
         )}
 
         <div className="space-y-3">
@@ -80,6 +117,7 @@ export default async function AutomationPage() {
             <CardContent className="space-y-3 py-4">
               <div className="flex items-center justify-between gap-4">
                 <div className="flex items-center gap-3">
+                  <RuleIcon icon={CheckCircle2} tone="success" />
                   <div>
                     <div className="flex items-center gap-2">
                       <p className="font-medium">Delist everywhere when it sells</p>
@@ -93,11 +131,18 @@ export default async function AutomationPage() {
                 <span className="shrink-0 text-xs font-medium text-muted-foreground">Always on</span>
               </div>
               {overview.delistPlatforms.length > 0 && (
-                <div className="flex flex-wrap gap-x-4 gap-y-1 pl-0 text-xs text-muted-foreground">
+                <div className="flex flex-wrap items-center gap-2 pl-12">
                   {overview.delistPlatforms.map((p) => (
-                    <span key={p.id}>
+                    <span
+                      key={p.id}
+                      className={cn(
+                        "flex items-center gap-1.5 rounded-md border px-2 py-1 text-xs",
+                        p.needsExtension ? "border-dashed text-warning" : "text-muted-foreground"
+                      )}
+                    >
+                      <PlatformLogo platform={p.id} size={16} onDark showLabel={false} />
                       {p.name}
-                      {p.needsExtension && <span className="text-warning"> — needs the extension running</span>}
+                      {p.needsExtension && " — needs the extension running"}
                     </span>
                   ))}
                 </div>
@@ -108,31 +153,7 @@ export default async function AutomationPage() {
           <Card>
             <CardContent className="flex items-center justify-between gap-4 py-4">
               <div className="flex items-center gap-3">
-                <div>
-                  <div className="flex items-center gap-2">
-                    <p className="font-medium">Keep stock levels in step</p>
-                    <TierBadge label="PRO" />
-                  </div>
-                  <p className="text-sm text-muted-foreground">
-                    {overview.stockSyncAvailable
-                      ? overview.stockSyncCandidates > 0
-                        ? `${overview.stockSyncCandidates} item${overview.stockSyncCandidates === 1 ? "" : "s"} at zero quantity would be delisted on the next run.`
-                        : "When an item's quantity hits zero, delist it everywhere it's still live."
-                      : "Upgrade to Pro to automatically delist sold-out items."}
-                  </p>
-                </div>
-              </div>
-              {overview.stockSyncAvailable ? (
-                <StockSyncToggle initialEnabled={overview.stockSyncEnabled} />
-              ) : (
-                <span className="shrink-0 text-xs font-medium text-muted-foreground">Locked</span>
-              )}
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardContent className="flex items-center justify-between gap-4 py-4">
-              <div className="flex items-center gap-3">
+                <RuleIcon icon={RefreshCw} tone="primary" />
                 <div>
                   <div className="flex items-center gap-2">
                     <p className="font-medium">Relist stale items</p>
@@ -164,46 +185,73 @@ export default async function AutomationPage() {
 
           <Card className="opacity-60">
             <CardContent className="flex items-center justify-between gap-4 py-4">
-              <div>
-                <div className="flex items-center gap-2">
-                  <p className="font-medium">Drop the price on its own</p>
-                  <TierBadge label="GROW" />
+              <div className="flex items-center gap-3">
+                <RuleIcon icon={TrendingDown} tone="muted" />
+                <div>
+                  <div className="flex items-center gap-2">
+                    <p className="font-medium">Drop the price on its own</p>
+                    <TierBadge label="GROW" />
+                  </div>
+                  <p className="text-sm text-muted-foreground">
+                    Not yet available as an automatic rule — but you can already push a price change to every live
+                    marketplace at once from Listings&apos; bulk Edit price.
+                  </p>
                 </div>
-                <p className="text-sm text-muted-foreground">
-                  Not yet available as an automatic rule — but you can already push a price change to every live
-                  marketplace at once from Listings&apos; bulk Edit price.
-                </p>
               </div>
               <span className="shrink-0 text-xs font-medium text-muted-foreground">Coming soon</span>
             </CardContent>
           </Card>
+
+          <Card>
+            <CardContent className="flex items-center justify-between gap-4 py-4">
+              <div className="flex items-center gap-3">
+                <RuleIcon icon={Repeat} tone="muted" />
+                <div>
+                  <div className="flex items-center gap-2">
+                    <p className="font-medium">Keep stock levels in step</p>
+                    <TierBadge label="PRO" />
+                  </div>
+                  <p className="text-sm text-muted-foreground">
+                    {overview.stockSyncAvailable
+                      ? overview.stockSyncCandidates > 0
+                        ? `${overview.stockSyncCandidates} item${overview.stockSyncCandidates === 1 ? "" : "s"} at zero quantity would be delisted on the next run.`
+                        : "When an item's quantity hits zero, delist it everywhere it's still live."
+                      : "Upgrade to Pro to automatically delist sold-out items."}
+                  </p>
+                </div>
+              </div>
+              {overview.stockSyncAvailable ? (
+                <StockSyncToggle initialEnabled={overview.stockSyncEnabled} />
+              ) : (
+                <span className="shrink-0 text-xs font-medium text-muted-foreground">Locked</span>
+              )}
+            </CardContent>
+          </Card>
         </div>
 
-        <div className="space-y-3">
-          <h2 className="text-sm font-medium text-muted-foreground">Recent automation activity</h2>
+        <div id="activity" className="space-y-3 scroll-mt-6">
+          <h2 className="text-sm font-medium text-muted-foreground">Recent automation activity — last 24 hours</h2>
           {hasActivity ? (
             <Card>
               <CardContent className="divide-y p-0">
                 {overview.recentEvents.map((event) => {
                   const { text, steps, screenshotUrl } = parseEventMessage(event.message);
                   return (
-                    <div key={event.id} className="flex items-start justify-between gap-4 px-4 py-3 text-sm">
-                      <div className="flex items-start gap-2">
-                        {!event.success && <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-destructive" />}
-                        <div>
-                          <span className={cn(!event.success && "text-destructive")}>{text}</span>
-                          {(steps || screenshotUrl) && (
-                            <div className="mt-1 flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
-                              {steps && <span className="max-w-md truncate" title={steps}>{steps}</span>}
-                              {screenshotUrl && (
-                                <Link href={screenshotUrl} target="_blank" className="font-medium text-primary hover:underline">
-                                  View screenshot
-                                </Link>
-                              )}
-                            </div>
-                          )}
-                        </div>
+                    <div key={event.id} className="grid grid-cols-[minmax(0,1fr)_auto_auto] items-start gap-4 px-4 py-3 text-sm">
+                      <div>
+                        <span>{text}</span>
+                        {(steps || screenshotUrl) && (
+                          <div className="mt-1 flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
+                            {steps && <span className="max-w-md truncate" title={steps}>{steps}</span>}
+                            {screenshotUrl && (
+                              <Link href={screenshotUrl} target="_blank" className="font-medium text-primary hover:underline">
+                                View screenshot
+                              </Link>
+                            )}
+                          </div>
+                        )}
                       </div>
+                      <EventStatusPill ruleType={event.ruleType} success={event.success} />
                       <span className="shrink-0 text-xs text-muted-foreground">
                         {formatDistanceToNow(event.createdAt, { addSuffix: true })}
                       </span>
