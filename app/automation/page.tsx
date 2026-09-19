@@ -15,7 +15,7 @@ import Link from "next/link";
 import { buttonVariants } from "@/components/ui/button";
 import { cn, formatCurrency } from "@/lib/utils";
 import { PageHeader } from "@/components/page-header";
-import { STOCK_SYNC_RULE, DELIST_ON_SALE_RULE, RELIST_STALE_RULE } from "@/lib/automation/rule-types";
+import { STOCK_SYNC_RULE, DELIST_ON_SALE_RULE, RELIST_STALE_RULE, nextRelistRun } from "@/lib/automation/rule-types";
 
 const RULE_LABEL: Record<string, { done: string; failed: string }> = {
   [DELIST_ON_SALE_RULE]: { done: "Delisted", failed: "Couldn't delist" },
@@ -161,13 +161,24 @@ export default async function AutomationPage() {
                   </div>
                   <p className="text-sm text-muted-foreground">
                     {overview.relistAvailable
-                      ? overview.relistCandidates > 0
-                        ? `${overview.relistCandidates} listing${overview.relistCandidates === 1 ? "" : "s"} posted over ${overview.relistStaleDays} days ago would be taken down and reposted fresh on the next run.`
-                        : `Delists and reposts anything still live after ${overview.relistStaleDays} days. Removal is confirmed before we repost — if we can't confirm it came down, we leave it alone rather than risk a duplicate.`
+                      ? `Delists and reposts anything still live after ${overview.relistStaleDays} days. Removal is confirmed before we repost — if we can't confirm it came down, we leave it alone rather than risk a duplicate.`
                       : "Upgrade to Grow to automatically refresh stale listings."}
                   </p>
+                  {overview.relistAvailable && overview.relistCandidates > 0 && (
+                    <div className="mt-2 flex items-center justify-between gap-3 rounded-md border bg-muted/30 p-2.5 text-xs">
+                      <span>
+                        Next run {formatDistanceToNow(nextRelistRun(), { addSuffix: true })} ·{" "}
+                        <span className="font-medium text-foreground">
+                          {overview.relistCandidates} item{overview.relistCandidates === 1 ? "" : "s"} qualif{overview.relistCandidates === 1 ? "ies" : "y"}
+                        </span>
+                      </span>
+                      <Link href="/listings" className="shrink-0 font-medium text-primary hover:underline">
+                        View {overview.relistCandidates}
+                      </Link>
+                    </div>
+                  )}
                   {overview.relistAvailable && (
-                    <p className="mt-1 text-xs text-warning">
+                    <p className="mt-2 text-xs text-warning">
                       Solid on eBay and Etsy. Best-effort on the rest for now — those removal steps haven&apos;t
                       been verified against live accounts yet, so start with a listing you don&apos;t mind
                       watching closely.

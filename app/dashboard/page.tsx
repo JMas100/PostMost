@@ -25,16 +25,7 @@ import Link from "next/link";
 import { cn, formatCurrency } from "@/lib/utils";
 import { DollarSign, TrendingUp, TrendingDown, AlertTriangle, CheckCircle2, Package2, Plus } from "lucide-react";
 import { PlatformTileRow } from "@/components/platform-tile-row";
-
-/** The relist-stale cron runs once daily at 4:13 UTC (vercel.json) -- this is the next
- *  occurrence of that, expressed relatively so it's honest without exposing a UTC clock time
- *  that wouldn't mean anything relative to the viewer's own timezone. */
-function nextRelistRun(): Date {
-  const now = new Date();
-  const next = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), 4, 13, 0));
-  if (next <= now) next.setUTCDate(next.getUTCDate() + 1);
-  return next;
-}
+import { nextRelistRun } from "@/lib/automation/rule-types";
 
 export default async function DashboardPage(props: { searchParams: Promise<{ period?: string }> }) {
   const searchParams = await props.searchParams;

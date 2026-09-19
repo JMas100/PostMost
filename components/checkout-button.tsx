@@ -16,7 +16,7 @@ export function PlanCheckoutButton({
   planId: string;
   interval?: "month" | "year";
   children: React.ReactNode;
-  variant?: "default" | "outline" | "secondary";
+  variant?: "default" | "outline" | "secondary" | "ghost";
   className?: string;
   /** Applied to the underlying <button> itself, layered on top of buttonVariants. */
   buttonClassName?: string;

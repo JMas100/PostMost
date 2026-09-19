@@ -22,6 +22,7 @@ import { SoldButton } from "./sold-button";
 import { ListingDeleteButton } from "@/components/listing-delete-button";
 import { ListingDuplicateButton } from "@/components/listing-duplicate-button";
 import { StatusPill } from "@/components/status-pill";
+import { ListingPhotoGallery } from "@/components/listing-photo-gallery";
 import { computeListingStatus } from "@/lib/listing-status";
 import { cn, formatCurrency } from "@/lib/utils";
 
@@ -144,6 +145,8 @@ export default async function ListingDetailPage(props: { params: Promise<{ id: s
               </div>
             </div>
 
+            <ListingPhotoGallery photos={listing.photos} />
+
             <Card>
               <CardHeader>
                 <CardTitle>Details</CardTitle>
@@ -169,15 +172,6 @@ export default async function ListingDetailPage(props: { params: Promise<{ id: s
                 <p className="whitespace-pre-wrap">{listing.description}</p>
               </CardContent>
             </Card>
-
-            <div>
-              <h2 className="mb-3 text-xl font-semibold">Photos</h2>
-              <div className="grid grid-cols-3 gap-3">
-                {listing.photos.map((photo) => (
-                  <img key={photo.id} src={photo.url} alt="" className="aspect-square rounded-md object-cover" />
-                ))}
-              </div>
-            </div>
           </div>
 
           <div className="order-1 w-full space-y-6 lg:order-none lg:w-96">
@@ -202,51 +196,46 @@ export default async function ListingDetailPage(props: { params: Promise<{ id: s
               </div>
             )}
 
-            {liveElsewherePlatformListings.length > 0 && (
-              <Card>
-                <CardHeader>
-                  <CardTitle>
-                    Where it&apos;s live ·{" "}
-                    {liveElsewherePlatformListings.filter((pl) => pl.status !== "DELISTED").length} of {listing.platformListings.length}
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="divide-y p-0">
-                  {liveElsewherePlatformListings.map((pl) => {
-                    const price = pl.price ?? listing.price;
-                    const overridden = pl.price !== null && pl.price !== listing.price;
-                    return (
-                      <div key={pl.id} className="flex items-center justify-between gap-3 px-4 py-3">
-                        <div className="flex items-center gap-3">
-                          <PlatformLogo platform={pl.platform} size={26} onDark />
-                          <div>
-                            <p className="text-sm font-medium">{getPlatform(pl.platform)?.name ?? pl.platform}</p>
-                            <p className="tnum text-xs text-muted-foreground">
-                              {formatCurrency(price)}
-                              {overridden && ` (base ${formatCurrency(listing.price)})`}
-                            </p>
-                          </div>
-                        </div>
-                        {pl.externalUrl ? (
-                          <a href={pl.externalUrl} target="_blank" rel="noopener noreferrer">
-                            <Badge variant="live">{pl.status === "SOLD" ? "Sold" : "Live"}</Badge>
-                          </a>
-                        ) : (
-                          <Badge variant={pl.status === "SOLD" || pl.status === "POSTED" ? "live" : "outline"}>
-                            {pl.status === "DELISTED" ? "Delisted" : pl.status === "SOLD" ? "Sold" : pl.status}
-                          </Badge>
-                        )}
-                      </div>
-                    );
-                  })}
-                </CardContent>
-              </Card>
-            )}
-
             <Card>
               <CardHeader>
                 <CardTitle>Publish</CardTitle>
               </CardHeader>
-              <CardContent>
+              <CardContent className="space-y-4">
+                {liveElsewherePlatformListings.length > 0 && (
+                  <div className="-mx-6 divide-y border-b">
+                    <p className="px-6 pb-2 text-xs font-medium tracking-wide text-muted-foreground uppercase">
+                      Where it&apos;s live ·{" "}
+                      {liveElsewherePlatformListings.filter((pl) => pl.status !== "DELISTED").length} of {listing.platformListings.length}
+                    </p>
+                    {liveElsewherePlatformListings.map((pl) => {
+                      const price = pl.price ?? listing.price;
+                      const overridden = pl.price !== null && pl.price !== listing.price;
+                      return (
+                        <div key={pl.id} className="flex items-center justify-between gap-3 px-6 py-3">
+                          <div className="flex items-center gap-3">
+                            <PlatformLogo platform={pl.platform} size={26} onDark />
+                            <div>
+                              <p className="text-sm font-medium">{getPlatform(pl.platform)?.name ?? pl.platform}</p>
+                              <p className="tnum text-xs text-muted-foreground">
+                                {formatCurrency(price)}
+                                {overridden && ` (base ${formatCurrency(listing.price)})`}
+                              </p>
+                            </div>
+                          </div>
+                          {pl.externalUrl ? (
+                            <a href={pl.externalUrl} target="_blank" rel="noopener noreferrer">
+                              <Badge variant="live">{pl.status === "SOLD" ? "Sold" : "Live"}</Badge>
+                            </a>
+                          ) : (
+                            <Badge variant={pl.status === "SOLD" || pl.status === "POSTED" ? "live" : "outline"}>
+                              {pl.status === "DELISTED" ? "Delisted" : pl.status === "SOLD" ? "Sold" : pl.status}
+                            </Badge>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
                 <PublishPanel
                   listingId={listing.id}
                   accounts={accounts}

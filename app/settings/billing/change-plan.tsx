@@ -10,7 +10,10 @@ export function ChangePlan({ currentPlan }: { currentPlan: Plan }) {
 
   return (
     <div>
-      <div className="mb-4 flex justify-end">
+      <div className="mb-4 flex items-center justify-end gap-2">
+        <span className="rounded-md bg-primary/10 px-2 py-0.5 text-xs font-semibold tracking-wide text-primary uppercase">
+          2 months free
+        </span>
         <div className="inline-flex rounded-lg bg-muted p-1">
           <button
             type="button"
@@ -65,6 +68,18 @@ export function ChangePlan({ currentPlan }: { currentPlan: Plan }) {
                 <p className="mt-4 text-sm text-muted-foreground">Free plan active by default</p>
               ) : p.id === "enterprise" ? (
                 <p className="mt-4 text-sm text-muted-foreground">Contact sales</p>
+              ) : p.tier < currentPlan.tier ? (
+                // A downgrade doesn't earn the same visual weight as an upgrade or a first
+                // purchase -- plain text, not a solid button next to five others.
+                <PlanCheckoutButton
+                  planId={p.id}
+                  interval={interval}
+                  className="mt-4"
+                  variant="ghost"
+                  buttonClassName="w-auto p-0 h-auto font-normal text-muted-foreground underline underline-offset-2 hover:bg-transparent hover:text-foreground"
+                >
+                  Downgrade
+                </PlanCheckoutButton>
               ) : (
                 <PlanCheckoutButton planId={p.id} interval={interval} className="mt-4">
                   Choose {p.name}

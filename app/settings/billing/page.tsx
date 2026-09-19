@@ -95,14 +95,19 @@ export default async function BillingPage(props: { searchParams: Promise<{ succe
           <CardContent>
             <div className="flex items-start justify-between">
               <div>
-                <p className="text-lg font-semibold">{plan.name}</p>
-                <p className="text-sm text-muted-foreground">{plan.description}</p>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-semibold tracking-wide text-primary uppercase">{plan.name}</span>
+                  {stripeCustomerId && subscriptionStatus === "active" && <Badge variant="live">Active</Badge>}
+                </div>
+                <p className="mt-1 text-sm text-muted-foreground">{plan.description}</p>
                 <p className="mt-2 text-2xl font-bold text-foreground">
                   {formatPrice(plan.priceMonthly)}
                   <span className="text-base font-normal text-muted-foreground">/mo</span>
                 </p>
-                {subscriptionStatus && (
-                  <p className="mt-1 text-sm text-muted-foreground">Stripe status: {subscriptionStatus}</p>
+                {stripeCustomerId && subscriptionStatus === "active" ? (
+                  <p className="mt-1 text-sm text-muted-foreground">Renews {resetAt.toLocaleDateString()}</p>
+                ) : (
+                  subscriptionStatus && <p className="mt-1 text-sm text-muted-foreground">Stripe status: {subscriptionStatus}</p>
                 )}
               </div>
               {stripeCustomerId && <BillingPortalButton />}

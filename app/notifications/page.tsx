@@ -13,6 +13,8 @@ import { EMPTY_COPY } from "@/lib/notification-display";
 import { NotificationsTabs, type NotificationsTab } from "./notifications-tabs";
 import { NotificationsActions } from "./notifications-actions";
 import { NotificationRow } from "./notification-row";
+import { getPreferences } from "@/lib/actions/notifications";
+import { NotificationPreferenceMatrix } from "@/components/notification-preference-matrix";
 
 function dayLabel(date: Date): string {
   if (isToday(date)) return "Today";
@@ -30,7 +32,7 @@ export default async function NotificationsPage(props: { searchParams: Promise<{
     ? searchParams.tab
     : "needs_you") as NotificationsTab;
 
-  const [items, needsYouCount, salesCount, activityCount] = await Promise.all([
+  const [items, needsYouCount, salesCount, activityCount, prefs] = await Promise.all([
     prisma.notification.findMany({
       where: { userId, resolvedAt: null, ...(tab === "all" ? {} : { category: tab }) },
       orderBy: { createdAt: "desc" },
@@ -38,6 +40,7 @@ export default async function NotificationsPage(props: { searchParams: Promise<{
     prisma.notification.count({ where: { userId, category: "needs_you", resolvedAt: null } }),
     prisma.notification.count({ where: { userId, category: "sales", resolvedAt: null } }),
     prisma.notification.count({ where: { userId, category: "activity", resolvedAt: null } }),
+    getPreferences(),
   ]);
 
   const counts: Record<NotificationsTab, number> = {
@@ -59,33 +62,42 @@ export default async function NotificationsPage(props: { searchParams: Promise<{
 
   return (
     <Shell>
-      <div className="mx-auto max-w-3xl space-y-6">
+      <div className="space-y-6">
         <PageHeader
           title="Notifications"
           description="Everything the background jobs did, and everything that needs you."
           actions={<NotificationsActions />}
         />
 
-        <NotificationsTabs counts={counts} />
+        <div className="grid gap-6 lg:grid-cols-[1fr_420px]">
+          <div className="space-y-6">
+            <NotificationsTabs counts={counts} />
 
-        {items.length === 0 ? (
-          <EmptyState variant="not-enough-data" headline={emptyCopy.title} body={emptyCopy.body} />
-        ) : (
-          <Card>
-            <CardContent className="p-0">
-              {groups.map((group) => (
-                <div key={group.label}>
-                  <div className="px-6 pt-5 pb-2 font-mono text-[11px] tracking-wider text-muted-foreground uppercase sm:px-7">
-                    {group.label}
-                  </div>
-                  {group.items.map((n) => (
-                    <NotificationRow key={n.id} notification={n} />
+            {items.length === 0 ? (
+              <EmptyState variant="not-enough-data" headline={emptyCopy.title} body={emptyCopy.body} />
+            ) : (
+              <Card>
+                <CardContent className="p-0">
+                  {groups.map((group) => (
+                    <div key={group.label}>
+                      <div className="px-6 pt-5 pb-2 font-mono text-[11px] tracking-wider text-muted-foreground uppercase sm:px-7">
+                        {group.label}
+                      </div>
+                      {group.items.map((n) => (
+                        <NotificationRow key={n.id} notification={n} />
+                      ))}
+                    </div>
                   ))}
-                </div>
-              ))}
-            </CardContent>
-          </Card>
-        )}
+                </CardContent>
+              </Card>
+            )}
+          </div>
+
+          <div className="space-y-3">
+            <h2 className="text-sm font-medium text-muted-foreground">Notification preferences</h2>
+            <NotificationPreferenceMatrix prefs={prefs} />
+          </div>
+        </div>
       </div>
     </Shell>
   );

@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { buttonVariants } from "@/components/ui/button";
@@ -25,9 +24,6 @@ export function NotificationsActions() {
       >
         Mark all read
       </button>
-      <Link href="/settings/notifications" className={cn(buttonVariants({ variant: "outline", size: "sm" }))}>
-        Preferences
-      </Link>
     </div>
   );
 }

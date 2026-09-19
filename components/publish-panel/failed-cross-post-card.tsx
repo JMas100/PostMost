@@ -132,14 +132,22 @@ export function FailedCrossPostCard({
           </div>
         </div>
       ) : (
-        <div className="mt-3 flex gap-2">
-          <Button size="sm" variant="outline" className="flex-1" onClick={() => setEditing(true)} disabled={retrying}>
+        <div className="mt-3 flex items-center gap-3">
+          {/* One primary action, not two equal-weight buttons -- fixing a field is the more
+              likely path to success than retrying the exact data that just failed, so it gets
+              the visual weight. Plain retry stays reachable for a genuinely transient failure. */}
+          <Button size="sm" className="flex-1" onClick={() => setEditing(true)} disabled={retrying}>
             Fix a field
           </Button>
-          <Button size="sm" variant="outline" className="flex-1" onClick={retry} disabled={retrying}>
-            <RotateCcw className="mr-1.5 h-3.5 w-3.5" />
+          <button
+            type="button"
+            onClick={retry}
+            disabled={retrying}
+            className="flex shrink-0 items-center gap-1.5 text-xs font-medium text-muted-foreground hover:text-foreground disabled:opacity-50"
+          >
+            <RotateCcw className="h-3.5 w-3.5" />
             {retrying ? "Retrying…" : "Retry"}
-          </Button>
+          </button>
         </div>
       )}
     </div>
