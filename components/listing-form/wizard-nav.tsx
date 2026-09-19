@@ -40,14 +40,22 @@ export function WizardNav({
         {saving ? "Saving..." : "Save as draft"}
       </Button>
 
-      <div className="flex gap-3">
+      <div className="flex flex-1 gap-3 sm:flex-none sm:justify-end">
         {!isFirst && (
-          <Button type="button" variant="ghost" onClick={onBack} disabled={navDisabled}>
+          <Button type="button" variant="ghost" onClick={onBack} disabled={navDisabled} className="shrink-0">
             Back
           </Button>
         )}
         {hideForward ? null : isLast ? (
-          <Button type="button" onClick={onSubmitClick} disabled={isSubmitting || navDisabled}>
+          // The one control on this whole form that actually puts the listing live deserves to
+          // look different from every "advance to the next step" Next before it, not share its size.
+          <Button
+            type="button"
+            size="lg"
+            className="flex-1 sm:min-w-64 sm:flex-none"
+            onClick={onSubmitClick}
+            disabled={isSubmitting || navDisabled}
+          >
             {isSubmitting ? "Saving..." : submitLabel}
           </Button>
         ) : (

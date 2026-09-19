@@ -16,6 +16,7 @@ import { buttonVariants } from "@/components/ui/button";
 import { cn, formatCurrency } from "@/lib/utils";
 import { PageHeader } from "@/components/page-header";
 import { STOCK_SYNC_RULE, DELIST_ON_SALE_RULE, RELIST_STALE_RULE, nextRelistRun } from "@/lib/automation/rule-types";
+import { RelistConfigPills } from "@/components/automation/relist-config-pills";
 
 const RULE_LABEL: Record<string, { done: string; failed: string }> = {
   [DELIST_ON_SALE_RULE]: { done: "Delisted", failed: "Couldn't delist" },
@@ -161,9 +162,19 @@ export default async function AutomationPage() {
                   </div>
                   <p className="text-sm text-muted-foreground">
                     {overview.relistAvailable
-                      ? `Delists and reposts anything still live after ${overview.relistStaleDays} days. Removal is confirmed before we repost — if we can't confirm it came down, we leave it alone rather than risk a duplicate.`
+                      ? "Delists and reposts anything still live with no sale. Removal is confirmed before we repost — if we can't confirm it came down, we leave it alone rather than risk a duplicate."
                       : "Upgrade to Grow to automatically refresh stale listings."}
                   </p>
+                  {overview.relistAvailable && (
+                    <div className="mt-2">
+                      <RelistConfigPills
+                        staleDays={overview.relistStaleDays}
+                        maxPerDay={overview.relistMaxPerDay}
+                        staleDaysOptions={overview.relistStaleDaysOptions}
+                        maxPerDayOptions={overview.relistMaxPerDayOptions}
+                      />
+                    </div>
+                  )}
                   {overview.relistAvailable && overview.relistCandidates > 0 && (
                     <div className="mt-2 flex items-center justify-between gap-3 rounded-md border bg-muted/30 p-2.5 text-xs">
                       <span>

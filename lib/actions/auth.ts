@@ -4,7 +4,8 @@ import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/prisma";
 import { track } from "@/lib/analytics/track";
 import { normalizeEmail } from "@/lib/email";
-import { checkRateLimit, getClientIp } from "@/lib/rate-limit";
+import { checkRateLimit, getClientIp, peekRateLimitRemaining } from "@/lib/rate-limit";
+import { LOGIN_WINDOW_MS, LOGIN_MAX_PER_EMAIL } from "@/lib/auth";
 
 const SIGNUP_WINDOW_MS = 60 * 60 * 1000;
 const SIGNUP_MAX_PER_IP = 8;
@@ -29,4 +30,17 @@ export async function registerUser(email: string, password: string, name?: strin
   });
   await track("signup_completed", user.id, { email: user.email });
   return { success: true, user: { id: user.id, email: user.email, name: user.name } };
+}
+
+/** NextAuth's credentials provider collapses every authorize() failure to a fixed
+ *  "CredentialsSignin" string client-side (see node_modules/next-auth/core/routes/callback.js) --
+ *  there's no way to thread a real remaining-attempts count through signIn() itself. This reads
+ *  the same rate-limit bucket authorize() just wrote to, so the login page can show one instead
+ *  of a fabricated number. */
+export async function getLoginAttemptsRemaining(email: string) {
+  const remaining = await peekRateLimitRemaining(`login-email:${normalizeEmail(email)}`, {
+    windowMs: LOGIN_WINDOW_MS,
+    max: LOGIN_MAX_PER_EMAIL,
+  });
+  return remaining;
 }

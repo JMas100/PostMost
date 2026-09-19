@@ -42,6 +42,14 @@ export async function checkRateLimit(identifier: string, { windowMs, max }: Rate
   return { allowed: true };
 }
 
+/** Read-only count for an identifier already tracked by {@link checkRateLimit} -- records
+ *  nothing itself, so checking how close someone is to a limit never counts as an attempt. */
+export async function peekRateLimitRemaining(identifier: string, { windowMs, max }: RateLimitOptions): Promise<number> {
+  const windowStart = new Date(Date.now() - windowMs);
+  const count = await prisma.rateLimitHit.count({ where: { identifier, createdAt: { gte: windowStart } } });
+  return Math.max(max - count, 0);
+}
+
 /** Best-effort client IP from the standard forwarding headers Vercel sets. Never throws --
  *  callers should treat a missing IP as "skip the IP-scoped check," not as a reason to fail. */
 export async function getClientIp(): Promise<string | null> {

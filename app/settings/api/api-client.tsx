@@ -3,23 +3,37 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { formatDistanceToNow } from "date-fns";
-import { createApiKey, deleteApiKey } from "@/lib/actions/api-keys";
+import { createApiKey, revokeApiKey } from "@/lib/actions/api-keys";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 
 interface Key {
   id: string;
   name: string;
   keyPrefix: string;
+  keySuffix: string;
   lastUsedAt: Date | null;
+  callsThisMonth: number;
+  revokedAt: Date | null;
   createdAt: Date;
 }
 
 interface ApiClientProps {
   keys: Key[];
+}
+
+// There's only one endpoint in this API today (see the usage card below), so every key's scope
+// is genuinely this fixed string -- not a stored field standing in for a scoping system that
+// doesn't exist yet.
+const SCOPE_LABEL = "read + write listings";
+
+function maskedKey(k: Key) {
+  const dots = "·".repeat(24);
+  return k.keySuffix ? `${k.keyPrefix}${dots}${k.keySuffix}` : `${k.keyPrefix}${dots}`;
 }
 
 export function ApiClient({ keys }: ApiClientProps) {
@@ -44,11 +58,12 @@ export function ApiClient({ keys }: ApiClientProps) {
     });
   }
 
-  function remove(id: string) {
+  function revoke(id: string) {
+    if (!window.confirm("Revoke this key? Anything still using it will stop working immediately.")) return;
     startTransition(async () => {
-      await deleteApiKey(id);
+      await revokeApiKey(id);
       router.refresh();
-      toast.success("API key deleted");
+      toast.success("API key revoked");
     });
   }
 
@@ -62,11 +77,11 @@ export function ApiClient({ keys }: ApiClientProps) {
       {newKey && (
         <Card className="border-primary">
           <CardHeader>
-            <CardTitle>Copy your new API key now</CardTitle>
+            <CardTitle>Copy it now — this is the only time you&apos;ll see it</CardTitle>
           </CardHeader>
           <CardContent>
             <p className="mb-3 text-sm text-muted-foreground">
-              This is the only time the full key will be shown. We store a hash, not the key itself — if you lose it, you&apos;ll need to create a new one.
+              We store a hash, not the key itself — if you lose it, you&apos;ll need to create a new one.
             </p>
             <div className="flex items-center gap-2">
               <code className="flex-1 truncate rounded bg-muted px-2 py-1 text-xs">{newKey}</code>
@@ -96,25 +111,54 @@ export function ApiClient({ keys }: ApiClientProps) {
 
       {keys.length > 0 && (
         <div className="space-y-3">
-          {keys.map((k) => (
-            <Card key={k.id}>
-              <CardContent>
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="font-medium">{k.name}</p>
-                    <p className="text-xs text-muted-foreground">
-                      Created {new Date(k.createdAt).toLocaleDateString()} ·{" "}
-                      {k.lastUsedAt ? `last used ${formatDistanceToNow(k.lastUsedAt, { addSuffix: true })}` : "never used"}
-                    </p>
+          {keys.map((k) => {
+            const revoked = !!k.revokedAt;
+            return (
+              <Card key={k.id} className={revoked ? "opacity-70" : undefined}>
+                <CardContent>
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-2">
+                        <p className="font-medium">{k.name}</p>
+                        {revoked && (
+                          <Badge variant="outline" className="shrink-0 text-muted-foreground">
+                            REVOKED
+                          </Badge>
+                        )}
+                      </div>
+                      <code className="mt-1 block truncate text-xs text-muted-foreground">{maskedKey(k)}</code>
+                    </div>
+                    {!revoked && (
+                      <Button variant="ghost" size="sm" className="shrink-0 text-destructive hover:text-destructive" onClick={() => revoke(k.id)}>
+                        Revoke
+                      </Button>
+                    )}
                   </div>
-                  <Button variant="destructive" size="sm" onClick={() => remove(k.id)}>Delete</Button>
-                </div>
-                <div className="mt-3 flex items-center gap-2">
-                  <code className="flex-1 truncate rounded bg-muted px-2 py-1 text-xs">{k.keyPrefix}...</code>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
+                  <div className="tnum mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 border-t pt-3 text-xs text-muted-foreground">
+                    <span>Created {new Date(k.createdAt).toLocaleDateString()}</span>
+                    {revoked ? (
+                      <span>Revoked {new Date(k.revokedAt!).toLocaleDateString()}</span>
+                    ) : (
+                      <>
+                        <span>
+                          Last used{" "}
+                          <span className="text-foreground">
+                            {k.lastUsedAt ? formatDistanceToNow(k.lastUsedAt, { addSuffix: true }) : "never"}
+                          </span>
+                        </span>
+                        <span>
+                          <span className="text-foreground">{k.callsThisMonth}</span> call{k.callsThisMonth === 1 ? "" : "s"} this month
+                        </span>
+                        <span>
+                          Scope <span className="text-foreground">{SCOPE_LABEL}</span>
+                        </span>
+                      </>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+            );
+          })}
         </div>
       )}
 

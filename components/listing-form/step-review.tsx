@@ -110,7 +110,7 @@ export function StepReview({
                     <label className="flex cursor-pointer items-center justify-between gap-3 p-2.5 hover:bg-muted">
                       <div className="flex items-center gap-2.5">
                         <Checkbox checked={selectedPlatforms.has(platform)} onCheckedChange={() => onTogglePlatform(platform)} />
-                        <PlatformLogo platform={platform} size={22} onDark />
+                        <PlatformLogo platform={platform} size={22} onDark showLabel={false} />
                         <span className="text-sm font-medium">{info?.name ?? platform}</span>
                       </div>
                       <span className="text-sm text-muted-foreground">${Number(price || 0).toFixed(2)}</span>
@@ -127,13 +127,37 @@ export function StepReview({
             </div>
           )}
           {unconnectedCount > 0 && (
-            <p className="text-xs text-muted-foreground">
-              {unconnectedCount} more marketplace{unconnectedCount === 1 ? "" : "s"} available.{" "}
-              <Link href="/marketplaces" className="text-primary hover:underline">
-                Connect
-              </Link>
-            </p>
+            <div className="space-y-1.5">
+              <p className="text-xs text-muted-foreground">
+                {unconnectedCount} more marketplace{unconnectedCount === 1 ? "" : "s"} available
+              </p>
+              {PLATFORMS.filter((p) => p.authType !== "none" && !connectedPlatforms.includes(p.id)).map((p) => (
+                <Link
+                  key={p.id}
+                  href="/marketplaces"
+                  className="flex items-center gap-2.5 rounded-md border border-dashed p-2.5 text-sm transition-colors hover:border-primary/50"
+                >
+                  <PlatformLogo platform={p.id} size={22} onDark showLabel={false} />
+                  <span className="flex-1 text-muted-foreground">{p.name} — not connected</span>
+                  <span className="font-medium text-primary">Connect</span>
+                </Link>
+              ))}
+            </div>
           )}
+          {(() => {
+            const warned = Array.from(selectedPlatforms).find((platform) =>
+              getPlatformListingWarning(platform, { category, audience, title, description })
+            );
+            if (!warned) return null;
+            const warnedName = PLATFORMS.find((p) => p.id === warned)?.name ?? warned;
+            return (
+              <p className="pt-1 text-center text-xs text-muted-foreground">
+                {selectedPlatforms.size > 1
+                  ? `${warnedName} publishes once that's fixed. The others go now.`
+                  : `${warnedName} publishes once that's fixed.`}
+              </p>
+            );
+          })()}
         </div>
       )}
 

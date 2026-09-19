@@ -221,17 +221,20 @@ model CrossPostJob {
 }
 
 model ShippingProfile {
-  id          String    @id @default(cuid())
-  userId      String
-  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  name        String
-  carrier     String    @default("USPS")
-  service     String    @default("")
-  cost        Float     @default(0)
-  isDefault   Boolean   @default(false)
-  listings    Listing[]
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
+  id               String    @id @default(cuid())
+  userId           String
+  user             User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name             String
+  /// "seller" | "buyer" -- who actually pays the carrier, independent of what's collected upfront
+  /// (a "free shipping" listing still has a real cost; the seller is just the one absorbing it).
+  whoPays          String    @default("seller")
+  cost             Float     @default(0)
+  handlingTimeDays Int       @default(1)
+  maxWeightLbs     Float?
+  isDefault        Boolean   @default(false)
+  listings         Listing[]
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
 
   @@index([userId])
 }
@@ -388,15 +391,24 @@ model PasswordResetToken {
 }
 
 model ApiKey {
-  id          String   @id @default(cuid())
-  userId      String
-  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  name        String
-  keyHash     String   @unique
-  keyPrefix   String
-  lastUsedAt  DateTime?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id             String    @id @default(cuid())
+  userId         String
+  user           User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name           String
+  keyHash        String    @unique
+  keyPrefix      String
+  /// Last 4 characters of the real key, captured only at creation (the full key is never stored
+  /// anywhere else). Empty for keys created before this column existed -- there's no way to
+  /// backfill a value that was genuinely never persisted.
+  keySuffix      String    @default("")
+  lastUsedAt     DateTime?
+  /// Reset whenever lastUsedAt's calendar month doesn't match "now" at call time -- see
+  /// workspaceFromKey() in app/api/v1/listings/route.ts. No separate reset-timestamp column;
+  /// lastUsedAt (already updated on every call) is enough to tell whether the month rolled over.
+  callsThisMonth Int       @default(0)
+  revokedAt      DateTime?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
 
   @@index([userId])
 }

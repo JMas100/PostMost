@@ -27,6 +27,7 @@ export type OptimizingState = "" | "title" | "description" | "caption" | "price"
 export interface ShippingProfileOption {
   id: string;
   name: string;
+  cost?: number;
 }
 
 export interface ListingFormProps {

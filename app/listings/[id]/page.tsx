@@ -7,7 +7,7 @@ import { Shell } from "@/components/sidebar";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { buttonVariants } from "@/components/ui/button";
-import { JobStatus } from "@/components/job-status";
+import { JobTimeline } from "@/components/job-status";
 import { ListingForm } from "@/components/listing-form";
 import { getTemplates } from "@/lib/actions/templates";
 import { getShippingProfiles } from "@/lib/actions/shipping";
@@ -301,15 +301,12 @@ export default async function ListingDetailPage(props: { params: Promise<{ id: s
             )}
 
             <Card>
-              <CardHeader>
-                <CardTitle>Recent activity</CardTitle>
+              <CardHeader className="flex-row items-center justify-between">
+                <CardTitle>Activity</CardTitle>
+                <span className="text-xs text-muted-foreground">Newest first</span>
               </CardHeader>
-              <CardContent className="space-y-2">
-                {listing.jobs.length === 0 ? (
-                  <p className="text-sm text-muted-foreground">No activity yet.</p>
-                ) : (
-                  listing.jobs.slice(0, 10).map((job) => <JobStatus key={job.id} job={job} />)
-                )}
+              <CardContent>
+                <JobTimeline jobs={listing.jobs.slice(0, 10)} listingCreatedAt={listing.createdAt} />
               </CardContent>
             </Card>
           </div>

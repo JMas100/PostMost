@@ -1,6 +1,6 @@
 "use client";
 
-import { Controller, useFormContext } from "react-hook-form";
+import { Controller, useFormContext, useWatch } from "react-hook-form";
 import { ListingFormData } from "@/lib/schemas/listing";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -13,9 +13,45 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { DollarSign } from "lucide-react";
+import { formatCurrency } from "@/lib/utils";
 import { OptimizingState, ShippingProfileOption } from "./types";
 
 const NO_SHIPPING_PROFILE = "__none__";
+
+// A blended estimate, not any one marketplace's real fee schedule -- this shows before the user
+// has picked which marketplaces to publish to (that's step 4), and actual fees are deducted for
+// real once a sale lands (see the listing detail sale summary). ~13% lands near eBay/Poshmark's
+// typical final-value fee, the two highest-volume platforms this app posts to.
+const TYPICAL_FEE_RATE = 0.13;
+
+function EstimatedProfit({ shippingProfiles }: { shippingProfiles: ShippingProfileOption[] }) {
+  const { control } = useFormContext<ListingFormData>();
+  const price = Number(useWatch({ control, name: "price" }) || 0);
+  const cost = Number(useWatch({ control, name: "cost" }) || 0);
+  const shippingProfileId = useWatch({ control, name: "shippingProfileId" });
+
+  if (!price) return null;
+
+  const shippingProfile = shippingProfiles.find((p) => p.id === shippingProfileId);
+  const shippingCost = shippingProfile?.cost ?? 0;
+  const fee = price * TYPICAL_FEE_RATE;
+  const profit = price - cost - fee - shippingCost;
+
+  return (
+    <div className="rounded-lg border bg-muted/30 p-3.5">
+      <div className="flex items-center justify-between text-sm">
+        <span className="text-muted-foreground">Estimated profit</span>
+        <span className={`tnum font-semibold ${profit < 0 ? "text-destructive" : "text-primary"}`}>
+          {formatCurrency(profit)}
+        </span>
+      </div>
+      <p className="mt-1.5 text-xs text-muted-foreground">
+        After typical marketplace fees{shippingProfile ? ` and ${formatCurrency(shippingCost)} shipping` : ""}.
+        Recalculates as you type.
+      </p>
+    </div>
+  );
+}
 
 export function StepPricing({
   optimizing,
@@ -53,6 +89,8 @@ export function StepPricing({
           {errors.cost && <p className="text-sm text-destructive">{errors.cost.message}</p>}
         </div>
       </div>
+
+      <EstimatedProfit shippingProfiles={shippingProfiles} />
 
       <div className="space-y-2">
         <Label htmlFor="quantity">Quantity</Label>

@@ -4,10 +4,11 @@ import { useState } from "react";
 import { signIn } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { registerUser } from "@/lib/actions/auth";
+import { registerUser, getLoginAttemptsRemaining } from "@/lib/actions/auth";
 import { toast } from "sonner";
 import { Wordmark, LogoMark } from "@/components/logo";
 import { cn } from "@/lib/utils";
@@ -47,11 +48,20 @@ export default function LoginPage() {
       password,
       redirect: false,
     });
-    setLoading(false);
     if (res?.error) {
       // Errors belong on the field, not a toast that disappears in four seconds and never says
       // which field was wrong.
-      setFieldError(res.error === "CredentialsSignin" ? "That email and password don't match." : res.error);
+      if (res.error === "CredentialsSignin") {
+        const remaining = await getLoginAttemptsRemaining(email);
+        setFieldError(
+          remaining > 0 && remaining <= 3
+            ? `That email and password don't match. ${remaining} attempt${remaining === 1 ? "" : "s"} left before a cooldown.`
+            : "That email and password don't match."
+        );
+      } else {
+        setFieldError(res.error);
+      }
+      setLoading(false);
     } else {
       router.push(isRegister ? "/onboarding" : "/dashboard");
       router.refresh();
@@ -87,11 +97,14 @@ export default function LoginPage() {
 
       <div className="flex flex-1 items-center justify-center bg-background p-4">
         <div className="w-full max-w-md space-y-6">
-          <div className="space-y-1 text-center lg:hidden">
-            <Link href="/" className="mb-4 inline-flex items-center gap-2">
+          <div className="space-y-3 text-center lg:hidden">
+            <Link href="/" className="inline-flex items-center gap-2">
               <LogoMark className="h-7 w-7" />
               <Wordmark className="text-2xl" />
             </Link>
+            {/* The split panel carries the marketing promise on desktop; at this width there is no
+                second panel to carry it, so the headline folds into this column instead of vanishing. */}
+            <h1 className="font-display text-2xl font-extrabold tracking-tight">Post once. Sell most.</h1>
           </div>
 
           <div className="space-y-1 text-center">
@@ -100,14 +113,14 @@ export default function LoginPage() {
               {isRegister ? (
                 <>
                   Already selling with us?{" "}
-                  <button type="button" className="text-primary underline underline-offset-2" onClick={() => { setIsRegister(false); setFieldError(""); }}>
+                  <button type="button" className="font-medium text-primary hover:underline" onClick={() => { setIsRegister(false); setFieldError(""); }}>
                     Sign in
                   </button>
                 </>
               ) : (
                 <>
                   New here?{" "}
-                  <button type="button" className="text-primary underline underline-offset-2" onClick={() => { setIsRegister(true); setFieldError(""); }}>
+                  <button type="button" className="font-medium text-primary hover:underline" onClick={() => { setIsRegister(true); setFieldError(""); }}>
                     Create an account
                   </button>
                 </>
@@ -131,6 +144,7 @@ export default function LoginPage() {
                 value={email}
                 onChange={(e) => { setEmail(e.target.value); setFieldError(""); }}
                 aria-invalid={Boolean(fieldError)}
+                className={fieldError ? "border-destructive bg-destructive/5" : undefined}
               />
             </div>
             <div className="space-y-2">
@@ -150,7 +164,7 @@ export default function LoginPage() {
                 value={password}
                 onChange={(e) => { setPassword(e.target.value); setFieldError(""); }}
                 aria-invalid={Boolean(fieldError)}
-                className={fieldError ? "border-destructive" : undefined}
+                className={fieldError ? "border-destructive bg-destructive/5" : undefined}
               />
               {isRegister && !fieldError && (
                 <p className="text-xs text-muted-foreground">
@@ -158,7 +172,12 @@ export default function LoginPage() {
                   {strength && <span className={cn("ml-1 font-medium", strength.className)}>{strength.label}</span>}
                 </p>
               )}
-              {fieldError && <p className="text-xs font-medium text-destructive">{fieldError}</p>}
+              {fieldError && (
+                <p className="flex items-center gap-1.5 text-xs font-medium text-destructive">
+                  <AlertCircle className="h-3.5 w-3.5 shrink-0" />
+                  {fieldError}
+                </p>
+              )}
             </div>
             <Button type="submit" size="marketing" className="w-full" disabled={loading}>
               {loading ? "Please wait..." : isRegister ? "Create account" : "Sign in"}
@@ -178,6 +197,10 @@ export default function LoginPage() {
               .
             </p>
           )}
+
+          <p className="text-center text-xs text-muted-foreground lg:hidden">
+            Free while you list your first ten items. No card required.
+          </p>
         </div>
       </div>
     </div>

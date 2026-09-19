@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { ExternalLink } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { createBillingPortalSession } from "@/lib/actions/billing";
 
@@ -23,11 +24,13 @@ export function BillingPortalButton() {
   }
 
   return (
-    <div>
+    <div className="flex flex-col items-end gap-1.5">
       <Button type="button" variant="outline" disabled={isPending} onClick={handleClick}>
-        {isPending ? "Loading..." : "Manage billing"}
+        {isPending ? "Loading..." : "Manage payment method"}
+        {!isPending && <ExternalLink className="ml-2 h-3.5 w-3.5" />}
       </Button>
-      {error && <p className="mt-2 text-sm text-red-600">{error}</p>}
+      <span className="text-xs text-muted-foreground">Invoices and receipts live in Stripe</span>
+      {error && <p className="text-sm text-destructive">{error}</p>}
     </div>
   );
 }

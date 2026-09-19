@@ -2,7 +2,7 @@ import { prisma } from "@/lib/prisma";
 import { getAdapter } from "@/lib/marketplaces";
 import { relistPlatformListing } from "@/lib/marketplaces/relist";
 import { delistPlatformListing } from "@/lib/marketplaces/delist-platform-listing";
-import { STOCK_SYNC_RULE, RELIST_STALE_RULE, RELIST_STALE_DAYS } from "@/lib/automation/rule-types";
+import { STOCK_SYNC_RULE, RELIST_STALE_RULE, parseRelistConfig } from "@/lib/automation/rule-types";
 import type { Photo } from "@/lib/generated/prisma/client";
 import { upsertAutomationRanNotification } from "@/lib/notifications";
 
@@ -181,22 +181,43 @@ export async function runRelistStaleRule(
 
   const enabledRules = await prisma.automationRule.findMany({
     where: { ruleType: RELIST_STALE_RULE, enabled: true },
-    select: { userId: true },
+    select: { userId: true, config: true },
   });
   summary.usersChecked = enabledRules.length;
   if (enabledRules.length === 0) return summary;
 
+  const configByUser = new Map(enabledRules.map((r) => [r.userId, parseRelistConfig(r.config)]));
   const userIds = enabledRules.map((r) => r.userId);
-  const staleBefore = new Date(Date.now() - RELIST_STALE_DAYS * 24 * 60 * 60 * 1000);
 
-  const candidates = await prisma.platformListing.findMany({
+  // staleDays and maxPerDay are both per-user (AutomationRule.config), so the age cutoff can't be
+  // pushed into this query the way a single global constant used to allow -- fetch every opted-in
+  // user's POSTED listings and apply each user's own threshold/cap in memory below instead.
+  const allPosted = await prisma.platformListing.findMany({
     where: {
       status: "POSTED",
-      postedAt: { lt: staleBefore },
       listing: { userId: { in: userIds }, isDraft: false, quantity: { gt: 0 } },
     },
     include: { listing: { include: { photos: true } } },
+    orderBy: { postedAt: "asc" },
   });
+
+  const byUser = new Map<string, typeof allPosted>();
+  for (const platformListing of allPosted) {
+    if (!platformListing.listing || !platformListing.postedAt) continue;
+    const config = configByUser.get(platformListing.listing.userId);
+    if (!config) continue;
+    const staleBefore = Date.now() - config.staleDays * 24 * 60 * 60 * 1000;
+    if (platformListing.postedAt.getTime() >= staleBefore) continue;
+    const bucket = byUser.get(platformListing.listing.userId) ?? [];
+    bucket.push(platformListing);
+    byUser.set(platformListing.listing.userId, bucket);
+  }
+  // Oldest-first within each user (already the query's order) then capped to that user's
+  // own max-per-day, so a user with more stale items than their cap gets the longest-stale
+  // ones first and simply catches the rest on the next run.
+  const candidates = Array.from(byUser.entries()).flatMap(([userId, items]) =>
+    items.slice(0, configByUser.get(userId)!.maxPerDay)
+  );
 
   // Collected during the loop, written once per user after it ends -- see lib/notifications.ts.
   const relistedByUser = new Map<string, string[]>();
@@ -251,7 +272,7 @@ export async function runRelistStaleRule(
           ruleType: RELIST_STALE_RULE,
           listingId: listing.id,
           platform: platformListing.platform,
-          message: `"${listing.title}" relisted on ${platformName} after ${RELIST_STALE_DAYS} days`,
+          message: `"${listing.title}" relisted on ${platformName} after ${configByUser.get(listing.userId)!.staleDays} days`,
         },
       });
     } else if (outcome.outcome === "stranded") {

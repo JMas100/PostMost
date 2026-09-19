@@ -5,8 +5,8 @@ import { prisma } from "./prisma";
 import { normalizeEmail } from "./email";
 import { checkRateLimit } from "./rate-limit";
 
-const LOGIN_WINDOW_MS = 15 * 60 * 1000;
-const LOGIN_MAX_PER_EMAIL = 10;
+export const LOGIN_WINDOW_MS = 15 * 60 * 1000;
+export const LOGIN_MAX_PER_EMAIL = 10;
 const LOGIN_MAX_PER_IP = 20;
 
 export const authOptions: NextAuthOptions = {

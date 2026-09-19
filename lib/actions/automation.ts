@@ -3,14 +3,29 @@
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { getEffectivePlan, meetsMinimumTier, PLAN_ASSIGNMENT_SELECT } from "@/lib/plans";
-import { STOCK_SYNC_RULE, DELIST_ON_SALE_RULE, RELIST_STALE_RULE, RELIST_STALE_DAYS } from "@/lib/automation/rule-types";
+import {
+  STOCK_SYNC_RULE,
+  DELIST_ON_SALE_RULE,
+  RELIST_STALE_RULE,
+  parseRelistConfig,
+  RELIST_STALE_DAYS_OPTIONS,
+  RELIST_MAX_PER_DAY_OPTIONS,
+} from "@/lib/automation/rule-types";
 import { requireWorkspace } from "@/lib/auth-helpers";
 import { getPlatform } from "@/lib/marketplaces/platforms";
 
 export async function getAutomationOverview() {
   const { workspaceUserId: userId } = await requireWorkspace();
 
-  const staleBefore = new Date(Date.now() - RELIST_STALE_DAYS * 24 * 60 * 60 * 1000);
+  // Read before the Promise.all below so the candidate-count query can use this user's own
+  // configured threshold instead of the global default -- needs the rule row a second time
+  // (also fetched in the Promise.all for relistEnabled), but that's one cheap indexed lookup.
+  const existingRelistRule = await prisma.automationRule.findUnique({
+    where: { userId_ruleType: { userId, ruleType: RELIST_STALE_RULE } },
+    select: { config: true },
+  });
+  const relistConfig = parseRelistConfig(existingRelistRule?.config);
+  const staleBefore = new Date(Date.now() - relistConfig.staleDays * 24 * 60 * 60 * 1000);
 
   const [
     user,
@@ -78,7 +93,10 @@ export async function getAutomationOverview() {
     relistEnabled: relistRule?.enabled ?? false,
     relistAvailable: meetsMinimumTier(plan.id, "grow"),
     relistCandidates,
-    relistStaleDays: RELIST_STALE_DAYS,
+    relistStaleDays: relistConfig.staleDays,
+    relistMaxPerDay: relistConfig.maxPerDay,
+    relistStaleDaysOptions: RELIST_STALE_DAYS_OPTIONS,
+    relistMaxPerDayOptions: RELIST_MAX_PER_DAY_OPTIONS,
     priceDropAvailable: false,
     actionsThisMonth: monthEvents,
     listingsPulledAfterSale: delistOnSaleEvents._count._all,
@@ -122,5 +140,26 @@ export async function setRelistEnabled(enabled: boolean) {
   });
 
   revalidatePath("/automation");
+  return { success: true };
+}
+
+export async function setRelistConfig(config: { staleDays: number; maxPerDay: number }) {
+  const { workspaceUserId: userId } = await requireWorkspace();
+
+  if (!RELIST_STALE_DAYS_OPTIONS.includes(config.staleDays as (typeof RELIST_STALE_DAYS_OPTIONS)[number])) {
+    return { error: "Not a valid relist interval." };
+  }
+  if (!RELIST_MAX_PER_DAY_OPTIONS.includes(config.maxPerDay as (typeof RELIST_MAX_PER_DAY_OPTIONS)[number])) {
+    return { error: "Not a valid daily cap." };
+  }
+
+  await prisma.automationRule.upsert({
+    where: { userId_ruleType: { userId, ruleType: RELIST_STALE_RULE } },
+    update: { config },
+    create: { userId, ruleType: RELIST_STALE_RULE, enabled: false, config },
+  });
+
+  revalidatePath("/automation");
+  revalidatePath("/dashboard");
   return { success: true };
 }

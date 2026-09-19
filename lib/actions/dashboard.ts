@@ -3,7 +3,7 @@
 import { prisma } from "@/lib/prisma";
 import { requireWorkspace } from "@/lib/auth-helpers";
 import { getPlatform } from "@/lib/marketplaces/platforms";
-import { RELIST_STALE_DAYS } from "@/lib/automation/rule-types";
+import { RELIST_STALE_RULE, parseRelistConfig } from "@/lib/automation/rule-types";
 
 export type DashboardPeriod = "30d" | "all";
 
@@ -96,7 +96,15 @@ export async function getDashboardData(period: DashboardPeriod) {
   const periodStart = period === "30d" ? start30 : undefined;
   const priorStart = period === "30d" ? start60 : undefined;
   const priorEnd = period === "30d" ? start30 : undefined;
-  const staleBefore = new Date(now.getTime() - RELIST_STALE_DAYS * 24 * 60 * 60 * 1000);
+  // Fetched up front (not inside the Promise.all below) so the candidate-count query can use
+  // this user's own configured threshold -- must match what Automation's own page and the relist
+  // runner actually use, or this card and that page would disagree about what's "stale."
+  const relistRule = await prisma.automationRule.findUnique({
+    where: { userId_ruleType: { userId, ruleType: RELIST_STALE_RULE } },
+    select: { config: true },
+  });
+  const relistStaleDays = parseRelistConfig(relistRule?.config).staleDays;
+  const staleBefore = new Date(now.getTime() - relistStaleDays * 24 * 60 * 60 * 1000);
 
   const [
     accounts,

@@ -18,8 +18,19 @@ async function workspaceFromKey(request: Request): Promise<WorkspaceContext | nu
   const key = auth.slice(7).trim();
   const keyHash = crypto.createHash("sha256").update(key).digest("hex");
   const record = await prisma.apiKey.findUnique({ where: { keyHash } });
-  if (!record) return null;
-  await prisma.apiKey.update({ where: { id: record.id }, data: { lastUsedAt: new Date() } });
+  if (!record || record.revokedAt) return null;
+
+  // callsThisMonth has no separate reset-timestamp column -- lastUsedAt (already updated here on
+  // every call) is enough to tell whether the calendar month rolled over since the last one.
+  const now = new Date();
+  const sameMonth =
+    !!record.lastUsedAt &&
+    record.lastUsedAt.getUTCFullYear() === now.getUTCFullYear() &&
+    record.lastUsedAt.getUTCMonth() === now.getUTCMonth();
+  await prisma.apiKey.update({
+    where: { id: record.id },
+    data: { lastUsedAt: now, callsThisMonth: sameMonth ? { increment: 1 } : 1 },
+  });
   // A team member's own personal API key still creates listings in the shared workspace they
   // belong to, not a separate personal account -- matches how every other creation path
   // (the app's own UI, CSV import) already resolves through requireWorkspace().
