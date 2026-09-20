@@ -1,6 +1,7 @@
 import { inngest } from "@/lib/inngest/client";
 import { processPendingCrossPostJobs } from "@/lib/jobs/crosspost-runner";
 import { runStockSyncRule, runRelistStaleRule } from "@/lib/jobs/automation-runner";
+import { runAccountHealthChecks } from "@/lib/jobs/account-health-check";
 import { prisma } from "@/lib/prisma";
 import { sendNotificationDigestEmail } from "@/lib/mail";
 
@@ -41,6 +42,19 @@ export const runAutomationRules = inngest.createFunction(
     const stockSync = await step.run("stock-sync", () => runStockSyncRule());
     const relist = await step.run("relist-stale", () => runRelistStaleRule());
     return { stockSync, relist };
+  }
+);
+
+/** Proactive counterpart to needsReauth's existing reactive path (set from a real publish job's
+ *  terminal failure -- see crosspost-runner.ts's handleFailure). Without this, a deleted/broken
+ *  account kept reading "Connected" on the Marketplaces page indefinitely until someone happened
+ *  to publish something and that job burned through all 3 retries. Staggered 14 minutes after
+ *  run-automation-rules above -- both launch real browser checks, no reason to have them compete
+ *  for the same window. */
+export const runAccountHealthCheck = inngest.createFunction(
+  { id: "run-account-health-check", triggers: [{ cron: "27 4 * * *" }] },
+  async ({ step }) => {
+    return step.run("check-accounts", () => runAccountHealthChecks());
   }
 );
 

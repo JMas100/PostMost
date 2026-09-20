@@ -1,6 +1,6 @@
 import { serve } from "inngest/next";
 import { inngest } from "@/lib/inngest/client";
-import { processCrossPostJobs, runAutomationRules, sendNotificationDigest } from "@/lib/inngest/functions";
+import { processCrossPostJobs, runAutomationRules, runAccountHealthCheck, sendNotificationDigest } from "@/lib/inngest/functions";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -9,5 +9,5 @@ export const maxDuration = 300;
 
 export const { GET, POST, PUT } = serve({
   client: inngest,
-  functions: [processCrossPostJobs, runAutomationRules, sendNotificationDigest],
+  functions: [processCrossPostJobs, runAutomationRules, runAccountHealthCheck, sendNotificationDigest],
 });
