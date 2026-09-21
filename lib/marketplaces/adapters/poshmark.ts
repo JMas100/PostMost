@@ -45,6 +45,29 @@ async function dismissImageCropModalIfOpen(page: import("playwright-core").Page)
   }
 }
 
+/** A real job showed the crop modal appearing *between* dismissImageCropModalIfOpen's own check
+ *  and a later click landing (screenshot: modal open on top of an already-open category dropdown),
+ *  since Poshmark's image processing that triggers it is async and isn't bound to that one-time
+ *  check. A plain click() then retries against the same intercepted target for its whole timeout
+ *  and never recovers. This interleaves dismissal attempts with the click itself so a modal that
+ *  appears mid-click gets caught instead of stalling out the full 30s. */
+async function clickDismissingCropModal(
+  page: import("playwright-core").Page,
+  locator: import("playwright-core").Locator,
+  maxAttempts = 6
+): Promise<void> {
+  for (let attempt = 0; attempt < maxAttempts - 1; attempt++) {
+    try {
+      await locator.click({ timeout: 4000 });
+      return;
+    } catch {
+      await dismissImageCropModalIfOpen(page);
+    }
+  }
+  // Final attempt without a caught retry, so a real, unrelated failure still surfaces.
+  await locator.click();
+}
+
 const poshmarkListingSteps: AutomationStep[] = [
   {
     name: "dismiss-transient-error-dialog",
@@ -116,9 +139,15 @@ const poshmarkListingSteps: AutomationStep[] = [
       // right before the click it was actually blocking, regardless of why the first check missed it.
       await dismissImageCropModalIfOpen(page);
       const slug = matchPoshmarkCategory(listing);
-      await page.locator('.listing-editor__category-container [data-test="dropdown"]').first().click();
+      await clickDismissingCropModal(
+        page,
+        page.locator('.listing-editor__category-container [data-test="dropdown"]').first()
+      );
       await page.waitForTimeout(200);
-      await page.locator(`.listing-editor__category-container a[data-et-name="${slug}"]`).first().click();
+      await clickDismissingCropModal(
+        page,
+        page.locator(`.listing-editor__category-container a[data-et-name="${slug}"]`).first()
+      );
       await page.waitForTimeout(400);
       // Confirmed live (real session exploration, 2026-09-19): clicking the top-level link above
       // only drills into a second-level list -- it does NOT finalize Category by itself, which is
@@ -129,7 +158,10 @@ const poshmarkListingSteps: AutomationStep[] = [
       // Category *and* auto-default Size to "OS", sidestepping needing a real size-taxonomy
       // mapping entirely. Trade-off: every listing lands under ".../Other" rather than a more
       // specific, more discoverable subcategory -- correct/complete over ideal, revisit later.
-      await page.locator(".listing-editor__category-container").getByText("Other", { exact: true }).first().click();
+      await clickDismissingCropModal(
+        page,
+        page.locator(".listing-editor__category-container").getByText("Other", { exact: true }).first()
+      );
       // The selection itself needs a moment to actually commit in Poshmark's own Vue state -- the
       // force-close click below was firing immediately after and a real job still showed the
       // "Select Category" placeholder afterward, meaning it interrupted the selection before it
@@ -192,8 +224,17 @@ const poshmarkListingSteps: AutomationStep[] = [
       // the seller's own closet page) that check needs to correctly detect success.
       const listItemButton = page.locator('button:has-text("List This Item")');
       if (await listItemButton.isVisible({ timeout: 8000 }).catch(() => false)) {
-        await listItemButton.click();
-        await page.waitForTimeout(2000);
+        // A real job's debug screenshot showed this button rendered but the modal still fetching
+        // its social-connection status (a "Connecting..." spinner) at the moment of the click --
+        // the click landed on it while it was still inert and nothing submitted. isVisible() alone
+        // doesn't catch that, and there's no reliable selector for the spinner to wait out
+        // directly, so this retries the click a few times against the one signal that actually
+        // means the submit landed: the URL leaving /create-listing.
+        const createListingUrl = page.url();
+        for (let attempt = 0; attempt < 3 && page.url() === createListingUrl; attempt++) {
+          await listItemButton.click({ timeout: 5000 }).catch(() => {});
+          await page.waitForTimeout(2000 + attempt * 1500);
+        }
       }
       // KNOWN LIMITATION, not yet resolved: the post-submit redirect lands on the seller's own
       // closet page (poshmark.com/closet/<username>), not the new listing's own permalink -- so
