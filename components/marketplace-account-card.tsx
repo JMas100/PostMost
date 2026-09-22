@@ -463,6 +463,14 @@ function ManualForm({ platform, account, onDone }: FormProps) {
         behalf. Never shown again after you save it. If a password is entered, PostMost signs
         into {platform.name} to confirm it works before saving — this takes a few seconds.
       </p>
+      <p className="text-xs text-muted-foreground">
+        {/* Chrome/Safari/etc. can still offer to save this as your postmost.co password despite
+            the autoComplete + ignore hints above -- a known browser quirk (password managers key
+            off the input's type/shape, not just autocomplete) that no attribute fully suppresses.
+            It's safe to dismiss; this password is for {platform.name}, not your PostMost account. */}
+        Your browser may offer to save this password for postmost.co — it&apos;s safe to dismiss,
+        this is your {platform.name} password, not your PostMost one.
+      </p>
       <div className="flex gap-2 pt-2">
         <Button type="submit" disabled={isPending} className="flex-1">
           {isPending ? "Verifying..." : account ? "Update" : "Connect"}

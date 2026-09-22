@@ -227,12 +227,33 @@ export async function verifyLogin(
       viewport: { width: 1280, height: 800 },
     });
     const page = await context.newPage();
+    // This is the one place in the whole file that had zero diagnostic capture at all -- found
+    // the hard way when a real wrong-password OfferUp connect came back "verified" with nothing
+    // to inspect afterward. Unlike attemptLogin's own hot path (every real post()/delist() job,
+    // where per-run screenshots would be wasteful), this only runs once per human "Connect"
+    // click, so it's cheap to always capture here. Deliberately NOT gated on NODE_ENV -- Railway
+    // always runs NODE_ENV=production, which is exactly why the session-auth debug logging
+    // elsewhere in this file had to make the same call (see authenticateWithSession above).
+    const consoleErrors: string[] = [];
+    const failedResponses: string[] = [];
+    page.on("console", (msg) => {
+      if (msg.type() === "error") consoleErrors.push(msg.text().slice(0, 200));
+    });
+    page.on("response", (res) => {
+      if (res.status() >= 400) failedResponses.push(`${res.status()} ${res.request().method()} ${res.url()}`);
+    });
     // Runs inline in the user-facing "Connect" click rather than the async job worker, so it
     // gets a tighter budget than post()/delist() would — a slow or hung site should fail fast
     // with a clear message instead of eating most of the route's execution time budget.
     page.setDefaultTimeout(15_000);
     page.setDefaultNavigationTimeout(15_000);
     const result = await attemptLogin(page, config, username, password);
+    const screenshotUrl = await captureFailureScreenshot(page, `verify-login-${platformId}`);
+    console.error(
+      `[verify-login-debug] ${platformId}: outcome=${result.success ? "success" : "failed"} finalUrl=${page.url()} ` +
+        `screenshot=${screenshotUrl || "none"} consoleErrors=${consoleErrors.slice(-3).join(" || ") || "none"} ` +
+        `failedResponses=${failedResponses.slice(-3).join(" || ") || "none"}`
+    );
     if (result.success) return { status: "verified" };
     return { status: "rejected", error: result.error || "The login form didn't accept these credentials" };
   } catch (err) {
