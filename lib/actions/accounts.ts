@@ -113,8 +113,18 @@ export async function connectMarketplaceAccount(input: AccountConnectionInput) {
   // for those -- input.accessToken there is a cookie array, not a password.
   if (input.accessToken && input.authMethod !== "session") {
     const adapter = getAdapter(input.platform);
+    // Temporary, unconditional trace -- a real wrong-password OfferUp connect saved cleanly
+    // with zero trace on either the Vercel or worker side, and neither prior diagnostic
+    // (callVerifyOnWorker's catch, verifyLogin's own worker-side log) ever fired. This settles
+    // whether this block is even being entered and what it decides, before guessing further.
+    console.error(
+      `[connect-debug] platform=${input.platform} hasAdapter=${Boolean(adapter)} hasVerifyLogin=${Boolean(adapter?.verifyLogin)}`
+    );
     if (adapter?.verifyLogin) {
       const check = await adapter.verifyLogin(input.displayName, input.accessToken);
+      console.error(
+        `[connect-debug] platform=${input.platform} verifyLogin result: status=${check.status} error=${"error" in check ? check.error : "none"}`
+      );
       if (check.status === "rejected") {
         throw new Error(`Couldn't sign in to ${adapter.name} with these credentials: ${check.error}`);
       }

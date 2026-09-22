@@ -378,7 +378,7 @@ function ManualForm({ platform, account, onDone }: FormProps) {
     event.preventDefault();
     const formData = new FormData(event.currentTarget);
     const displayName = formData.get("displayName") as string;
-    const password = formData.get("password") as string;
+    const password = formData.get("marketplaceSecret") as string;
 
     if (!displayName.trim()) {
       toast.error("Username is required");
@@ -446,10 +446,17 @@ function ManualForm({ platform, account, onDone }: FormProps) {
         />
       </div>
       <div className="space-y-2">
-        <Label htmlFor={`${platform.id}-password`}>Password</Label>
+        <Label htmlFor={`${platform.id}-secret`}>Password</Label>
         <Input
-          id={`${platform.id}-password`}
-          name="password"
+          id={`${platform.id}-secret`}
+          // Deliberately not name="password" -- Chrome/Safari/etc. key their save-prompt
+          // heuristic partly off the field's name/id looking like a login field, on top of
+          // type="password" itself, and can still fire despite autoComplete="new-password" +
+          // every ignore attribute below (confirmed live: it still offered to save this as the
+          // postmost.co password with the old name="password"). A neutral name is real,
+          // additional signal against that heuristic, not just belt-and-suspenders -- type
+          // stays "password" so the field still masks input and gets the native reveal toggle.
+          name="marketplaceSecret"
           type="password"
           autoComplete="new-password"
           data-1p-ignore
@@ -464,12 +471,15 @@ function ManualForm({ platform, account, onDone }: FormProps) {
         into {platform.name} to confirm it works before saving — this takes a few seconds.
       </p>
       <p className="text-xs text-muted-foreground">
-        {/* Chrome/Safari/etc. can still offer to save this as your postmost.co password despite
-            the autoComplete + ignore hints above -- a known browser quirk (password managers key
-            off the input's type/shape, not just autocomplete) that no attribute fully suppresses.
-            It's safe to dismiss; this password is for {platform.name}, not your PostMost account. */}
-        Your browser may offer to save this password for postmost.co — it&apos;s safe to dismiss,
-        this is your {platform.name} password, not your PostMost one.
+        {/* No attribute fully suppresses this in every browser -- see the field's own comment
+            above. Reassurance matters here beyond just dismissing it: saving it would only add
+            an entry to your browser's own local password manager for postmost.co, visible only
+            to you -- it does not change your actual PostMost login, and PostMost never sees or
+            stores anything from your browser's password manager either way. */}
+        Your browser may still offer to save this as a postmost.co password — it&apos;s safe to
+        dismiss (or save, if you&apos;d like a shortcut for yourself). Either way, it&apos;s a
+        local browser suggestion only: it&apos;s your {platform.name} password, not your
+        PostMost one, and doesn&apos;t change your actual PostMost login.
       </p>
       <div className="flex gap-2 pt-2">
         <Button type="submit" disabled={isPending} className="flex-1">
