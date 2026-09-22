@@ -263,6 +263,14 @@ async function callVerifyOnWorker(body: Record<string, unknown>): Promise<Creden
     return await callBrowserWorker<CredentialCheckResult>(body);
   } catch (err) {
     const message = err instanceof Error ? err.message : "Browser worker unreachable";
+    // This degrades to "unknown" by design (see the doc comment above) so it never blocks a
+    // real connect -- but that also means it was previously completely silent on both the
+    // Vercel side (this file) and, since the worker was never reached, the worker side too.
+    // A real wrong-password OfferUp connect came back "verified"/saved with zero trace
+    // anywhere of why the credential check never actually ran. Logged here (reaches `vercel
+    // logs`, unlike a throw inside a try/catch this function deliberately swallows) so the
+    // next occurrence is diagnosable instead of a silent no-op.
+    console.error(`[verify-on-worker] platform=${body.platform} action=${body.action} failed: ${message}`);
     return { status: "unknown", error: message };
   }
 }

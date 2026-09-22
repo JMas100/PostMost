@@ -75,16 +75,33 @@ export async function connectMarketplaceAccount(input: AccountConnectionInput) {
     throw new Error("Too many connection attempts. Please wait a bit and try again.");
   }
 
-  const existing = await prisma.marketplaceAccount.findFirst({
+  const activeAccountForPlatform = await prisma.marketplaceAccount.findFirst({
     where: { userId, platform: input.platform, isActive: true },
   });
 
-  if (!existing) {
+  if (!activeAccountForPlatform) {
     const gate = await canConnectMarketplace(userId, input.platform);
     if (!gate.allowed) {
       throw new Error(gate.reason);
     }
   }
+
+  // The actual row this connect would collide with if inserted fresh, not just "the active
+  // one" -- MarketplaceAccount's unique constraint is (userId, platform, externalId), and it
+  // doesn't care whether that row is active. Using only the active-only lookup above (which
+  // still correctly answers the plan-limit gate question) meant a disconnect-then-reconnect of
+  // a password-based platform with the same username crashed with a real Prisma unique-
+  // constraint violation in production, instead of reactivating the old, now-inactive row.
+  // Session-based connects never hit this: their externalId is always null (see
+  // AccountConnectionInput.authMethod's doc comment), and Postgres never treats two NULLs as
+  // colliding under a unique constraint -- so this only needs a second lookup when a real
+  // externalId is present and doesn't already match the active row.
+  const existing =
+    input.externalId && activeAccountForPlatform?.externalId !== input.externalId
+      ? await prisma.marketplaceAccount.findFirst({
+          where: { userId, platform: input.platform, externalId: input.externalId },
+        })
+      : activeAccountForPlatform;
 
   // For browser-automation platforms connecting with a password, actually attempt a login
   // before ever saving it -- a wrong username/password should be caught here, not silently
