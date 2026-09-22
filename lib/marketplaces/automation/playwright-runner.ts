@@ -49,6 +49,16 @@ export interface LoginAttemptResult {
   screenshotUrl?: string;
 }
 
+/** A plain click-through step, run before the username/password fields are ever touched --
+ *  distinct from AutomationStep because these don't need listing/account data, just the page.
+ *  Exists for sites like OfferUp where `loginUrl` lands on a provider-selection dialog ("Continue
+ *  with Facebook/Google/Apple/email") that has to be clicked through before a real email/password
+ *  form even exists in the DOM -- confirmed live via real DOM dumps, not a login form at all. */
+export interface LoginStep {
+  name: string;
+  action: (page: import("playwright-core").Page) => Promise<void>;
+}
+
 /**
  * Fills and submits a login form, then reports whether it actually worked. Never assumes a
  * submit succeeded just because it didn't throw -- wrong credentials, a 2FA/verification
@@ -64,7 +74,13 @@ export interface LoginAttemptResult {
  */
 export async function attemptLogin(
   page: import("playwright-core").Page,
-  config: { loginUrl: string; usernameSelector?: string; passwordSelector?: string; submitSelector?: string },
+  config: {
+    loginUrl: string;
+    usernameSelector?: string;
+    passwordSelector?: string;
+    submitSelector?: string;
+    preLoginSteps?: LoginStep[];
+  },
   username: string,
   password: string
 ): Promise<LoginAttemptResult> {
@@ -74,6 +90,12 @@ export async function attemptLogin(
   // reliably; subsequent fill()/click() calls already auto-wait for their own elements to be
   // ready, and the settle wait after submit gives client-rendered result state time to paint.
   await page.goto(config.loginUrl, { waitUntil: "domcontentloaded" });
+
+  if (config.preLoginSteps) {
+    for (const step of config.preLoginSteps) {
+      await step.action(page);
+    }
+  }
 
   if (config.usernameSelector) await page.fill(config.usernameSelector, username);
   if (config.passwordSelector) await page.fill(config.passwordSelector, password);
@@ -180,7 +202,13 @@ export function parseSessionCookies(serialized: string): SessionCookie[] | null 
  */
 export async function verifyLogin(
   platformId: string,
-  config: { loginUrl: string; usernameSelector?: string; passwordSelector?: string; submitSelector?: string },
+  config: {
+    loginUrl: string;
+    usernameSelector?: string;
+    passwordSelector?: string;
+    submitSelector?: string;
+    preLoginSteps?: LoginStep[];
+  },
   username: string,
   password: string
 ): Promise<CredentialCheckResult> {
@@ -271,6 +299,7 @@ export interface AutomationConfig {
   usernameSelector?: string;
   passwordSelector?: string;
   submitSelector?: string;
+  preLoginSteps?: LoginStep[];
   postLoginSteps?: AutomationStep[];
   preSubmitSteps?: AutomationStep[];
   successUrlFragment?: string;
@@ -417,6 +446,7 @@ export interface DelistConfig {
   usernameSelector?: string;
   passwordSelector?: string;
   submitSelector?: string;
+  preLoginSteps?: LoginStep[];
   postLoginSteps?: AutomationStep[];
   /** Optional first click to open a "..." / options menu, if delete lives behind one. */
   openMenuSelectors?: string[];
@@ -629,6 +659,7 @@ export interface PriceUpdateConfig {
   usernameSelector?: string;
   passwordSelector?: string;
   submitSelector?: string;
+  preLoginSteps?: LoginStep[];
   postLoginSteps?: AutomationStep[];
   /** Optional click(s) to enter an edit/price mode before the price field is reachable (e.g. an
    *  "Edit" button, or an "Edit price" menu item behind a "..." menu). */
