@@ -259,10 +259,14 @@ export async function verifyLogin(
       if (res.status() >= 400) failedResponses.push(`${res.status()} ${res.request().method()} ${res.url()}`);
     });
     // Runs inline in the user-facing "Connect" click rather than the async job worker, so it
-    // gets a tighter budget than post()/delist() would — a slow or hung site should fail fast
-    // with a clear message instead of eating most of the route's execution time budget.
-    page.setDefaultTimeout(15_000);
-    page.setDefaultNavigationTimeout(15_000);
+    // still gets a tighter budget than post()/delist() would -- a slow or hung site should fail
+    // fast with a clear message. Bumped from an original 15s after a real OfferUp attempt timed
+    // out waiting for a multi-step login dialog to render a later step at all -- 15s left no way
+    // to tell "genuinely blocked" apart from "a few real UI transitions plus network latency
+    // added up," and a few extra seconds during an already-multi-second "Verifying..." click is
+    // a fine tradeoff for that signal being trustworthy.
+    page.setDefaultTimeout(30_000);
+    page.setDefaultNavigationTimeout(30_000);
     const result = await attemptLogin(page, config, username, password);
     await logOutcome(result.success ? "success" : "failed", result.error);
     if (result.success) return { status: "verified" };

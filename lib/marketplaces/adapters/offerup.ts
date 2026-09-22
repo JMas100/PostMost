@@ -14,6 +14,34 @@ import { createManualAdapter } from "../automation/create-adapter";
 // hadn't been reached yet.
 const preLoginSteps = [
   {
+    // Best-effort, not confirmed against a real DOM dump -- the account owner's own manual
+    // click-through (the source for every other selector in this file) came from a browser
+    // that already had cookies accepted, so a fresh-context consent banner (which this
+    // automation always hits, starting from zero every run) would never have shown up there.
+    // Real evidence this is worth having: a live verifyLogin run timed out waiting for the
+    // very next step's dialog to render at all, the same failure mode Poshmark's own
+    // `.cookie-banner` caused before it was dismissed up front. No-op if it's not there.
+    name: "dismiss-cookie-banner",
+    action: async (page: import("playwright-core").Page) => {
+      const candidates = [
+        "#onetrust-accept-btn-handler",
+        'button:has-text("Accept All")',
+        'button:has-text("Accept Cookies")',
+        'button:has-text("Accept all cookies")',
+        'button:has-text("I Accept")',
+        'button:has-text("Accept")',
+      ];
+      for (const sel of candidates) {
+        const loc = page.locator(sel).first();
+        if (await loc.isVisible({ timeout: 2000 }).catch(() => false)) {
+          await loc.click().catch(() => {});
+          await page.waitForTimeout(300);
+          break;
+        }
+      }
+    },
+  },
+  {
     name: "click-continue-with-email",
     action: async (page: import("playwright-core").Page) => {
       await page.locator('button[aria-label="Continue with email"]').click();
