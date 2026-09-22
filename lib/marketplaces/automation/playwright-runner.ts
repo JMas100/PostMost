@@ -220,22 +220,38 @@ export async function verifyLogin(
     return { status: "unknown", error: `Playwright is not available in this environment. ${message}` };
   }
 
+  let page: import("playwright-core").Page | undefined;
+  // This is the one place in the whole file that had zero diagnostic capture at all -- found
+  // the hard way when a real wrong-password OfferUp connect came back "verified" with nothing
+  // to inspect afterward. Unlike attemptLogin's own hot path (every real post()/delist() job,
+  // where per-run screenshots would be wasteful), this only runs once per human "Connect"
+  // click, so it's cheap to always capture here. Deliberately NOT gated on NODE_ENV -- Railway
+  // always runs NODE_ENV=production, which is exactly why the session-auth debug logging
+  // elsewhere in this file had to make the same call (see authenticateWithSession above).
+  const consoleErrors: string[] = [];
+  const failedResponses: string[] = [];
+  // Declared outside the try so both the success path and the catch block below can log the
+  // same diagnostics -- a first version of this only logged after attemptLogin returned
+  // normally, which meant a timeout (thrown, never returns) skipped it entirely. That's exactly
+  // what happened on a real OfferUp attempt: it silently landed in "unknown" with nothing to
+  // inspect, again, just from a different gap than the original missing-instrumentation one.
+  async function logOutcome(outcome: string, error?: string) {
+    const screenshotUrl = page ? await captureFailureScreenshot(page, `verify-login-${platformId}`) : undefined;
+    console.error(
+      `[verify-login-debug] ${platformId}: outcome=${outcome} finalUrl=${page?.url() ?? "n/a"} ` +
+        `error=${error ?? "none"} screenshot=${screenshotUrl || "none"} ` +
+        `consoleErrors=${consoleErrors.slice(-3).join(" || ") || "none"} ` +
+        `failedResponses=${failedResponses.slice(-3).join(" || ") || "none"}`
+    );
+  }
+
   try {
     const context = await browser.newContext({
       userAgent:
         "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
       viewport: { width: 1280, height: 800 },
     });
-    const page = await context.newPage();
-    // This is the one place in the whole file that had zero diagnostic capture at all -- found
-    // the hard way when a real wrong-password OfferUp connect came back "verified" with nothing
-    // to inspect afterward. Unlike attemptLogin's own hot path (every real post()/delist() job,
-    // where per-run screenshots would be wasteful), this only runs once per human "Connect"
-    // click, so it's cheap to always capture here. Deliberately NOT gated on NODE_ENV -- Railway
-    // always runs NODE_ENV=production, which is exactly why the session-auth debug logging
-    // elsewhere in this file had to make the same call (see authenticateWithSession above).
-    const consoleErrors: string[] = [];
-    const failedResponses: string[] = [];
+    page = await context.newPage();
     page.on("console", (msg) => {
       if (msg.type() === "error") consoleErrors.push(msg.text().slice(0, 200));
     });
@@ -248,16 +264,12 @@ export async function verifyLogin(
     page.setDefaultTimeout(15_000);
     page.setDefaultNavigationTimeout(15_000);
     const result = await attemptLogin(page, config, username, password);
-    const screenshotUrl = await captureFailureScreenshot(page, `verify-login-${platformId}`);
-    console.error(
-      `[verify-login-debug] ${platformId}: outcome=${result.success ? "success" : "failed"} finalUrl=${page.url()} ` +
-        `screenshot=${screenshotUrl || "none"} consoleErrors=${consoleErrors.slice(-3).join(" || ") || "none"} ` +
-        `failedResponses=${failedResponses.slice(-3).join(" || ") || "none"}`
-    );
+    await logOutcome(result.success ? "success" : "failed", result.error);
     if (result.success) return { status: "verified" };
     return { status: "rejected", error: result.error || "The login form didn't accept these credentials" };
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
+    await logOutcome("exception", message);
     if (message.includes("Timeout")) {
       return { status: "unknown", error: `${platformId} took too long to respond — try connecting again.` };
     }
