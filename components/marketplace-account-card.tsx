@@ -24,7 +24,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { PlatformLogo } from "@/components/platform-logo";
 import { AutoDelistToggle } from "@/components/automation/auto-delist-toggle";
 import { toast } from "sonner";
-import { ExternalLink, Link2, Unlink, ShieldCheck } from "lucide-react";
+import { ExternalLink, Link2, Unlink, ShieldCheck, Eye, EyeOff } from "lucide-react";
 import { cn, formatCurrency } from "@/lib/utils";
 
 export type AccountView = {
@@ -373,6 +373,7 @@ function OAuthForm({ platform, account, onDone }: FormProps) {
 function ManualForm({ platform, account, onDone }: FormProps) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
+  const [showSecret, setShowSecret] = useState(false);
 
   function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -447,39 +448,43 @@ function ManualForm({ platform, account, onDone }: FormProps) {
       </div>
       <div className="space-y-2">
         <Label htmlFor={`${platform.id}-secret`}>Password</Label>
-        <Input
-          id={`${platform.id}-secret`}
-          // Deliberately not name="password" -- Chrome/Safari/etc. key their save-prompt
-          // heuristic partly off the field's name/id looking like a login field, on top of
-          // type="password" itself, and can still fire despite autoComplete="new-password" +
-          // every ignore attribute below (confirmed live: it still offered to save this as the
-          // postmost.co password with the old name="password"). A neutral name is real,
-          // additional signal against that heuristic, not just belt-and-suspenders -- type
-          // stays "password" so the field still masks input and gets the native reveal toggle.
-          name="marketplaceSecret"
-          type="password"
-          autoComplete="new-password"
-          data-1p-ignore
-          data-lpignore="true"
-          data-bwignore
-          placeholder={account?.hasCredentials ? "Leave blank to keep your current password" : "Your account password"}
-        />
+        <div className="relative">
+          {/* Not type="password" -- confirmed live that neither autoComplete="new-password"
+              nor a neutral field name stopped Chrome from still offering to save this as the
+              postmost.co password (it keys its save-prompt heuristic off the input TYPE first,
+              before any attribute). Masked instead via -webkit-text-security, which a real
+              password manager's form-detection doesn't key off at all. Trade-off: that CSS
+              property is WebKit/Blink-only (Chrome, Safari, Edge) -- Firefox has no equivalent,
+              so this renders as plain visible text there. Not a security regression (the value
+              is encrypted the same way once submitted either way), just a lost masking nicety
+              on one browser, in exchange for the prompt never firing on any of them. */}
+          <Input
+            id={`${platform.id}-secret`}
+            name="marketplaceSecret"
+            type="text"
+            autoComplete="new-password"
+            data-1p-ignore
+            data-lpignore="true"
+            data-bwignore
+            placeholder={account?.hasCredentials ? "Leave blank to keep your current password" : "Your account password"}
+            className="pr-9"
+            style={showSecret ? undefined : ({ WebkitTextSecurity: "disc" } as React.CSSProperties)}
+          />
+          <button
+            type="button"
+            onClick={() => setShowSecret((v) => !v)}
+            tabIndex={-1}
+            className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+            aria-label={showSecret ? "Hide password" : "Show password"}
+          >
+            {showSecret ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+          </button>
+        </div>
       </div>
       <p className="text-xs text-muted-foreground">
         Stored encrypted, used only to sign in and manage listings on {platform.name} on your
         behalf. Never shown again after you save it. If a password is entered, PostMost signs
         into {platform.name} to confirm it works before saving — this takes a few seconds.
-      </p>
-      <p className="text-xs text-muted-foreground">
-        {/* No attribute fully suppresses this in every browser -- see the field's own comment
-            above. Reassurance matters here beyond just dismissing it: saving it would only add
-            an entry to your browser's own local password manager for postmost.co, visible only
-            to you -- it does not change your actual PostMost login, and PostMost never sees or
-            stores anything from your browser's password manager either way. */}
-        Your browser may still offer to save this as a postmost.co password — it&apos;s safe to
-        dismiss (or save, if you&apos;d like a shortcut for yourself). Either way, it&apos;s a
-        local browser suggestion only: it&apos;s your {platform.name} password, not your
-        PostMost one, and doesn&apos;t change your actual PostMost login.
       </p>
       <div className="flex gap-2 pt-2">
         <Button type="submit" disabled={isPending} className="flex-1">
