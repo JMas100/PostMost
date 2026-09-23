@@ -236,7 +236,12 @@ export async function verifyLogin(
   // what happened on a real OfferUp attempt: it silently landed in "unknown" with nothing to
   // inspect, again, just from a different gap than the original missing-instrumentation one.
   async function logOutcome(outcome: string, error?: string) {
-    const screenshotUrl = page ? await captureFailureScreenshot(page, `verify-login-${platformId}`) : undefined;
+    // Screenshot capture (encode + upload) is real, avoidable latency on every single connect
+    // attempt, successful ones included -- only a failure is ever actually inspected afterward,
+    // so this now only pays that cost when there's something worth looking at. This alone was
+    // adding real time to a check the user watches a live "Verifying..." button for.
+    const screenshotUrl =
+      page && outcome !== "success" ? await captureFailureScreenshot(page, `verify-login-${platformId}`) : undefined;
     console.error(
       `[verify-login-debug] ${platformId}: outcome=${outcome} finalUrl=${page?.url() ?? "n/a"} ` +
         `error=${error ?? "none"} screenshot=${screenshotUrl || "none"} ` +

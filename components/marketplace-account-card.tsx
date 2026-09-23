@@ -376,14 +376,22 @@ function ManualForm({ platform, account, onDone }: FormProps) {
   const [showSecret, setShowSecret] = useState(false);
   const [displayName, setDisplayName] = useState(account?.displayName ?? "");
   const [password, setPassword] = useState("");
+  // A toast for this was real feedback the user could easily miss entirely -- it renders in a
+  // corner, disappears on its own timer, and this check can take several real seconds (a real
+  // headless browser navigating the platform's actual login flow), so anyone who looked away
+  // during that wait had no way to find out what happened afterward. Inline, persistent error
+  // state instead, matching the login page's own established pattern (red field wash + message
+  // that stays until the user acts).
+  const [error, setError] = useState<string | null>(null);
 
   function handleSubmit() {
+    setError(null);
     if (!displayName.trim()) {
-      toast.error("Username is required");
+      setError("Username is required");
       return;
     }
     if (!account?.hasCredentials && !password.trim()) {
-      toast.error("Password is required");
+      setError("Password is required");
       return;
     }
 
@@ -403,7 +411,7 @@ function ManualForm({ platform, account, onDone }: FormProps) {
         // user as an opaque "Minified React error #441" instead of the actual reason), so this
         // has to check the result instead of relying on the catch block below for these.
         if (!result.success) {
-          toast.error(result.error);
+          setError(result.error);
           return;
         }
         toast.success(`${platform.name} account connected`);
@@ -411,7 +419,7 @@ function ManualForm({ platform, account, onDone }: FormProps) {
         router.refresh();
       } catch (err) {
         const message = err instanceof Error ? err.message : "Failed to connect account";
-        toast.error(message);
+        setError(message);
       }
     });
   }
@@ -457,9 +465,11 @@ function ManualForm({ platform, account, onDone }: FormProps) {
           data-lpignore="true"
           data-bwignore
           value={displayName}
-          onChange={(e) => setDisplayName(e.target.value)}
+          onChange={(e) => { setDisplayName(e.target.value); setError(null); }}
           onKeyDown={handleKeyDown}
           placeholder={`Your ${platform.name} login`}
+          aria-invalid={Boolean(error)}
+          className={error ? "border-destructive bg-destructive/5" : undefined}
           required
         />
       </div>
@@ -483,10 +493,11 @@ function ManualForm({ platform, account, onDone }: FormProps) {
             data-lpignore="true"
             data-bwignore
             value={password}
-            onChange={(e) => setPassword(e.target.value)}
+            onChange={(e) => { setPassword(e.target.value); setError(null); }}
             onKeyDown={handleKeyDown}
             placeholder={account?.hasCredentials ? "Leave blank to keep your current password" : "Your account password"}
-            className="pr-9"
+            aria-invalid={Boolean(error)}
+            className={cn("pr-9", error && "border-destructive bg-destructive/5")}
             style={showSecret ? undefined : ({ WebkitTextSecurity: "disc" } as React.CSSProperties)}
           />
           <button
@@ -500,6 +511,11 @@ function ManualForm({ platform, account, onDone }: FormProps) {
           </button>
         </div>
       </div>
+      {error && (
+        <p className="text-sm text-destructive" role="alert">
+          {error}
+        </p>
+      )}
       <p className="text-xs text-muted-foreground">
         Stored encrypted, used only to sign in and manage listings on {platform.name} on your
         behalf. Never shown again after you save it. If a password is entered, PostMost signs
