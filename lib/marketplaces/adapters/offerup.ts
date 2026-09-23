@@ -51,10 +51,17 @@ const preLoginSteps = [
   {
     name: "click-log-in-tab",
     action: async (page: import("playwright-core").Page) => {
-      // Scoped to this step's own dialog testid -- "Log in" also appears as the next step's
-      // dialog title (an <h1>, not a button), so an unscoped text selector would still be
-      // unambiguous here, but this is cheap insurance against that changing.
-      await page.locator('[data-testid="AuthDialogEmailSelection"] button:has-text("Log in")').click();
+      // A real verify-login screenshot (2026-09-22) confirmed this step correctly reaches the
+      // right dialog (title "Sign up / Log in", only "Sign up"/"Log in" buttons visible) but
+      // then times out -- the data-testid="AuthDialogEmailSelection" scope this used to have no
+      // longer matches anything live, even though the visible "Log in" button is right there.
+      // Internal test ids are exactly the kind of implementation detail that drifts across a
+      // site's own deploys without the visible UI changing at all. Scoped to role="dialog"
+      // instead -- a standard ARIA attribute, far less likely to be renamed -- rather than an
+      // unscoped `button:has-text("Log in")`, since "Log in" also appears as the *next* step's
+      // dialog title (an <h1>, not a button, so still technically unambiguous either way, but
+      // this keeps some real scoping rather than none).
+      await page.locator('[role="dialog"] button:has-text("Log in")').click();
       await page.waitForTimeout(300);
     },
   },
@@ -75,7 +82,11 @@ export const offerupAdapter = createManualAdapter({
   preLoginSteps,
   usernameSelector: "#auth-login-dialog-email-field",
   passwordSelector: "#auth-login-dialog-password-field",
-  submitSelector: 'button[data-testid="AuthDialogSubmitButton"]',
+  // Combined with a text fallback (the real button copy from the original DOM dump, "Agree &
+  // Log in") since the same kind of internal-testid drift just broke the "Log in" tab click
+  // above -- this exact testid hasn't failed yet, but it's the same fragile pattern, and a
+  // comma-separated CSS selector costs nothing if the testid is still there.
+  submitSelector: 'button[data-testid="AuthDialogSubmitButton"], button:has-text("Agree & Log in")',
   delete: {
     openMenuSelectors: [
       "[aria-label='More options']",
