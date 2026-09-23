@@ -4,13 +4,21 @@ import { createManualAdapter } from "../automation/create-adapter";
 // (loginUrl was previously wrong -- "/us/login/" 404s, the real path is "/login/", fixed here),
 // but Mercari's login is behind reCAPTCHA Enterprise and rejects the automated submission
 // outright with a 403 -- this isn't a selector problem, no amount of selector tweaking gets past
-// it. Password-based automation is unlikely to ever work reliably for this platform; the
-// browser-session connect mechanism built for Poshmark (see app/api/extension/session/route.ts)
-// is the real fix, since the user's own browser passes the CAPTCHA naturally. Delete-flow
-// selectors below remain unverified against a live account -- couldn't get past login to check.
+// it. Password-based automation is unlikely to ever work reliably for this platform. Browser-
+// session connect was tried next and ALSO ruled out for real (2026-09-03): Mercari runs
+// Cloudflare Bot Management, which 403s the server-side verifySession request itself even with
+// valid captured cookies -- the block is on the headless verification navigation, not the login
+// step. Delete-flow selectors below remain unverified against a live account -- couldn't get
+// past login to check.
 export const mercariAdapter = createManualAdapter({
   id: "mercari",
   name: "Mercari",
+  // Retired 2026-09-23, same account-safety pass as every other manual adapter here -- see
+  // ManualAdapterConfig.automationRetired. Mercari was already the clearest example of why: even
+  // session-capture couldn't make server-side verification safe here.
+  automationRetired: {
+    reason: "Mercari's own bot detection already blocks server-side automation (Cloudflare 403s even a valid captured session); posting happens live through your own browser via the extension instead.",
+  },
   loginUrl: "https://www.mercari.com/login/",
   listingUrl: "https://www.mercari.com/sell/",
   usernameSelector: "input[type=\"email\"]",

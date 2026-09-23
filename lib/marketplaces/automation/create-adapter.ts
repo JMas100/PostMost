@@ -63,6 +63,29 @@ export interface ManualAdapterConfig extends AutomationConfig {
   /** See MarketplaceAdapter.validateListing -- a synchronous pre-flight check run at publish
    *  time, before any browser automation. Optional: most platforms have nothing to check here. */
   validateListing?(listing: ListingData): { valid: true } | { valid: false; error: string };
+  /**
+   * When set, this adapter never launches or forwards to real browser automation --
+   * post/delist/updatePrice/verifyLogin/verifySession all return an immediate, clear failure
+   * instead, before ever calling callBrowserWorker/runPlaywrightAutomation/launchBrowser. Set on
+   * every non-API marketplace adapter as of the account-safety pass following a real Poshmark
+   * account getting flagged by bot detection *despite* already using session-connect (no
+   * password typed on our site) -- the finding was that session-connect only changes how
+   * credentials are captured, not what happens afterward: every post, and the daily
+   * account-health-check, still ran headless from a datacenter IP either way, which is exactly
+   * the traffic pattern marketplace bot detection exists to catch. There's no safe middle
+   * ground for unattended server-side automation against these platforms, so this is a hard
+   * stop, not a soft preference -- posting now happens only through the browser extension, live
+   * in the seller's own signed-in tab (see components/marketplace-account-card.tsx).
+   */
+  automationRetired?: { reason: string };
+}
+
+function automationRetiredResult(config: ManualAdapterConfig): PostResult {
+  return { success: false, error: `${config.name} posting happens through the PostMost browser extension now, not automatically -- ${config.automationRetired!.reason}` };
+}
+
+function automationRetiredCredentialResult(config: ManualAdapterConfig): CredentialCheckResult {
+  return { status: "rejected", error: `${config.name} no longer supports connecting an account -- ${config.automationRetired!.reason}` };
 }
 
 function defaultListingSteps(listing: ListingData) {
@@ -139,14 +162,16 @@ export function createManualAdapter(config: ManualAdapterConfig): MarketplaceAda
     name: config.name,
     id: config.id,
     supportsApi: false,
-    supportsAutomation: true,
+    supportsAutomation: !config.automationRetired,
     authType: "manual",
     authFields: [
       { key: "username", label: "Username / email", type: "text" },
       { key: "password", label: "Password", type: "password" },
     ],
     validateListing: config.validateListing,
+    automationRetired: config.automationRetired,
     async post(listing: ListingData, account: PlatformAccount): Promise<PostResult> {
+      if (config.automationRetired) return automationRetiredResult(config);
       if (BROWSER_WORKER_URL) {
         return callBrowserWorker<PostResult>({ platform: config.id, action: "post", listing, account });
       }
@@ -166,6 +191,7 @@ export function createManualAdapter(config: ManualAdapterConfig): MarketplaceAda
       return result;
     },
     async delist(externalId: string, account: PlatformAccount) {
+      if (config.automationRetired) return automationRetiredResult(config);
       if (BROWSER_WORKER_URL) {
         return callBrowserWorker<{ success: boolean; error?: string }>({ platform: config.id, action: "delist", externalId, account });
       }
@@ -201,6 +227,7 @@ export function createManualAdapter(config: ManualAdapterConfig): MarketplaceAda
     ...(config.reprice
       ? {
           async updatePrice(externalId: string, newPrice: number, account: PlatformAccount) {
+            if (config.automationRetired) return automationRetiredResult(config);
             if (BROWSER_WORKER_URL) {
               return callBrowserWorker<{ success: boolean; error?: string }>({
                 platform: config.id,
@@ -241,10 +268,12 @@ export function createManualAdapter(config: ManualAdapterConfig): MarketplaceAda
         }
       : {}),
     async verifyLogin(username: string, password: string): Promise<CredentialCheckResult> {
+      if (config.automationRetired) return automationRetiredCredentialResult(config);
       if (BROWSER_WORKER_URL) return callVerifyOnWorker({ platform: config.id, action: "verifyLogin", username, password });
       return verifyLogin(config.id, config, username, password);
     },
     async verifySession(cookies: SessionCookie[]): Promise<CredentialCheckResult> {
+      if (config.automationRetired) return automationRetiredCredentialResult(config);
       if (BROWSER_WORKER_URL) return callVerifyOnWorker({ platform: config.id, action: "verifySession", cookies });
       return verifySession(config.id, { loginUrl: config.loginUrl, listingUrl: config.listingUrl, passwordSelector: config.passwordSelector }, cookies);
     },

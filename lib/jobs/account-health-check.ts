@@ -34,6 +34,12 @@ export async function runAccountHealthChecks(): Promise<{ checked: number; flagg
     if (!account.accessToken) continue;
     const adapter = getAdapter(account.platform);
     if (!adapter) continue;
+    // Retired platforms' verifySession/verifyLogin already refuse immediately without launching
+    // a browser (see ManualAdapterConfig.automationRetired), so this wouldn't cause a real
+    // headless check either way -- but without this it would flag a confusing needsReauth
+    // ("no longer supports connecting an account") on any leftover connected account instead of
+    // just leaving it alone, which isn't the actionable signal this field means to carry.
+    if (adapter.automationRetired) continue;
 
     try {
       let result;

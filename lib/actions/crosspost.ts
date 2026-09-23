@@ -47,6 +47,12 @@ export async function crossPost(listingId: string, platformIds: string[]) {
       if (!adapter) {
         return { platformId, success: false, error: "Unsupported platform" };
       }
+      // Skip creating a CrossPostJob at all for a retired-automation platform -- post() already
+      // refuses unconditionally (see ManualAdapterConfig.automationRetired), so this is purely
+      // to avoid a PlatformListing/CrossPostJob pair that's only ever going to immediately fail.
+      if (adapter.automationRetired) {
+        return { platformId, success: false, error: adapter.automationRetired.reason };
+      }
 
       // Synchronous, no-I/O pre-flight check -- catches a platform-specific requirement
       // PostMost's own listing data can't always satisfy (e.g. Poshmark needing a Women/Men/
@@ -147,14 +153,18 @@ async function queueBulkJob(listingIds: string[], type: "DELIST" | "RELIST") {
     include: { platformListings: { where: { status: PlatformListingStatus.POSTED } } },
   });
 
+  // Skips a retired-automation platform the same way crossPost() does -- delist/relist server
+  // automation is retired right alongside post, not treated as a lower-risk exception.
   const jobs = listings.flatMap((listing) =>
-    listing.platformListings.map((platformListing) => ({
-      userId,
-      listingId: listing.id,
-      platform: platformListing.platform,
-      type,
-      status: "PENDING",
-    }))
+    listing.platformListings
+      .filter((platformListing) => !getAdapter(platformListing.platform)?.automationRetired)
+      .map((platformListing) => ({
+        userId,
+        listingId: listing.id,
+        platform: platformListing.platform,
+        type,
+        status: "PENDING",
+      }))
   );
   const queued = jobs.length > 0 ? (await prisma.crossPostJob.createMany({ data: jobs })).count : 0;
 
@@ -232,6 +242,10 @@ export async function bulkPostToMore(
         skipped.push({ listingTitle: listing.title, platformId, reason: "Unsupported platform" });
         continue;
       }
+      if (adapter.automationRetired) {
+        skipped.push({ listingTitle: listing.title, platformId, reason: adapter.automationRetired.reason });
+        continue;
+      }
 
       const validation = adapter.validateListing?.({
         ...listingDescriptionFields(listing),
@@ -297,7 +311,13 @@ export async function queueRepriceJobs(listingIds: string[]): Promise<{ success:
 
   const jobs = listings.flatMap((listing) =>
     listing.platformListings
-      .filter((platformListing) => Boolean(getAdapter(platformListing.platform)?.updatePrice))
+      .filter((platformListing) => {
+        const adapter = getAdapter(platformListing.platform);
+        // updatePrice still exists as a function on a retired adapter (it immediately refuses,
+        // same as post/delist), so this needs its own check -- Boolean(adapter?.updatePrice)
+        // alone wouldn't exclude it.
+        return Boolean(adapter?.updatePrice) && !adapter?.automationRetired;
+      })
       .map((platformListing) => ({
         userId,
         listingId: listing.id,

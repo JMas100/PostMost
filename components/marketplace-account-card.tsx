@@ -2,11 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import {
-  connectMarketplaceAccount,
-  disconnectMarketplaceAccount,
-  getOAuthUrl,
-} from "@/lib/actions/accounts";
+import { disconnectMarketplaceAccount, getOAuthUrl } from "@/lib/actions/accounts";
 import { PLATFORMS } from "@/lib/marketplaces/platforms";
 import { useExtensionDetector } from "@/components/publish-panel/use-extension-detector";
 import { Button } from "@/components/ui/button";
@@ -17,14 +13,12 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { PlatformLogo } from "@/components/platform-logo";
 import { AutoDelistToggle } from "@/components/automation/auto-delist-toggle";
 import { toast } from "sonner";
-import { ExternalLink, Link2, Unlink, ShieldCheck, Eye, EyeOff } from "lucide-react";
+import { ExternalLink, Link2, Unlink, ShieldCheck, Info } from "lucide-react";
 import { cn, formatCurrency } from "@/lib/utils";
 
 export type AccountView = {
@@ -44,16 +38,6 @@ export type AccountView = {
   needsReauthReason: string | null;
 };
 
-// Must match SESSION_AUTH_PLATFORMS in app/api/extension/session/route.ts. Poshmark proved the
-// whole chain end-to-end. Mercari was tried and removed (2026-09-03): it runs Cloudflare Bot
-// Management, which 403s the headless-Playwright verification request itself regardless of
-// cookie validity -- see that file's comment for the full finding.
-const SESSION_AUTH_PLATFORMS = new Set(["poshmark"]);
-
-const LOGIN_URLS: Record<string, string> = {
-  poshmark: "https://poshmark.com/login",
-};
-
 export interface PlatformStats {
   posted: number;
   failed: number;
@@ -66,8 +50,8 @@ interface MarketplaceAccountCardProps {
   account?: AccountView;
   stats?: PlatformStats;
   /** MEMBER can't connect/disconnect marketplace accounts -- server-side enforced already
-   *  (connectMarketplaceAccount/disconnectMarketplaceAccount/getOAuthUrl all throw for that
-   *  role), this just avoids showing controls that would immediately fail. */
+   *  (disconnectMarketplaceAccount/getOAuthUrl both throw for that role), this just avoids
+   *  showing controls that would immediately fail. */
   canManage?: boolean;
 }
 
@@ -84,7 +68,7 @@ export function MarketplaceAccountCard({ platform, account, stats, canManage = t
           <div className="min-w-0">
             <p className="truncate font-medium">{platform.name}</p>
             <p className="truncate text-xs text-muted-foreground">
-              {account ? account.displayName : platform.authType === "oauth" ? "OAuth" : "Manual / Automation"}
+              {account ? account.displayName : platform.authType === "oauth" ? "OAuth" : "Posts via your browser"}
             </p>
             {account?.needsReauth && (
               <p className="truncate text-xs text-warning">{account.needsReauthReason ?? "Needs reconnecting"}</p>
@@ -92,8 +76,16 @@ export function MarketplaceAccountCard({ platform, account, stats, canManage = t
           </div>
         </div>
         <div className="flex flex-none items-center gap-2">
-          <Badge variant={!account ? "secondary" : account.needsReauth ? "warningTint" : "live"}>
-            {!account ? "Not connected" : account.needsReauth ? "Needs reconnecting" : "Connected"}
+          <Badge
+            variant={!account ? (platform.authType === "manual" ? "live" : "secondary") : account.needsReauth ? "warningTint" : "live"}
+          >
+            {!account
+              ? platform.authType === "manual"
+                ? "Via extension"
+                : "Not connected"
+              : account.needsReauth
+                ? "Needs reconnecting"
+                : "Connected"}
           </Badge>
           {canManage ? (
             <ConnectDialog platform={platform} account={account} />
@@ -143,67 +135,32 @@ interface DialogProps {
 
 export function ConnectDialog({ platform, account }: DialogProps) {
   const [open, setOpen] = useState(false);
-  const extensionInstalled = useExtensionDetector();
-  const supportsSessionAuth = SESSION_AUTH_PLATFORMS.has(platform.id) && platform.authType === "manual";
-  const [tab, setTab] = useState<"session" | "password">(
-    account?.authMethod === "password" ? "password" : "session"
-  );
-
-  const offerSessionTab = supportsSessionAuth && extensionInstalled === true;
+  const isManual = platform.authType === "manual";
 
   return (
     <>
       <Button variant="outline" size="sm" onClick={() => setOpen(true)}>
-        {account ? <Unlink className="mr-1 h-3 w-3" /> : <Link2 className="mr-1 h-3 w-3" />}
-        {account ? "Manage" : "Connect"}
+        {account ? <Unlink className="mr-1 h-3 w-3" /> : isManual ? <Info className="mr-1 h-3 w-3" /> : <Link2 className="mr-1 h-3 w-3" />}
+        {account ? "Manage" : isManual ? "How this works" : "Connect"}
       </Button>
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <PlatformLogo platform={platform.id} size={40} onDark showLabel={false} />
-              {account ? "Manage" : "Connect"} {platform.name}
+              {account ? "Manage" : isManual ? "How" : "Connect"} {platform.name}
+              {!account && isManual ? " posting works" : ""}
             </DialogTitle>
             <DialogDescription>
               {platform.authType === "oauth"
                 ? "Authorize PostMost to list items on your behalf."
-                : `${platform.name} doesn't offer a public API, so PostMost signs into your account directly — the same as you would in a browser — to post and remove listings on your behalf.`}
+                : `${platform.name} doesn't offer a public API. Rather than signing into your account from our servers -- exactly the kind of automated traffic marketplace bot detection exists to catch -- the PostMost browser extension fills out the real listing live, in your own already-signed-in tab, whenever you publish.`}
             </DialogDescription>
           </DialogHeader>
           {platform.authType === "oauth" ? (
             <OAuthForm platform={platform} account={account} onDone={() => setOpen(false)} />
-          ) : offerSessionTab ? (
-            <>
-              <div className="flex gap-1 rounded-md bg-muted p-1 text-sm">
-                <button
-                  type="button"
-                  onClick={() => setTab("session")}
-                  className={cn(
-                    "flex-1 rounded px-3 py-1.5 font-medium transition-colors",
-                    tab === "session" ? "bg-background shadow-sm" : "text-muted-foreground"
-                  )}
-                >
-                  Browser session
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setTab("password")}
-                  className={cn(
-                    "flex-1 rounded px-3 py-1.5 font-medium transition-colors",
-                    tab === "password" ? "bg-background shadow-sm" : "text-muted-foreground"
-                  )}
-                >
-                  Username &amp; password
-                </button>
-              </div>
-              {tab === "session" ? (
-                <SessionConnectForm platform={platform} account={account} onDone={() => setOpen(false)} />
-              ) : (
-                <ManualForm platform={platform} account={account} onDone={() => setOpen(false)} />
-              )}
-            </>
           ) : (
-            <ManualForm platform={platform} account={account} onDone={() => setOpen(false)} />
+            <ExtensionOnlyInfo platform={platform} account={account} onDone={() => setOpen(false)} />
           )}
         </DialogContent>
       </Dialog>
@@ -211,89 +168,64 @@ export function ConnectDialog({ platform, account }: DialogProps) {
   );
 }
 
-function SessionConnectForm({ platform, account, onDone }: FormProps) {
+/** Replaces the old password/session connect forms for every manual-adapter platform -- server-
+ *  side automation is retired (see ManualAdapterConfig.automationRetired) after a real,
+ *  session-connected Poshmark account was flagged by bot detection despite never having a
+ *  password on our site: the risk was never the password, it was the ongoing headless traffic
+ *  itself. There is no "connect" step anymore -- the extension fills the real listing live in
+ *  the seller's own tab whenever they publish. `account` being present here only ever means a
+ *  leftover connection from before this change; the only action offered for it is Disconnect. */
+function ExtensionOnlyInfo({ platform, account, onDone }: FormProps) {
   const router = useRouter();
-  const [step, setStep] = useState<"start" | "ready">("start");
-  // Deliberately not useTransition here: the "pending" period is bounded by an external
-  // postMessage round-trip through the extension (which can take 15-20s, it launches a real
-  // Playwright check), not a React state transition — startTransition's isPending only tracks
-  // until its callback returns, which happens immediately since nothing in it is awaited.
-  const [isVerifying, setIsVerifying] = useState(false);
+  const [isPending, startTransition] = useTransition();
+  const extensionInstalled = useExtensionDetector();
 
-  function openLogin() {
-    window.open(LOGIN_URLS[platform.id], "_blank", "noopener,noreferrer");
-    setStep("ready");
-  }
-
-  function captureSession() {
-    setIsVerifying(true);
-
-    function onMessage(event: MessageEvent) {
-      if (event.source !== window) return;
-      const data = event.data;
-      if (!data || data.source !== "postmost-extension" || data.platform !== platform.id) return;
-      if (data.type === "SESSION_CAPTURED") {
-        window.removeEventListener("message", onMessage);
-        setIsVerifying(false);
-        toast.success(`${platform.name} connected via browser session`);
+  function handleDisconnect() {
+    if (!account) return;
+    startTransition(async () => {
+      try {
+        await disconnectMarketplaceAccount(account.id);
+        toast.success(`${platform.name} account disconnected`);
         onDone();
         router.refresh();
-      } else if (data.type === "SESSION_CAPTURE_ERROR") {
-        window.removeEventListener("message", onMessage);
-        setIsVerifying(false);
-        toast.error(data.message || `Couldn't connect ${platform.name}`);
+      } catch (err) {
+        const message = err instanceof Error ? err.message : "Failed to disconnect";
+        toast.error(message);
       }
-    }
-    window.addEventListener("message", onMessage);
-    window.postMessage({ source: "postmost", type: "CAPTURE_SESSION", platform: platform.id }, "*");
-
-    // The extension always responds (success or error) -- this timeout is a safety net in case
-    // a message gets dropped, not the primary completion path.
-    setTimeout(() => {
-      window.removeEventListener("message", onMessage);
-      setIsVerifying((wasVerifying) => {
-        if (wasVerifying) toast.error(`${platform.name} connection timed out — try again.`);
-        return false;
-      });
-    }, 45_000);
+    });
   }
 
   return (
     <div className="space-y-4 pt-2">
+      {account && (
+        <div className="rounded-md border bg-warning/10 p-3 text-sm">
+          <p className="text-muted-foreground">
+            {account.displayName} is still connected from before {platform.name} posting moved to
+            the browser extension. It&apos;s no longer used for anything -- disconnecting it is
+            safe and doesn&apos;t change how posting works.
+          </p>
+        </div>
+      )}
       <div className="flex items-start gap-2 rounded-md border bg-muted/40 p-3 text-sm">
         <ShieldCheck className="mt-0.5 h-4 w-4 flex-none text-primary" />
         <p className="text-muted-foreground">
-          PostMost never sees your {platform.name} password — it uses the session from your own
-          logged-in browser instead, so two-factor authentication works normally.
+          Nothing runs on our servers for {platform.name}. When you hit Publish, the extension
+          opens {platform.name} in a new tab — already signed in as you — and fills out the real
+          listing form live. You review and submit it yourself, the same as posting by hand.
         </p>
       </div>
-      {step === "start" ? (
-        <Button type="button" onClick={openLogin} className="w-full">
-          Open {platform.name} login <ExternalLink className="ml-2 h-4 w-4" />
-        </Button>
+      {extensionInstalled === true ? (
+        <p className="text-sm text-success">The extension is installed and ready — just publish normally.</p>
       ) : (
-        <div className="space-y-3">
-          <p className="text-sm text-muted-foreground">
-            Log in to {platform.name} in the tab that opened — including any verification step —
-            then come back here.
-          </p>
-          <Button type="button" onClick={captureSession} disabled={isVerifying} className="w-full">
-            {isVerifying ? "Verifying..." : "I've logged in — connect my session"}
-          </Button>
-          <button
-            type="button"
-            className="w-full text-center text-xs text-muted-foreground underline"
-            onClick={openLogin}
-          >
-            Reopen the login page
-          </button>
-        </div>
+        <p className="text-sm text-muted-foreground">
+          The PostMost browser extension doesn&apos;t look installed in this browser yet — load it
+          to publish to {platform.name}.
+        </p>
       )}
       {account && (
-        <p className="text-center text-xs text-muted-foreground">
-          Currently connected{account.authMethod === "session" ? " via browser session" : " with a password"}.
-          Connecting again replaces it.
-        </p>
+        <Button variant="destructive" onClick={handleDisconnect} disabled={isPending} className="w-full">
+          {isPending ? "Disconnecting..." : "Disconnect"}
+        </Button>
       )}
     </div>
   );
@@ -370,167 +302,3 @@ function OAuthForm({ platform, account, onDone }: FormProps) {
   );
 }
 
-function ManualForm({ platform, account, onDone }: FormProps) {
-  const router = useRouter();
-  const [isPending, startTransition] = useTransition();
-  const [showSecret, setShowSecret] = useState(false);
-  const [displayName, setDisplayName] = useState(account?.displayName ?? "");
-  const [password, setPassword] = useState("");
-  // A toast for this was real feedback the user could easily miss entirely -- it renders in a
-  // corner, disappears on its own timer, and this check can take several real seconds (a real
-  // headless browser navigating the platform's actual login flow), so anyone who looked away
-  // during that wait had no way to find out what happened afterward. Inline, persistent error
-  // state instead, matching the login page's own established pattern (red field wash + message
-  // that stays until the user acts).
-  const [error, setError] = useState<string | null>(null);
-
-  function handleSubmit() {
-    setError(null);
-    if (!displayName.trim()) {
-      setError("Username is required");
-      return;
-    }
-    if (!account?.hasCredentials && !password.trim()) {
-      setError("Password is required");
-      return;
-    }
-
-    startTransition(async () => {
-      try {
-        const result = await connectMarketplaceAccount({
-          platform: platform.id,
-          displayName,
-          // The adapter logs in with these directly — externalId is the username,
-          // accessToken is the password. There's no OAuth token here to speak of.
-          accessToken: password || undefined,
-          externalId: displayName,
-        });
-        // Expected failures (wrong credentials, rate limit, plan limit) come back as data now,
-        // not a thrown error -- Next.js masks any thrown Server Action error's message in
-        // production by default (confirmed live: a real credential rejection surfaced to the
-        // user as an opaque "Minified React error #441" instead of the actual reason), so this
-        // has to check the result instead of relying on the catch block below for these.
-        if (!result.success) {
-          setError(result.error);
-          return;
-        }
-        toast.success(`${platform.name} account connected`);
-        onDone();
-        router.refresh();
-      } catch (err) {
-        const message = err instanceof Error ? err.message : "Failed to connect account";
-        setError(message);
-      }
-    });
-  }
-
-  function handleDisconnect() {
-    if (!account) return;
-    startTransition(async () => {
-      try {
-        await disconnectMarketplaceAccount(account.id);
-        toast.success(`${platform.name} account disconnected`);
-        onDone();
-        router.refresh();
-      } catch (err) {
-        const message = err instanceof Error ? err.message : "Failed to disconnect";
-        toast.error(message);
-      }
-    });
-  }
-
-  function handleKeyDown(event: React.KeyboardEvent) {
-    if (event.key === "Enter") {
-      event.preventDefault();
-      handleSubmit();
-    }
-  }
-
-  return (
-    // Not a <form> -- confirmed live that field-level fixes alone (type, name, autoComplete)
-    // didn't stop Chrome from still suggesting/offering saved postmost.co credentials here.
-    // Chrome's account-integrated password manager can key its heuristic off the presence of a
-    // <form> containing a text-ish field + adjacent field + submit control, largely independent
-    // of individual attributes -- removing the <form> element itself (controlled inputs +
-    // onClick instead of onSubmit, Enter handled manually below) is the one technique reliably
-    // reported to actually stop this, rather than another attribute that Chrome may or may not
-    // honor. See the fields below for what's still kept as defense in depth regardless.
-    <div className="space-y-4 pt-2">
-      <div className="space-y-2">
-        <Label htmlFor={`${platform.id}-displayName`}>Username or email</Label>
-        <Input
-          id={`${platform.id}-displayName`}
-          autoComplete="off"
-          data-1p-ignore
-          data-lpignore="true"
-          data-bwignore
-          value={displayName}
-          onChange={(e) => { setDisplayName(e.target.value); setError(null); }}
-          onKeyDown={handleKeyDown}
-          placeholder={`Your ${platform.name} login`}
-          aria-invalid={Boolean(error)}
-          className={error ? "border-destructive bg-destructive/5" : undefined}
-          required
-        />
-      </div>
-      <div className="space-y-2">
-        <Label htmlFor={`${platform.id}-secret`}>Password</Label>
-        <div className="relative">
-          {/* Not type="password" -- confirmed live that neither autoComplete="new-password"
-              nor a neutral field name stopped Chrome from still offering to save this as the
-              postmost.co password (it keys its save-prompt heuristic off the input TYPE first,
-              before any attribute). Masked instead via -webkit-text-security, which a real
-              password manager's form-detection doesn't key off at all. Trade-off: that CSS
-              property is WebKit/Blink-only (Chrome, Safari, Edge) -- Firefox has no equivalent,
-              so this renders as plain visible text there. Not a security regression (the value
-              is encrypted the same way once submitted either way), just a lost masking nicety
-              on one browser, in exchange for the prompt never firing on any of them. */}
-          <Input
-            id={`${platform.id}-secret`}
-            type="text"
-            autoComplete="off"
-            data-1p-ignore
-            data-lpignore="true"
-            data-bwignore
-            value={password}
-            onChange={(e) => { setPassword(e.target.value); setError(null); }}
-            onKeyDown={handleKeyDown}
-            placeholder={account?.hasCredentials ? "Leave blank to keep your current password" : "Your account password"}
-            aria-invalid={Boolean(error)}
-            className={cn("pr-9", error && "border-destructive bg-destructive/5")}
-            style={showSecret ? undefined : ({ WebkitTextSecurity: "disc" } as React.CSSProperties)}
-          />
-          <button
-            type="button"
-            onClick={() => setShowSecret((v) => !v)}
-            tabIndex={-1}
-            className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-            aria-label={showSecret ? "Hide password" : "Show password"}
-          >
-            {showSecret ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-          </button>
-        </div>
-      </div>
-      {error && (
-        <p className="text-sm text-destructive" role="alert">
-          {error}
-        </p>
-      )}
-      <p className="text-xs text-muted-foreground">
-        Stored encrypted, used only to sign in and manage listings on {platform.name} on your
-        behalf. Never shown again after you save it. If a password is entered, PostMost signs
-        into {platform.name} to confirm it works before saving — this takes a few seconds.
-      </p>
-      <div className="flex gap-2 pt-2">
-        <Button type="button" onClick={handleSubmit} disabled={isPending} className="flex-1">
-          {isPending ? "Verifying..." : account ? "Update" : "Connect"}
-        </Button>
-        {account && (
-          <Button type="button" variant="destructive" disabled={isPending} onClick={handleDisconnect}>
-            Disconnect
-          </Button>
-        )}
-      </div>
-    </div>
-  );
-}

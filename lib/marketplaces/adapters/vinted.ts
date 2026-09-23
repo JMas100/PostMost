@@ -5,6 +5,11 @@ import { createManualAdapter } from "../automation/create-adapter";
 export const vintedAdapter = createManualAdapter({
   id: "vinted",
   name: "Vinted",
+  // Retired 2026-09-23, same account-safety pass as every other manual adapter here -- see
+  // ManualAdapterConfig.automationRetired.
+  automationRetired: {
+    reason: "unattended server-side automation carries the same bot-detection risk that just got a real Poshmark account flagged; posting now happens live through your own browser via the extension.",
+  },
   loginUrl: "https://www.vinted.com/login",
   listingUrl: "https://www.vinted.com/items/new",
   usernameSelector: "input[type=\"email\"]",

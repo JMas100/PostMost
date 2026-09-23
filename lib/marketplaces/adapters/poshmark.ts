@@ -252,6 +252,13 @@ const poshmarkListingSteps: AutomationStep[] = [
 export const poshmarkAdapter = createManualAdapter({
   id: "poshmark",
   name: "Poshmark",
+  // Retired 2026-09-23: a real, session-connected account got flagged by Poshmark's own bot
+  // detection this week -- proof that session-connect alone (no password on our site) doesn't
+  // make ongoing server-side automation safe, since posting and the daily health-check both
+  // still ran headless from a datacenter IP either way. See ManualAdapterConfig.automationRetired.
+  automationRetired: {
+    reason: "a connected account was flagged by Poshmark's bot detection despite using session-connect; posting now happens live through your own browser via the extension.",
+  },
   loginUrl: "https://poshmark.com/login",
   listingUrl: "https://poshmark.com/create-listing",
   usernameSelector: "input[name=\"login_form[username_email]\"]",

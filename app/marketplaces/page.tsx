@@ -182,9 +182,10 @@ export default async function MarketplacesPage(props: {
           <div>
             <h2 className="text-lg font-semibold">Through your browser</h2>
             <p className="text-sm text-muted-foreground">
-              These have no public API, so the extension posts as you, in your own signed-in session. We never see
-              or type your password — which is also how Mercari works at all, since its login is behind a CAPTCHA
-              no automation can pass.
+              These have no public API, so posting happens live in the PostMost extension, in your own signed-in
+              browser tab, every time. We never see or store a password for any of these, and nothing runs
+              unattended on our servers — that&apos;s a deliberate choice, not a current limitation: it&apos;s what
+              keeps your account safe from the marketplace&apos;s own bot detection.
             </p>
           </div>
           <div className="grid gap-4 sm:grid-cols-2">

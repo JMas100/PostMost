@@ -77,6 +77,13 @@ const preLoginSteps = [
 export const offerupAdapter = createManualAdapter({
   id: "offerup",
   name: "OfferUp",
+  // Retired 2026-09-23, same account-safety pass as every other manual adapter here -- see
+  // ManualAdapterConfig.automationRetired. This one's real login-verify work (the preLoginSteps
+  // above, the stale-testid fix) stays in place, inert, rather than being deleted, in case
+  // server automation is ever safe enough to reconsider.
+  automationRetired: {
+    reason: "unattended server-side automation carries the same bot-detection risk that just got a real Poshmark account flagged; posting now happens live through your own browser via the extension.",
+  },
   loginUrl: "https://offerup.com/login/",
   listingUrl: "https://offerup.com/item/new/",
   preLoginSteps,

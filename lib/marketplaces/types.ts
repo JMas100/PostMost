@@ -111,4 +111,10 @@ export interface MarketplaceAdapter {
    *  equivalent field in our own listing model). Lets the user fix it immediately in the publish
    *  UI instead of discovering the failure only after the job runs and fails on a live browser. */
   validateListing?(listing: ListingData): { valid: true } | { valid: false; error: string };
+  /** Set when this platform's server-side browser automation has been deliberately disabled --
+   *  see ManualAdapterConfig.automationRetired for the full reasoning. Exposed here (not just
+   *  enforced inside post/delist/etc., which already refuse unconditionally) so callers that
+   *  queue work (crossPost, bulk actions) can skip creating a CrossPostJob for one at all,
+   *  instead of creating one that's only going to immediately fail. */
+  automationRetired?: { reason: string };
 }
