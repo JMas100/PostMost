@@ -457,12 +457,17 @@ function ManualForm({ platform, account, onDone }: FormProps) {
               property is WebKit/Blink-only (Chrome, Safari, Edge) -- Firefox has no equivalent,
               so this renders as plain visible text there. Not a security regression (the value
               is encrypted the same way once submitted either way), just a lost masking nicety
-              on one browser, in exchange for the prompt never firing on any of them. */}
+              on one browser, in exchange for the prompt never firing on any of them.
+              autoComplete is "off", not "new-password" -- that value is itself an explicit
+              semantic hint ("this is a password field") independent of `type`, and keeping it
+              here after switching off type="password" would silently undo the whole point of
+              switching: confirmed live, the prompt still fired with type="text" +
+              autoComplete="new-password" together. */}
           <Input
             id={`${platform.id}-secret`}
             name="marketplaceSecret"
             type="text"
-            autoComplete="new-password"
+            autoComplete="off"
             data-1p-ignore
             data-lpignore="true"
             data-bwignore
