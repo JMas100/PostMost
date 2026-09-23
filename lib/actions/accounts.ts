@@ -65,14 +65,26 @@ export async function getMarketplaceAccounts() {
   });
 }
 
-export async function connectMarketplaceAccount(input: AccountConnectionInput) {
+/** Next.js masks the message of ANY error thrown from a Server Action in production by
+ *  default (surfaces client-side as an opaque "Minified React error #441", confirmed live) --
+ *  this isn't a bug in this app, it's the documented, intentional behavior, and their own docs
+ *  recommend returning expected/user-facing failures as data instead of throwing for exactly
+ *  this reason. `throw` here is now reserved for genuinely unexpected crashes (a real bug),
+ *  which SHOULD stay opaque to the client -- rate limits, plan limits, and a rejected credential
+ *  check are all expected, actionable outcomes a real user needs to actually read. */
+type StoredMarketplaceAccount = Awaited<ReturnType<typeof prisma.marketplaceAccount.create>>;
+export type ConnectAccountResult =
+  | { success: true; account: Omit<StoredMarketplaceAccount, "accessToken" | "refreshToken"> & { accessToken: null; refreshToken: null } }
+  | { success: false; error: string };
+
+export async function connectMarketplaceAccount(input: AccountConnectionInput): Promise<ConnectAccountResult> {
   const ctx = await requireWorkspace();
   requireRole(ctx, ["OWNER", "ADMIN"]);
   const userId = ctx.workspaceUserId;
 
   const rateCheck = await checkRateLimit(`connect-marketplace:${userId}`, { windowMs: CONNECT_WINDOW_MS, max: CONNECT_MAX_PER_WINDOW });
   if (!rateCheck.allowed) {
-    throw new Error("Too many connection attempts. Please wait a bit and try again.");
+    return { success: false, error: "Too many connection attempts. Please wait a bit and try again." };
   }
 
   const activeAccountForPlatform = await prisma.marketplaceAccount.findFirst({
@@ -82,7 +94,7 @@ export async function connectMarketplaceAccount(input: AccountConnectionInput) {
   if (!activeAccountForPlatform) {
     const gate = await canConnectMarketplace(userId, input.platform);
     if (!gate.allowed) {
-      throw new Error(gate.reason);
+      return { success: false, error: gate.reason || "This plan doesn't allow connecting this marketplace." };
     }
   }
 
@@ -113,20 +125,10 @@ export async function connectMarketplaceAccount(input: AccountConnectionInput) {
   // for those -- input.accessToken there is a cookie array, not a password.
   if (input.accessToken && input.authMethod !== "session") {
     const adapter = getAdapter(input.platform);
-    // Temporary, unconditional trace -- a real wrong-password OfferUp connect saved cleanly
-    // with zero trace on either the Vercel or worker side, and neither prior diagnostic
-    // (callVerifyOnWorker's catch, verifyLogin's own worker-side log) ever fired. This settles
-    // whether this block is even being entered and what it decides, before guessing further.
-    console.error(
-      `[connect-debug] platform=${input.platform} hasAdapter=${Boolean(adapter)} hasVerifyLogin=${Boolean(adapter?.verifyLogin)}`
-    );
     if (adapter?.verifyLogin) {
       const check = await adapter.verifyLogin(input.displayName, input.accessToken);
-      console.error(
-        `[connect-debug] platform=${input.platform} verifyLogin result: status=${check.status} error=${"error" in check ? check.error : "none"}`
-      );
       if (check.status === "rejected") {
-        throw new Error(`Couldn't sign in to ${adapter.name} with these credentials: ${check.error}`);
+        return { success: false, error: `Couldn't sign in to ${adapter.name} with these credentials: ${check.error}` };
       }
     }
   }

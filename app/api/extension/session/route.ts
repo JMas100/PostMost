@@ -97,6 +97,13 @@ export async function POST(req: NextRequest) {
       accessToken: JSON.stringify(cookies),
       authMethod: "session",
     });
+    // connectMarketplaceAccount now returns expected failures (rate limit, plan limit) as data
+    // rather than throwing -- see its own doc comment for why -- so this needs its own check,
+    // not just try/catch, to keep surfacing them as a real error response instead of a
+    // false-success 200 with a `{ success: false }` body the extension doesn't expect.
+    if (!result.success) {
+      return NextResponse.json({ error: result.error }, { status: 400 });
+    }
     return NextResponse.json(result);
   } catch (err) {
     const message = err instanceof Error ? err.message : "Failed to save session";

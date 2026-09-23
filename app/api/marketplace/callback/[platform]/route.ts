@@ -80,7 +80,7 @@ export async function GET(request: NextRequest, props: { params: Promise<{ platf
       codeVerifier ? { codeVerifier } : undefined
     );
 
-    await connectMarketplaceAccount({
+    const result = await connectMarketplaceAccount({
       platform,
       displayName: token.displayName || `${adapter.name} account`,
       accessToken: token.accessToken,
@@ -88,6 +88,15 @@ export async function GET(request: NextRequest, props: { params: Promise<{ platf
       tokenExpiresAt: token.tokenExpiresAt,
       externalId: token.externalId,
     });
+    // connectMarketplaceAccount now returns expected failures (rate limit, plan limit) as data
+    // rather than throwing -- see its own doc comment for why -- so this needs its own check to
+    // still redirect with a real ?error= message instead of falling through to the success
+    // redirect below.
+    if (!result.success) {
+      return NextResponse.redirect(
+        new URL(`/marketplaces?error=${encodeURIComponent(result.error)}`, process.env.NEXTAUTH_URL)
+      );
+    }
 
     return NextResponse.redirect(
       new URL(

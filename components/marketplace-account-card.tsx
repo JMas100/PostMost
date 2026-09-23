@@ -374,13 +374,10 @@ function ManualForm({ platform, account, onDone }: FormProps) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [showSecret, setShowSecret] = useState(false);
+  const [displayName, setDisplayName] = useState(account?.displayName ?? "");
+  const [password, setPassword] = useState("");
 
-  function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    const formData = new FormData(event.currentTarget);
-    const displayName = formData.get("displayName") as string;
-    const password = formData.get("marketplaceSecret") as string;
-
+  function handleSubmit() {
     if (!displayName.trim()) {
       toast.error("Username is required");
       return;
@@ -392,7 +389,7 @@ function ManualForm({ platform, account, onDone }: FormProps) {
 
     startTransition(async () => {
       try {
-        await connectMarketplaceAccount({
+        const result = await connectMarketplaceAccount({
           platform: platform.id,
           displayName,
           // The adapter logs in with these directly — externalId is the username,
@@ -400,6 +397,15 @@ function ManualForm({ platform, account, onDone }: FormProps) {
           accessToken: password || undefined,
           externalId: displayName,
         });
+        // Expected failures (wrong credentials, rate limit, plan limit) come back as data now,
+        // not a thrown error -- Next.js masks any thrown Server Action error's message in
+        // production by default (confirmed live: a real credential rejection surfaced to the
+        // user as an opaque "Minified React error #441" instead of the actual reason), so this
+        // has to check the result instead of relying on the catch block below for these.
+        if (!result.success) {
+          toast.error(result.error);
+          return;
+        }
         toast.success(`${platform.name} account connected`);
         onDone();
         router.refresh();
@@ -425,23 +431,34 @@ function ManualForm({ platform, account, onDone }: FormProps) {
     });
   }
 
+  function handleKeyDown(event: React.KeyboardEvent) {
+    if (event.key === "Enter") {
+      event.preventDefault();
+      handleSubmit();
+    }
+  }
+
   return (
-    <form onSubmit={handleSubmit} className="space-y-4 pt-2" autoComplete="off">
-      {/* Browsers/password managers key off type="password" + adjacent text input to decide
-          "this looks like a login form for the current site" and offer to fill in PostMost's
-          own saved credentials -- these fields are for a *different* site's login, so
-          autoComplete is deliberately set to values that tell every major password manager
-          (Chrome, Safari/iCloud Keychain, 1Password, LastPass, Bitwarden) not to touch them. */}
+    // Not a <form> -- confirmed live that field-level fixes alone (type, name, autoComplete)
+    // didn't stop Chrome from still suggesting/offering saved postmost.co credentials here.
+    // Chrome's account-integrated password manager can key its heuristic off the presence of a
+    // <form> containing a text-ish field + adjacent field + submit control, largely independent
+    // of individual attributes -- removing the <form> element itself (controlled inputs +
+    // onClick instead of onSubmit, Enter handled manually below) is the one technique reliably
+    // reported to actually stop this, rather than another attribute that Chrome may or may not
+    // honor. See the fields below for what's still kept as defense in depth regardless.
+    <div className="space-y-4 pt-2">
       <div className="space-y-2">
         <Label htmlFor={`${platform.id}-displayName`}>Username or email</Label>
         <Input
           id={`${platform.id}-displayName`}
-          name="displayName"
           autoComplete="off"
           data-1p-ignore
           data-lpignore="true"
           data-bwignore
-          defaultValue={account?.displayName ?? ""}
+          value={displayName}
+          onChange={(e) => setDisplayName(e.target.value)}
+          onKeyDown={handleKeyDown}
           placeholder={`Your ${platform.name} login`}
           required
         />
@@ -457,20 +474,17 @@ function ManualForm({ platform, account, onDone }: FormProps) {
               property is WebKit/Blink-only (Chrome, Safari, Edge) -- Firefox has no equivalent,
               so this renders as plain visible text there. Not a security regression (the value
               is encrypted the same way once submitted either way), just a lost masking nicety
-              on one browser, in exchange for the prompt never firing on any of them.
-              autoComplete is "off", not "new-password" -- that value is itself an explicit
-              semantic hint ("this is a password field") independent of `type`, and keeping it
-              here after switching off type="password" would silently undo the whole point of
-              switching: confirmed live, the prompt still fired with type="text" +
-              autoComplete="new-password" together. */}
+              on one browser, in exchange for the prompt never firing on any of them. */}
           <Input
             id={`${platform.id}-secret`}
-            name="marketplaceSecret"
             type="text"
             autoComplete="off"
             data-1p-ignore
             data-lpignore="true"
             data-bwignore
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            onKeyDown={handleKeyDown}
             placeholder={account?.hasCredentials ? "Leave blank to keep your current password" : "Your account password"}
             className="pr-9"
             style={showSecret ? undefined : ({ WebkitTextSecurity: "disc" } as React.CSSProperties)}
@@ -492,7 +506,7 @@ function ManualForm({ platform, account, onDone }: FormProps) {
         into {platform.name} to confirm it works before saving — this takes a few seconds.
       </p>
       <div className="flex gap-2 pt-2">
-        <Button type="submit" disabled={isPending} className="flex-1">
+        <Button type="button" onClick={handleSubmit} disabled={isPending} className="flex-1">
           {isPending ? "Verifying..." : account ? "Update" : "Connect"}
         </Button>
         {account && (
@@ -501,6 +515,6 @@ function ManualForm({ platform, account, onDone }: FormProps) {
           </Button>
         )}
       </div>
-    </form>
+    </div>
   );
 }
