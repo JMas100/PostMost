@@ -128,7 +128,19 @@ export async function connectMarketplaceAccount(input: AccountConnectionInput): 
     if (adapter?.verifyLogin) {
       const check = await adapter.verifyLogin(input.displayName, input.accessToken);
       if (check.status === "rejected") {
-        return { success: false, error: `Couldn't sign in to ${adapter.name} with these credentials: ${check.error}` };
+        // Leads with the plain, actionable read ("username or password is wrong") rather than
+        // just relaying the raw signal (previously "...with these credentials: The login form
+        // didn't accept these credentials", which just restates that it failed without saying
+        // what to do about it). The generic fallback reason (attemptLogin's own default when no
+        // specific rejection text was found on the page) says nothing beyond that already, so
+        // it's only appended when it's something more specific -- a matched site error phrase
+        // (e.g. "The site reported: \"Your account has been locked\"") actually worth surfacing.
+        const detail =
+          check.error && check.error !== "The login form didn't accept these credentials" ? ` (${check.error})` : "";
+        return {
+          success: false,
+          error: `${adapter.name} didn't accept that username or password — double-check them and try again.${detail}`,
+        };
       }
     }
   }
