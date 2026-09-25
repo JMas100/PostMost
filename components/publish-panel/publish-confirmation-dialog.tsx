@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
@@ -13,6 +13,7 @@ import { cn } from "@/lib/utils";
 import { PlatformListingSummary } from "./types";
 
 const ACTIVE_STATUSES = new Set(["PENDING", "RUNNING"]);
+const EXTENSION_POLL_MS = 3500;
 
 /**
  * The payoff for a publish -- watched live as each marketplace confirms, not asserted with a
@@ -23,6 +24,12 @@ const ACTIVE_STATUSES = new Set(["PENDING", "RUNNING"]);
  * The headline counts what went live, never what failed -- three of four succeeding is still the
  * product doing what it promised, and framing it as an error teaches the opposite. Retry is
  * always scoped to the one marketplace that needs it.
+ *
+ * "done" only ever tracks automation rows -- they're the only ones that resolve on their own
+ * within roughly a minute. Extension rows are inherently user-paced (posting happens live in the
+ * seller's own browser tab, whenever they get to it, not on any timer this app controls), so they
+ * never gate the footer the way a stuck automation job would; they get their own live status
+ * instead, polled independently for as long as this dialog stays open.
  */
 export function PublishConfirmationDialog({
   listingId,
@@ -49,15 +56,45 @@ export function PublishConfirmationDialog({
     router.refresh();
   }
 
-  const rows = automationIds.map((platform) => ({
-    platform,
-    listing: platformListings.find((pl) => pl.platform === platform),
-  }));
-  const stillActive = rows.some((r) => ACTIVE_STATUSES.has(r.listing?.status ?? "PENDING"));
+  const rows = [
+    ...automationIds.map((platform) => ({
+      platform,
+      mechanism: "automation" as const,
+      listing: platformListings.find((pl) => pl.platform === platform),
+    })),
+    ...extensionIds.map((platform) => ({
+      platform,
+      mechanism: "extension" as const,
+      listing: platformListings.find((pl) => pl.platform === platform),
+    })),
+  ];
+  const automationRows = rows.filter((r) => r.mechanism === "automation");
+  const stillActive = automationRows.some((r) => ACTIVE_STATUSES.has(r.listing?.status ?? "PENDING"));
+  // Counts both mechanisms together -- a pure-extension publish that's already live for every
+  // platform is exactly as much of a success as an all-automation one, and used to read as one
+  // ("Publishing didn't go through") purely because this only ever looked at automationIds.
   const liveCount = rows.filter((r) => r.listing?.status === "POSTED" || r.listing?.status === "SOLD").length;
-  const failedCount = rows.filter((r) => r.listing?.status === "FAILED").length;
-  const total = automationIds.length + extensionIds.length;
+  // FAILED is only reachable for automation rows -- the extension sync endpoint
+  // (app/api/extension/sync/route.ts) only ever reports "posted"/"sold", never a failure, so
+  // there's no equivalent terminal-failure state for an extension row yet.
+  const failedCount = automationRows.filter((r) => r.listing?.status === "FAILED").length;
+  const total = rows.length;
   const done = !stillActive;
+
+  // Keeps re-fetching platformListings (via router.refresh(), same mechanic useJobPolling uses
+  // for automation jobs) for as long as any extension row here hasn't shown up as POSTED/SOLD
+  // yet -- so if the seller finishes posting in the marketplace tab while this dialog is still
+  // open, it updates to a real confirmation instead of sitting on "Sent to extension" forever.
+  // Naturally bounded by the dialog's own lifecycle: the interval is torn down on unmount, i.e.
+  // whenever this closes, so nothing polls in the background after that.
+  const extensionPendingCount = rows.filter(
+    (r) => r.mechanism === "extension" && r.listing?.status !== "POSTED" && r.listing?.status !== "SOLD"
+  ).length;
+  useEffect(() => {
+    if (extensionPendingCount === 0) return;
+    const id = setInterval(() => router.refresh(), EXTENSION_POLL_MS);
+    return () => clearInterval(id);
+  }, [extensionPendingCount, router]);
 
   return (
     <Dialog open onOpenChange={onOpenChange}>
@@ -67,7 +104,9 @@ export function PublishConfirmationDialog({
             {done
               ? liveCount > 0
                 ? `It's live in ${liveCount} place${liveCount === 1 ? "" : "s"}`
-                : "Publishing didn't go through"
+                : extensionIds.length > 0
+                  ? "Sent to your browser extension"
+                  : "Publishing didn't go through"
               : `Posting to ${total} marketplace${total === 1 ? "" : "s"}`}
           </DialogTitle>
           <DialogDescription>
@@ -76,30 +115,35 @@ export function PublishConfirmationDialog({
                 ? "The ones that went live stay live — nothing gets rolled back."
                 : liveCount > 0
                   ? "Every listing works exactly like this from here."
-                  : "None of the marketplaces confirmed. Retry below, or check Platform status."
+                  : extensionIds.length > 0
+                    ? "Open the PostMost extension popup, then click each marketplace to finish posting — we'll update this once you do."
+                    : "None of the marketplaces confirmed. Retry below, or check Platform status."
               : "Usually under a minute. You can leave this page — we'll finish and tell you."}
           </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-2">
-          {rows.map(({ platform, listing }) => {
+          {rows.map(({ platform, mechanism, listing }) => {
             const info = getPlatform(platform);
             const status = listing?.status ?? "PENDING";
+            const isLive = status === "POSTED" || status === "SOLD";
             return (
-              <div key={platform} className={cn("flex items-center justify-between rounded-lg border p-3 transition-colors", status === "POSTED" || status === "SOLD" ? "border-primary/30" : "")}>
+              <div key={platform} className={cn("flex items-center justify-between rounded-lg border p-3 transition-colors", isLive ? "border-primary/30" : "")}>
                 <div className="flex items-center gap-2">
-                  <StatusIcon status={status} />
+                  <StatusIcon status={status} mechanism={mechanism} />
                   <span className="text-sm font-medium">{info?.name ?? platform}</span>
                 </div>
                 <div className="flex items-center gap-2">
-                  {(status === "POSTED" || status === "SOLD") && listing?.externalUrl ? (
+                  {isLive && listing?.externalUrl ? (
                     <a href={listing.externalUrl} target="_blank" rel="noopener noreferrer" className="text-xs font-medium text-primary hover:underline">
                       View on {info?.name ?? platform}
                     </a>
                   ) : (
-                    <span className="text-xs text-muted-foreground">{statusLabel(status)}</span>
+                    <span className="text-xs text-muted-foreground">
+                      {mechanism === "extension" ? "Waiting on you" : statusLabel(status)}
+                    </span>
                   )}
-                  {status === "FAILED" && (
+                  {mechanism === "automation" && status === "FAILED" && (
                     <button
                       type="button"
                       onClick={() => retry(platform)}
@@ -111,19 +155,6 @@ export function PublishConfirmationDialog({
                     </button>
                   )}
                 </div>
-              </div>
-            );
-          })}
-
-          {extensionIds.map((platform) => {
-            const info = getPlatform(platform);
-            return (
-              <div key={platform} className="flex items-center justify-between rounded-lg border p-3">
-                <div className="flex items-center gap-2">
-                  <Puzzle className="h-4 w-4 text-info" />
-                  <span className="text-sm font-medium">{info?.name ?? platform}</span>
-                </div>
-                <span className="text-xs text-muted-foreground">Sent to extension</span>
               </div>
             );
           })}
@@ -156,9 +187,10 @@ export function PublishConfirmationDialog({
   );
 }
 
-function StatusIcon({ status }: { status: string }) {
+function StatusIcon({ status, mechanism }: { status: string; mechanism: "automation" | "extension" }) {
   if (status === "POSTED" || status === "SOLD") return <CheckCircle2 className="h-4 w-4 text-success" />;
   if (status === "FAILED") return <XCircle className="h-4 w-4 text-destructive" />;
+  if (mechanism === "extension") return <Puzzle className="h-4 w-4 text-info" />;
   return <Clock className="h-4 w-4 text-muted-foreground" />;
 }
 
