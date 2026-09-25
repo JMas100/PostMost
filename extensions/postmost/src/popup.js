@@ -30,16 +30,6 @@ const PLATFORM_META = {
   shopify: { name: "Shopify", color: "#96BF48" },
 };
 
-// Hostname substring -> platform id, for reading the active tab. Only platforms with a live
-// browser-session connect flow on the backend (see SESSION_AUTH_PLATFORMS in
-// app/api/extension/session/route.ts) get the connect card. Mercari was tried and removed
-// (2026-09-03): it runs Cloudflare Bot Management, which 403s the headless-Playwright
-// verification request itself regardless of cookie validity -- this mechanism fundamentally
-// can't clear that, so Mercari stays on the extension's own tab-fill flow instead.
-const CONNECT_HOSTS = {
-  "poshmark.com": "poshmark",
-};
-
 // Tried in order; the first one a lightweight fetch succeeds against is cached and reused. Covers
 // local dev (localhost:3000) and production (postmost.co) without hardcoding one or the other --
 // same origins already granted in manifest.json's host_permissions.
@@ -96,29 +86,6 @@ async function fetchAccounts(origin) {
   }
 }
 
-async function getActiveTab() {
-  try {
-    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-    return tab || null;
-  } catch {
-    return null;
-  }
-}
-
-function platformForHost(hostname) {
-  for (const [host, id] of Object.entries(CONNECT_HOSTS)) {
-    if (hostname && hostname.includes(host)) return id;
-  }
-  return null;
-}
-
-/** Reads (never writes) the cookie jar for a platform via the background service worker --
- *  chrome.cookies is only callable there in Manifest V3. Non-destructive, safe to call just to
- *  check whether a connect card should show. */
-function captureSession(platform) {
-  return chrome.runtime.sendMessage({ type: "CAPTURE_SESSION", platform });
-}
-
 const root = document.getElementById("root");
 
 function h(html) {
@@ -164,83 +131,6 @@ function renderOffline() {
   `;
 }
 
-async function renderConnectCard(container, platform, tabId) {
-  const meta = platformMeta(platform);
-  const card = h(`
-    <div class="card connect">
-      <div class="card-title-row">
-        <span class="avatar" style="background:${meta.color}">${meta.name[0]}</span>
-        <div style="flex:1;min-width:0">
-          <div class="card-title">You're signed in to ${meta.name}</div>
-          <div class="card-sub">Connect this account to post and delist automatically</div>
-        </div>
-      </div>
-      <button class="btn btn-primary" id="connect-btn">Connect this account</button>
-      <div class="card-note">We capture the session this tab already has. Your password is never sent to us and never typed by us.</div>
-    </div>
-  `);
-  container.appendChild(card);
-
-  document.getElementById("connect-btn")?.addEventListener("click", async () => {
-    const btn = document.getElementById("connect-btn");
-    btn.disabled = true;
-    btn.textContent = "Connecting…";
-
-    const captured = await captureSession(platform);
-    if (!captured?.ok) {
-      renderRejected(container, card, meta, platform, tabId, captured?.error || "Couldn't read the session");
-      return;
-    }
-
-    const origin = await resolveOrigin();
-    try {
-      const res = await fetch(`${origin}/api/extension/session`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify({ platform, cookies: captured.cookies }),
-      });
-      const body = await res.json().catch(() => ({}));
-      if (res.status === 422 || (!res.ok && body.error)) {
-        renderRejected(container, card, meta, platform, tabId, body.error || "That session didn't work");
-        return;
-      }
-      if (!res.ok) {
-        renderRejected(container, card, meta, platform, tabId, body.error || "Couldn't save the session");
-        return;
-      }
-      // Success -- re-render the whole popup so the account moves into the Connected list.
-      init();
-    } catch (err) {
-      renderRejected(container, card, meta, platform, tabId, err?.message || "Couldn't save the session");
-    }
-  });
-}
-
-function renderRejected(container, oldCard, meta, platform, tabId, message) {
-  const rejected = h(`
-    <div class="card rejected">
-      <div class="card-title-row">
-        <span class="avatar" style="background:${meta.color}">${meta.name[0]}</span>
-        <div class="card-title">That session didn't work</div>
-      </div>
-      <div class="card-note">${escapeHtml(meta.name)} rejected it — ${escapeHtml(message)}. Nothing was saved.</div>
-      <button class="btn btn-primary" id="retry-btn">Reload ${escapeHtml(meta.name)} and try again</button>
-    </div>
-  `);
-  oldCard.replaceWith(rejected);
-  document.getElementById("retry-btn")?.addEventListener("click", async () => {
-    if (tabId) {
-      try {
-        await chrome.tabs.reload(tabId);
-      } catch {
-        // tab may have closed; nothing more to do
-      }
-    }
-    window.close();
-  });
-}
-
 function escapeHtml(value) {
   return String(value)
     .replace(/&/g, "&amp;")
@@ -253,7 +143,7 @@ function escapeHtml(value) {
 function renderAccountsList(container, accounts) {
   if (accounts.length === 0) {
     container.appendChild(
-      h(`<div class="empty-accounts">No marketplaces connected yet. Connect one from a marketplace tab, or from Settings in PostMost.</div>`)
+      h(`<div class="empty-accounts">No marketplaces connected yet. Connect eBay or Etsy from Settings in PostMost — everything else posts live through this extension when you publish.</div>`)
     );
     return;
   }
@@ -385,25 +275,7 @@ async function init() {
   root.innerHTML = renderHeader(user, origin) + `<div class="section" id="idle-section"></div>`;
   const section = document.getElementById("idle-section");
 
-  const [accounts, tab] = await Promise.all([fetchAccounts(origin), getActiveTab()]);
-  const connectedPlatforms = new Set(accounts.map((a) => a.platform));
-
-  if (tab?.url) {
-    let hostname = "";
-    try {
-      hostname = new URL(tab.url).hostname;
-    } catch {
-      hostname = "";
-    }
-    const platform = platformForHost(hostname);
-    if (platform && !connectedPlatforms.has(platform)) {
-      const captured = await captureSession(platform);
-      if (captured?.ok) {
-        await renderConnectCard(section, platform, tab.id);
-      }
-    }
-  }
-
+  const accounts = await fetchAccounts(origin);
   renderAccountsList(section, accounts);
   section.insertAdjacentHTML("beforeend", renderFooter(origin));
   section.querySelector(".footer a")?.addEventListener("click", (e) => {
