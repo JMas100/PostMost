@@ -252,13 +252,16 @@
     const platform = getPlatformFromHost();
     if (!platform) return false;
     try {
-      const { pendingListing, pendingPlatforms, filledPlatforms = [] } = await chrome.storage.local.get([
+      const { pendingListing, pendingPlatforms } = await chrome.storage.local.get([
         "pendingListing",
         "pendingPlatforms",
-        "filledPlatforms",
       ]);
       if (!pendingListing) return false;
-      if (filledPlatforms.includes(platform)) return false;
+      // Deliberately does NOT skip when filledPlatforms already contains this platform: every
+      // platform button in the popup opens a brand new tab (chrome.tabs.create), so a prior fill
+      // says nothing about whether *this* tab has been filled. Platforms that don't auto-submit
+      // (OfferUp) expect exactly this -- reopening the tab because the first one got closed, or
+      // just to double check something before clicking Post, needs a real fill every time.
       if (pendingPlatforms && pendingPlatforms.length > 0 && !pendingPlatforms.includes(platform)) {
         return false;
       }

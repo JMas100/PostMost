@@ -5,6 +5,10 @@ export interface GeneratedListing {
   quantity: number;
   condition: string;
   category: string;
+  /** A specific item-type keyword ("Fins", "Running shoes"), distinct from the broad `category`
+   *  bucket -- lets the extension auto-select a real marketplace subcategory instead of leaving
+   *  it for the seller to pick by hand. Free text, no fixed list like `category` has. */
+  categoryDetail?: string | null;
   audience?: string | null;
   brand?: string | null;
   size?: string | null;
@@ -21,6 +25,9 @@ Respond with a JSON object containing exactly these keys:
 - quantity: always 1 unless the image clearly shows a multi-pack or lot (number)
 - condition: one of "New with tags", "New without tags", "Like new", "Good", "Fair", "Poor"
 - category: one of "Clothing", "Shoes", "Accessories", "Electronics", "Home", "Toys", "Sports", "Vintage", "Other"
+- categoryDetail: a short, specific item-type keyword (e.g. "Fins", "Running shoes", "Coffee table"),
+  more specific than category -- used to help pick the right subcategory on marketplaces that need
+  one. Null if nothing more specific than the category itself applies.
 - audience: who the item is for -- one of "Women", "Men", "Kids", "Unisex", "Pets", or null if not
   applicable (e.g. Electronics, Home) or genuinely unclear from the image
 - brand: the visible brand name, or null if unknown
@@ -100,6 +107,7 @@ export async function generateListingFromImage(imageBase64: string): Promise<Gen
     quantity: typeof parsed.quantity === "number" ? Math.max(1, Math.round(parsed.quantity)) : 1,
     condition: pickCondition(parsed.condition),
     category: pickCategory(parsed.category),
+    categoryDetail: parsed.categoryDetail?.trim().slice(0, 60) || null,
     audience: pickAudience(parsed.audience),
     brand: parsed.brand || null,
     size: parsed.size || null,

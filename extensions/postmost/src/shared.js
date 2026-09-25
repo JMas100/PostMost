@@ -170,11 +170,27 @@
     return true;
   }
 
+  // Unlike text fields, a real upload input is routinely hidden behind a custom-styled button
+  // (confirmed on OfferUp: a visible role="button" div triggers a zero-size native <input
+  // type="file"> elsewhere in the DOM) -- gating on isVisible like findElement does would skip
+  // exactly the element we need, so this looks it up directly instead.
+  function findFileInput(selectors) {
+    for (const sel of selectors) {
+      try {
+        const el = document.querySelector(sel);
+        if (el) return el;
+      } catch {
+        continue;
+      }
+    }
+    return null;
+  }
+
   async function uploadPhotos(photoUrls, preferredSelectors) {
     if (!photoUrls || photoUrls.length === 0) return false;
     const input =
-      findElement(preferredSelectors || []) ||
-      findElement([
+      findFileInput(preferredSelectors || []) ||
+      findFileInput([
         'input[type="file"][accept*="image"]',
         'input[type="file"][name*="photo" i]',
         'input[type="file"][name*="image" i]',

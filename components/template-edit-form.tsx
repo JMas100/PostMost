@@ -142,6 +142,16 @@ export function TemplateEditForm({ template, shippingProfiles, platforms }: Temp
           </div>
 
           <div className="space-y-2">
+            <Label htmlFor="categoryDetail">Specific category (optional)</Label>
+            <Input
+              id="categoryDetail"
+              placeholder="e.g. Fins, Running shoes, Coffee table"
+              value={fields.categoryDetail ?? ""}
+              onChange={(e) => setField("categoryDetail", e.target.value)}
+            />
+          </div>
+
+          <div className="space-y-2">
             <Label htmlFor="audience">Who&apos;s it for?</Label>
             <Select value={fields.audience ?? ""} onValueChange={(v) => setField("audience", v || null)}>
               <SelectTrigger id="audience" className="w-full">

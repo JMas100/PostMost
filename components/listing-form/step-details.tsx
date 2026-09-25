@@ -127,6 +127,14 @@ export function StepDetails({
         </div>
       </div>
 
+      <div className="space-y-2">
+        <Label htmlFor="categoryDetail">Specific category (optional)</Label>
+        <Input id="categoryDetail" placeholder="e.g. Fins, Running shoes, Coffee table" {...register("categoryDetail")} />
+        <p className="text-sm text-muted-foreground">
+          Used to auto-select the right subcategory on marketplaces that need one (like OfferUp).
+        </p>
+      </div>
+
       {needsAudience && (
         <div className="space-y-2">
           {requiredFieldNotice && (

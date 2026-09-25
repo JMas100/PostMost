@@ -197,6 +197,7 @@ export function ListingForm({ mode = "create", draftId, editId, initialData, tem
       if (!dirtyFields.quantity) setValue("quantity", l.quantity, { shouldValidate: true });
       if (!dirtyFields.condition) setValue("condition", l.condition, { shouldValidate: true });
       if (!dirtyFields.category) setValue("category", l.category, { shouldValidate: true });
+      if (l.categoryDetail && !dirtyFields.categoryDetail) setValue("categoryDetail", l.categoryDetail, { shouldValidate: true });
       if (l.audience && !dirtyFields.audience) setValue("audience", l.audience, { shouldValidate: true });
       if (l.brand && !dirtyFields.brand) setValue("brand", l.brand);
       if (l.size && !dirtyFields.size) setValue("size", l.size);

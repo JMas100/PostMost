@@ -5,6 +5,10 @@ export interface ListingData {
   quantity: number;
   condition: string;
   category: string;
+  /** A specific item-type keyword ("Fins", "Running shoes"), distinct from the broad `category`
+   *  bucket. See the Listing model's own field comment for why this exists (auto-selecting a
+   *  marketplace subcategory instead of leaving it for manual pick). */
+  categoryDetail?: string | null;
   /** Who the item is for -- "Women" | "Men" | "Kids" | "Unisex" | null. See the Listing model's
    *  own field comment for why this exists (Poshmark's audience-based taxonomy). */
   audience?: string | null;

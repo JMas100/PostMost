@@ -8,6 +8,7 @@ export const listingSchema = z.object({
   quantity: z.coerce.number().int().min(1).default(1),
   condition: z.string().min(1, "Select a condition"),
   category: z.string().min(1, "Select a category"),
+  categoryDetail: z.string().nullable().optional(),
   audience: z.string().nullable().optional(),
   brand: z.string().nullable().optional(),
   size: z.string().nullable().optional(),

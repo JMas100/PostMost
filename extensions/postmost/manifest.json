@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "PostMost",
-  "version": "1.3.1",
+  "version": "1.3.6",
   "description": "Post one listing to Facebook Marketplace, OfferUp, Poshmark, Mercari, Depop, Vinted, Grailed, and Craigslist from PostMost.",
   "permissions": ["storage", "activeTab"],
   "host_permissions": [

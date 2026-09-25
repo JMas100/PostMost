@@ -53,6 +53,14 @@ model Listing {
   description     String
   condition       String
   category        String
+  /// Free-text specific category ("Fins", "Running shoes", ...), distinct from the fixed 9-bucket
+  /// `category` above. Lets the extension's marketplace category pickers (see offerUpPickCategory
+  /// in extensions/postmost/src/platforms.js) auto-select a real subcategory by matching this
+  /// text, instead of guessing one from the broad bucket -- which produced a wrong match once
+  /// (a "Sports" listing landed in an unrelated "Baby" subcategory) because subcategory names
+  /// never actually contain a word like "Sports". Optional: null on any listing without one, and
+  /// every consumer already falls back to today's behavior (leave it for manual pick) when null.
+  categoryDetail  String?
   /// Who the item is for -- "Women" | "Men" | "Kids" | "Unisex" | null. Only meaningful for
   /// categories where audience is ambiguous from item type alone (Clothing, Shoes, Accessories,
   /// Sports, Vintage, Other); left null for categories that don't need it (Electronics, Home,

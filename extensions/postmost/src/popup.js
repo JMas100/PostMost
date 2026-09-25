@@ -3,7 +3,11 @@
 // execution contexts (see manifest.json), so there's nothing to share code with here.
 const PLATFORM_URLS = {
   facebook: "https://www.facebook.com/marketplace/create/item/",
-  offerup: "https://offerup.com/item/new/",
+  // OfferUp has no direct listing-creation URL -- "/item/new" is a dead link ("Sorry, this page
+  // does not exist"), confirmed by manual navigation. The real form is a modal opened from the
+  // header nav, so the extension's fill logic (platforms.js) opens the homepage and drives the
+  // "Post" -> "Sell an item" click sequence itself once the page loads.
+  offerup: "https://offerup.com/",
   poshmark: "https://poshmark.com/create-listing",
   mercari: "https://www.mercari.com/sell/",
   depop: "https://www.depop.com/products/create/",

@@ -4,7 +4,7 @@
  *  to the browser extension via postMessage). Structurally compatible with both a Prisma
  *  `Listing` row and the plain object a client component receives as a prop -- no Prisma import
  *  here on purpose, since the extension side runs in the browser. Pulling just this shared
- *  11-field mapping into one place means adding or renaming a listing field only needs updating
+ *  field mapping into one place means adding or renaming a listing field only needs updating
  *  here, not independently in both payload builders. */
 export interface ListingFieldsSource {
   title: string;
@@ -13,6 +13,7 @@ export interface ListingFieldsSource {
   quantity: number;
   condition: string;
   category: string;
+  categoryDetail: string | null;
   audience: string | null;
   brand: string | null;
   size: string | null;
@@ -29,6 +30,7 @@ export function listingDescriptionFields(listing: ListingFieldsSource) {
     quantity: listing.quantity,
     condition: listing.condition,
     category: listing.category,
+    categoryDetail: listing.categoryDetail,
     audience: listing.audience,
     brand: listing.brand,
     size: listing.size,
