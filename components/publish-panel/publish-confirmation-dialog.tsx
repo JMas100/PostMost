@@ -74,21 +74,24 @@ export function PublishConfirmationDialog({
   // platform is exactly as much of a success as an all-automation one, and used to read as one
   // ("Publishing didn't go through") purely because this only ever looked at automationIds.
   const liveCount = rows.filter((r) => r.listing?.status === "POSTED" || r.listing?.status === "SOLD").length;
-  // FAILED is only reachable for automation rows -- the extension sync endpoint
-  // (app/api/extension/sync/route.ts) only ever reports "posted"/"sold", never a failure, so
-  // there's no equivalent terminal-failure state for an extension row yet.
-  const failedCount = automationRows.filter((r) => r.listing?.status === "FAILED").length;
+  // Counts both mechanisms too -- an extension row can now genuinely fail (the seller's own
+  // "Couldn't post this" report from the marketplace overlay, see app/api/extension/sync/route.ts),
+  // not just an automation job, and this feeds the "some went live, some failed" messaging below.
+  const failedCount = rows.filter((r) => r.listing?.status === "FAILED").length;
   const total = rows.length;
   const done = !stillActive;
 
   // Keeps re-fetching platformListings (via router.refresh(), same mechanic useJobPolling uses
-  // for automation jobs) for as long as any extension row here hasn't shown up as POSTED/SOLD
-  // yet -- so if the seller finishes posting in the marketplace tab while this dialog is still
-  // open, it updates to a real confirmation instead of sitting on "Sent to extension" forever.
-  // Naturally bounded by the dialog's own lifecycle: the interval is torn down on unmount, i.e.
-  // whenever this closes, so nothing polls in the background after that.
+  // for automation jobs) for as long as any extension row here hasn't reached a terminal state
+  // (POSTED/SOLD/FAILED) yet -- so if the seller finishes posting, or reports it failed, in the
+  // marketplace tab while this dialog is still open, it updates to a real confirmation instead of
+  // sitting on "Sent to extension" forever (or, before FAILED was reachable at all, polling
+  // indefinitely past a failure that was never going to resolve any other way). Naturally bounded
+  // by the dialog's own lifecycle: the interval is torn down on unmount, i.e. whenever this
+  // closes, so nothing polls in the background after that.
+  const TERMINAL_STATUSES = new Set(["POSTED", "SOLD", "FAILED"]);
   const extensionPendingCount = rows.filter(
-    (r) => r.mechanism === "extension" && r.listing?.status !== "POSTED" && r.listing?.status !== "SOLD"
+    (r) => r.mechanism === "extension" && !TERMINAL_STATUSES.has(r.listing?.status ?? "")
   ).length;
   useEffect(() => {
     if (extensionPendingCount === 0) return;
@@ -104,7 +107,7 @@ export function PublishConfirmationDialog({
             {done
               ? liveCount > 0
                 ? `It's live in ${liveCount} place${liveCount === 1 ? "" : "s"}`
-                : extensionIds.length > 0
+                : extensionPendingCount > 0
                   ? "Sent to your browser extension"
                   : "Publishing didn't go through"
               : `Posting to ${total} marketplace${total === 1 ? "" : "s"}`}
@@ -115,7 +118,7 @@ export function PublishConfirmationDialog({
                 ? "The ones that went live stay live — nothing gets rolled back."
                 : liveCount > 0
                   ? "Every listing works exactly like this from here."
-                  : extensionIds.length > 0
+                  : extensionPendingCount > 0
                     ? "Open the PostMost extension popup, then click each marketplace to finish posting — we'll update this once you do."
                     : "None of the marketplaces confirmed. Retry below, or check Platform status."
               : "Usually under a minute. You can leave this page — we'll finish and tell you."}
@@ -140,7 +143,7 @@ export function PublishConfirmationDialog({
                     </a>
                   ) : (
                     <span className="text-xs text-muted-foreground">
-                      {mechanism === "extension" ? "Waiting on you" : statusLabel(status)}
+                      {mechanism === "extension" ? (status === "FAILED" ? "Failed" : "Waiting on you") : statusLabel(status)}
                     </span>
                   )}
                   {mechanism === "automation" && status === "FAILED" && (

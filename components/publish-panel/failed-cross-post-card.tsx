@@ -11,6 +11,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { getPlatform } from "@/lib/marketplaces/platforms";
+import { sendToExtension } from "./send-to-extension";
+import { ExtensionListingPayload } from "./types";
 
 // Not real per-field error detection (no adapter reports which specific field a platform
 // rejected -- PostResult.error is free text) -- these are just the fields platforms most often
@@ -30,6 +32,8 @@ export function FailedCrossPostCard({
   updatedAt,
   currentFields,
   savedOverrides,
+  automationRetired,
+  extensionListing,
 }: {
   listingId: string;
   platform: string;
@@ -37,8 +41,24 @@ export function FailedCrossPostCard({
   updatedAt: Date;
   currentFields: FieldValues;
   savedOverrides: string | null;
+  /** Set for a platform whose server-side automation is retired (see
+   *  ManualAdapterConfig.automationRetired) -- both actions below (Retry, Fix a field) call
+   *  crossPost()/retryWithFieldOverrides(), which now always refuses for these platforms by
+   *  design. A FAILED row here for one of them is the seller's own "Couldn't post this" report
+   *  from the extension overlay (app/api/extension/sync/route.ts), not an automation failure --
+   *  there's nothing here to retry automatically, so this renders a different, accurate card
+   *  instead of automation-retry buttons that would just bounce off the same guard every time. */
+  automationRetired: boolean;
+  /** Only used when automationRetired -- lets this card send straight back to the extension
+   *  (same mechanism the main Publish panel uses) without the seller having to find this
+   *  platform to re-select, which they can't: a FAILED row is excluded from that panel's own
+   *  list the same way any other attempted platform is (see alreadyAttempted in
+   *  app/listings/[id]/page.tsx), so without this the platform would otherwise be stuck with no
+   *  way to try it again at all. */
+  extensionListing?: ExtensionListingPayload;
 }) {
   const router = useRouter();
+  const [sendingToExtension, setSendingToExtension] = useState(false);
   const [retrying, setRetrying] = useState(false);
   const [editing, setEditing] = useState(false);
   const platformName = getPlatform(platform)?.name ?? platform;
@@ -78,6 +98,48 @@ export function FailedCrossPostCard({
     toast.success(`Retrying ${platformName}`);
     setEditing(false);
     router.refresh();
+  }
+
+  if (automationRetired) {
+    return (
+      <div className="rounded-lg border border-warning/40 bg-warning/5 p-3">
+        <div className="flex items-start gap-2">
+          <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-warning" />
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center gap-1.5">
+              <PlatformLogo platform={platform} size={16} onDark />
+              <span className="text-sm font-medium">{platformName} didn&apos;t post</span>
+            </div>
+            <p className="mt-1 text-sm text-muted-foreground">
+              {errorMessage || "Reported as failed from the marketplace page."}
+            </p>
+            <p className="mt-1 text-xs text-muted-foreground">
+              {formatDistanceToNow(updatedAt, { addSuffix: true })}
+            </p>
+            <p className="mt-2 text-xs text-muted-foreground">
+              {platformName} posts live through the browser extension.
+            </p>
+          </div>
+        </div>
+        {extensionListing && (
+          <div className="mt-3">
+            <Button
+              size="sm"
+              variant="outline"
+              className="w-full"
+              disabled={sendingToExtension}
+              onClick={() => {
+                setSendingToExtension(true);
+                sendToExtension(extensionListing, [platform]);
+                setSendingToExtension(false);
+              }}
+            >
+              {sendingToExtension ? "Sending…" : `Try ${platformName} again`}
+            </Button>
+          </div>
+        )}
+      </div>
+    );
   }
 
   return (

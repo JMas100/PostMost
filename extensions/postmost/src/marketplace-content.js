@@ -153,6 +153,30 @@
     updateOverlay("Marked as sold. It will sync when you return to PostMost.");
   }
 
+  // Previously there was no way for a failed/abandoned extension post to ever reach PostMost at
+  // all -- "posted" and "sold" were the only event types, so giving up on one here just left it
+  // sitting on PENDING forever with no way for the publish confirmation dialog (or anywhere else)
+  // to show it as anything but "still waiting on you", even after the seller had already given
+  // up. Self-reported by design: there's no reliable way to detect "actually failed" apart from
+  // "hasn't gotten to it yet" without the seller saying so themselves.
+  async function reportFailed() {
+    const platform = getPlatformFromHost();
+    const { pendingListingId } = await chrome.storage.local.get("pendingListingId");
+    if (!platform || !pendingListingId) {
+      updateOverlay("No active PostMost listing.");
+      return;
+    }
+    const reason = window.prompt("What went wrong? (optional)") || "";
+    const event = {
+      type: "failed",
+      listingId: pendingListingId,
+      platform,
+      reason: reason.trim(),
+    };
+    await addSyncEvent(event);
+    updateOverlay("Marked as failed. It will sync when you return to PostMost.");
+  }
+
   function detectSoldText() {
     const text = document.body.innerText.toLowerCase();
     return ["sold", "sale pending", "not available", "this item is sold", "has been sold"].some((t) => text.includes(t));
@@ -165,13 +189,15 @@
     if (posted) {
       buttons.push(`<button id="postmost-save-posted" style="background:#2563eb;color:#fff;border:none;border-radius:6px;padding:6px 10px;margin-right:6px;cursor:pointer;font-size:12px;">Save posted URL</button>`);
     }
-    buttons.push(`<button id="postmost-mark-sold" style="background:${sold ? "#dc2626" : "#4b5563"};color:#fff;border:none;border-radius:6px;padding:6px 10px;cursor:pointer;font-size:12px;">${sold ? "Looks sold — mark in PostMost" : "Mark as sold"}</button>`);
+    buttons.push(`<button id="postmost-mark-sold" style="background:${sold ? "#dc2626" : "#4b5563"};color:#fff;border:none;border-radius:6px;padding:6px 10px;margin-right:6px;cursor:pointer;font-size:12px;">${sold ? "Looks sold — mark in PostMost" : "Mark as sold"}</button>`);
+    buttons.push(`<button id="postmost-report-failed" style="background:transparent;color:#f87171;border:1px solid #f87171;border-radius:6px;padding:5px 10px;margin-right:6px;cursor:pointer;font-size:12px;">Couldn't post this</button>`);
     buttons.push(`<button id="postmost-hide-overlay" style="background:transparent;color:#9ca3af;border:none;padding:6px 10px;cursor:pointer;font-size:12px;text-decoration:underline;">Hide</button>`);
     updateOverlay(
       `<div style="margin-bottom:8px;">${posted ? "Listing page detected." : "PostMost marketplace helper."}</div><div>${buttons.join("")}</div>`
     );
     document.getElementById("postmost-save-posted")?.addEventListener("click", savePostedUrl);
     document.getElementById("postmost-mark-sold")?.addEventListener("click", markSoldOnPage);
+    document.getElementById("postmost-report-failed")?.addEventListener("click", reportFailed);
     document.getElementById("postmost-hide-overlay")?.addEventListener("click", () => createOverlay().remove());
   }
 

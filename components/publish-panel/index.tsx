@@ -11,7 +11,7 @@ import { useJobPolling } from "./use-job-polling";
 import { PlatformRow } from "./platform-row";
 import { PublishConfirmationDialog } from "./publish-confirmation-dialog";
 import { PublishPanelProps } from "./types";
-import { listingDescriptionFields } from "@/lib/marketplaces/listing-fields";
+import { sendToExtension } from "./send-to-extension";
 import { getPlatformListingWarning } from "@/lib/marketplaces/client-validation";
 
 export function PublishPanel({ listingId, accounts, extensionListing, hasActiveJobs, platformListings, initialPublishedPlatforms }: PublishPanelProps) {
@@ -170,28 +170,3 @@ export function PublishPanel({ listingId, accounts, extensionListing, hasActiveJ
   );
 }
 
-function sendToExtension(listing: PublishPanelProps["extensionListing"], platformIds: string[]) {
-  const payload = {
-    id: listing.id,
-    ...listingDescriptionFields(listing),
-    photos: listing.photos.map((p) => p.url),
-  };
-
-  function onAck(event: MessageEvent) {
-    if (event.source !== window) return;
-    const data = event.data;
-    if (data?.source !== "postmost-extension") return;
-    window.removeEventListener("message", onAck);
-    if (data.type === "ACK") {
-      toast.success("Sent to PostMost extension. Open the extension popup to post.");
-    } else if (data.type === "ERROR") {
-      toast.error(data.message || "Extension failed to save listing");
-    }
-  }
-
-  window.addEventListener("message", onAck);
-  window.postMessage(
-    { source: "postmost", type: "SEND_LISTING", listing: payload, platforms: platformIds },
-    "*"
-  );
-}

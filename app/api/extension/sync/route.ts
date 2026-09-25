@@ -42,7 +42,7 @@ export async function POST(req: NextRequest) {
   const listingId = typeof body.listingId === "string" ? body.listingId : "";
   const platform = typeof body.platform === "string" ? body.platform : "";
 
-  if (!["posted", "sold"].includes(type as string) || !listingId || !platform) {
+  if (!["posted", "sold", "failed"].includes(type as string) || !listingId || !platform) {
     return NextResponse.json({ error: "Missing type, listingId, or platform" }, { status: 400 });
   }
 
@@ -61,6 +61,31 @@ export async function POST(req: NextRequest) {
     const sale = soldPrice !== undefined ? { soldPrice, soldFees, soldShippingCost } : undefined;
     await markListingSold(listingId, platform, sale);
     return NextResponse.json({ success: true, type: "sold" });
+  }
+
+  // "failed" is the seller telling us themselves, from the marketplace-content.js overlay's
+  // "Couldn't post this" button, that an extension-driven post didn't work out -- there was
+  // previously no way for that outcome to ever reach the server at all: the extension only ever
+  // reported "posted"/"sold", so an abandoned or failed extension post just left the row sitting
+  // on PENDING (or with no PlatformListingSummary at all) forever, with no way for the publish
+  // confirmation dialog (or anywhere else) to ever show it as anything but "waiting on you" --
+  // even after the seller had already given up on it. This is inherently self-reported, not
+  // detected -- there's no reliable way to tell "actually failed" apart from "hasn't gotten to it
+  // yet" without the seller saying so.
+  if (type === "failed") {
+    const reason = typeof body.reason === "string" && body.reason.trim() ? body.reason.trim().slice(0, 500) : "Reported as failed from the marketplace page.";
+    const existing = listing.platformListings.find((p) => p.platform === platform);
+    if (existing) {
+      await prisma.platformListing.update({
+        where: { id: existing.id },
+        data: { status: "FAILED", errorMessage: reason },
+      });
+    } else {
+      await prisma.platformListing.create({
+        data: { listingId, platform, status: "FAILED", errorMessage: reason, price: listing.price },
+      });
+    }
+    return NextResponse.json({ success: true, type: "failed" });
   }
 
   // type === "posted"

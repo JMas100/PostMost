@@ -18,6 +18,7 @@ import { PublishPanel } from "@/components/publish-panel";
 import { FailedCrossPostCard } from "@/components/publish-panel/failed-cross-post-card";
 import { PlatformLogo } from "@/components/platform-logo";
 import { getPlatform } from "@/lib/marketplaces/platforms";
+import { getAdapter } from "@/lib/marketplaces";
 import { SoldButton } from "./sold-button";
 import { ListingDeleteButton } from "@/components/listing-delete-button";
 import { ListingDuplicateButton } from "@/components/listing-duplicate-button";
@@ -191,6 +192,8 @@ export default async function ListingDetailPage(props: { params: Promise<{ id: s
                       brand: listing.brand ?? "",
                     }}
                     savedOverrides={pl.fieldOverrides}
+                    automationRetired={Boolean(getAdapter(pl.platform)?.automationRetired)}
+                    extensionListing={extensionListing}
                   />
                 ))}
               </div>
