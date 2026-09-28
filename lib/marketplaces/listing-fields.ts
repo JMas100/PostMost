@@ -14,6 +14,7 @@ export interface ListingFieldsSource {
   condition: string;
   category: string;
   categoryDetail: string | null;
+  categoryPath: string[];
   audience: string | null;
   brand: string | null;
   size: string | null;
@@ -31,6 +32,7 @@ export function listingDescriptionFields(listing: ListingFieldsSource) {
     condition: listing.condition,
     category: listing.category,
     categoryDetail: listing.categoryDetail,
+    categoryPath: listing.categoryPath,
     audience: listing.audience,
     brand: listing.brand,
     size: listing.size,

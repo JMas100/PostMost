@@ -27,6 +27,9 @@ const GENERIC_ALIASES: FieldAliasMap = {
   condition: ["condition", "item condition"],
   category: ["category"],
   categoryDetail: ["subcategory", "sub-category", "specific category", "category detail"],
+  // No aliases on purpose: categoryPath is an ordered array of picks below Subcategory (see
+  // lib/category-taxonomy.ts), not something a single flat CSV column can meaningfully express.
+  categoryPath: [],
   audience: ["audience", "who it's for", "department", "gender"],
   brand: ["brand"],
   size: ["size"],

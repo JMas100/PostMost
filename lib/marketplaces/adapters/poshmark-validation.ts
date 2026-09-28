@@ -6,18 +6,21 @@ import type { ListingData } from "../types";
  *  client" component (the listing wizard's platform picker) to show the same warning live,
  *  before the user ever clicks Publish, instead of only after a job fails. */
 
-// PostMost's own category taxonomy (components/listing-form/step-details.tsx) is organized by
-// item type -- "Clothing", "Shoes", "Accessories", "Electronics", "Home", "Toys", "Sports",
-// "Vintage", "Other". Poshmark's top-level taxonomy is organized by audience instead -- all six
-// of Women/Men/Kids/Home/Pets/Electronics are reachable here: three of ours (Electronics, Home,
-// Toys) map straight across with no ambiguity, and the rest come from `listing.audience`
-// ("Women"/"Men"/"Kids"/"Unisex"/"Pets", set via the listing form's own "Who's it for?" field --
-// see prisma/schema.prisma's Listing.audience), which is the real signal now; keyword-matching
-// the title/description is kept only as a fallback for listings created before that field existed.
+// PostMost's own category taxonomy (lib/category-taxonomy.ts) is organized by item type -- see
+// that file for the full tree. Poshmark's top-level taxonomy is organized by audience instead --
+// all six of Women/Men/Kids/Home/Pets/Electronics are reachable here: three of ours (Electronics,
+// Home & Garden, Baby & Kids) map straight across with no ambiguity, and the rest come from
+// `listing.audience` ("Women"/"Men"/"Kids"/"Unisex"/"Pets", set via the listing form's own "Who's
+// it for?" field -- see prisma/schema.prisma's Listing.audience), which is the real signal now;
+// keyword-matching the title/description is kept only as a fallback for listings created before
+// that field existed. "Toys, Games, & Hobbies" deliberately isn't direct-mapped here (unlike
+// "Baby & Kids") -- hobby items skew adult, so it's genuinely audience-ambiguous, not a safe
+// straight-across match. Not imported from lib/category-taxonomy.ts directly -- this file
+// deliberately keeps zero runtime imports so it stays safe to pull into a "use client" component.
 const DIRECT_CATEGORY_MAP: Record<string, string> = {
   electronics: "electronics",
-  home: "home",
-  toys: "kids",
+  "home & garden": "home",
+  "baby & kids": "kids",
 };
 
 const AUDIENCE_FIELD_MAP: Record<string, string> = {

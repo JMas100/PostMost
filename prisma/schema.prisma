@@ -53,21 +53,24 @@ model Listing {
   description     String
   condition       String
   category        String
-  /// Free-text specific category ("Fins", "Running shoes", ...), distinct from the fixed 9-bucket
+  /// The Subcategory pick (depth 2) from lib/category-taxonomy.ts's tree, one level below
   /// `category` above. Lets the extension's marketplace category pickers (see offerUpPickCategory
-  /// in extensions/postmost/src/platforms.js) auto-select a real subcategory by matching this
-  /// text, instead of guessing one from the broad bucket -- which produced a wrong match once
-  /// (a "Sports" listing landed in an unrelated "Baby" subcategory) because subcategory names
-  /// never actually contain a word like "Sports". Optional: null on any listing without one, and
-  /// every consumer already falls back to today's behavior (leave it for manual pick) when null.
+  /// in extensions/postmost/src/platforms.js) auto-select a real subcategory instead of leaving it
+  /// for manual pick. Optional: null on any listing without one, and every consumer already falls
+  /// back to today's behavior (leave it for manual pick) when null.
   categoryDetail  String?
-  /// Who the item is for -- "Women" | "Men" | "Kids" | "Unisex" | null. Only meaningful for
-  /// categories where audience is ambiguous from item type alone (Clothing, Shoes, Accessories,
-  /// Sports, Vintage, Other); left null for categories that don't need it (Electronics, Home,
-  /// Toys). Exists so platforms with an audience-based taxonomy (Poshmark: Women/Men/Kids/Home/
-  /// Pets/Electronics) don't have to guess it from the title/description -- see
-  /// matchPoshmarkCategory() in lib/marketplaces/adapters/poshmark.ts, which still falls back to
-  /// that guess for listings created before this field existed.
+  /// Any further category picks beyond Subcategory (depth 3+), in order, from the same taxonomy
+  /// tree -- optional and seller-driven (see components/listing-form/step-details.tsx), never
+  /// required to publish. Empty for any listing that didn't go past Subcategory, which is most of
+  /// them; nothing to backfill for existing rows, same policy as categoryDetail before it.
+  categoryPath    String[]        @default([])
+  /// Who the item is for -- "Women" | "Men" | "Kids" | "Unisex" | "Pets" | null. See
+  /// CATEGORIES_NEEDING_AUDIENCE in components/listing-form/step-details.tsx for exactly which
+  /// top-level categories ask for this (only the ones genuinely ambiguous from item type alone).
+  /// Exists so platforms with an audience-based taxonomy (Poshmark: Women/Men/Kids/Home/Pets/
+  /// Electronics) don't have to guess it from the title/description -- see
+  /// matchPoshmarkCategory() in lib/marketplaces/adapters/poshmark-validation.ts, which still
+  /// falls back to that guess for listings created before this field existed.
   audience        String?
   brand           String?
   size            String?

@@ -21,6 +21,7 @@ export interface ExtensionListingPayload {
   condition: string;
   category: string;
   categoryDetail: string | null;
+  categoryPath: string[];
   audience: string | null;
   brand: string | null;
   size: string | null;

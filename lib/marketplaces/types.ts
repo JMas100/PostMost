@@ -9,6 +9,10 @@ export interface ListingData {
    *  bucket. See the Listing model's own field comment for why this exists (auto-selecting a
    *  marketplace subcategory instead of leaving it for manual pick). */
   categoryDetail?: string | null;
+  /** Any further category picks beyond categoryDetail (depth 3+ in lib/category-taxonomy.ts's
+   *  tree), in order. Optional and seller-driven; empty for the large majority of listings that
+   *  never go past Subcategory. */
+  categoryPath?: string[];
   /** Who the item is for -- "Women" | "Men" | "Kids" | "Unisex" | null. See the Listing model's
    *  own field comment for why this exists (Poshmark's audience-based taxonomy). */
   audience?: string | null;

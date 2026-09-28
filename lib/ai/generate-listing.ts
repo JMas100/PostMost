@@ -1,3 +1,5 @@
+import { CATEGORIES, subcategoriesFor } from "@/lib/category-taxonomy";
+
 export interface GeneratedListing {
   title: string;
   description: string;
@@ -5,9 +7,11 @@ export interface GeneratedListing {
   quantity: number;
   condition: string;
   category: string;
-  /** A specific item-type keyword ("Fins", "Running shoes"), distinct from the broad `category`
-   *  bucket -- lets the extension auto-select a real marketplace subcategory instead of leaving
-   *  it for the seller to pick by hand. Free text, no fixed list like `category` has. */
+  /** The specific subcategory for whichever `category` was picked (e.g. "Water Sports" under
+   *  "Sports & Outdoors") -- lets the extension auto-select a real marketplace subcategory
+   *  instead of leaving it for the seller to pick by hand. Validated against
+   *  lib/category-taxonomy.ts's tree for that category; null if the model's guess doesn't match
+   *  any real subcategory rather than forcing a wrong one. */
   categoryDetail?: string | null;
   audience?: string | null;
   brand?: string | null;
@@ -15,6 +19,8 @@ export interface GeneratedListing {
   color?: string | null;
   material?: string | null;
 }
+
+const CATEGORY_TREE_LINES = CATEGORIES.map((c) => `  - ${c}: ${subcategoriesFor(c).join(", ")}`).join("\n");
 
 const SYSTEM_PROMPT = `You are an expert reseller listing assistant. Analyze the provided product image and generate a compelling marketplace listing.
 
@@ -24,12 +30,11 @@ Respond with a JSON object containing exactly these keys:
 - price: a numeric estimated resale price in USD (number, no dollar sign)
 - quantity: always 1 unless the image clearly shows a multi-pack or lot (number)
 - condition: one of "New with tags", "New without tags", "Like new", "Good", "Fair", "Poor"
-- category: one of "Clothing", "Shoes", "Accessories", "Electronics", "Home", "Toys", "Sports", "Vintage", "Other"
-- categoryDetail: a short, specific item-type keyword (e.g. "Fins", "Running shoes", "Coffee table"),
-  more specific than category -- used to help pick the right subcategory on marketplaces that need
-  one. Null if nothing more specific than the category itself applies.
+- category: one of these top-level categories, and categoryDetail: the matching subcategory listed
+  under whichever one you picked (null only if genuinely nothing on the image indicates one):
+${CATEGORY_TREE_LINES}
 - audience: who the item is for -- one of "Women", "Men", "Kids", "Unisex", "Pets", or null if not
-  applicable (e.g. Electronics, Home) or genuinely unclear from the image
+  applicable (e.g. Electronics, Home & Garden) or genuinely unclear from the image
 - brand: the visible brand name, or null if unknown
 - size: the size if visible or inferable, or null
 - color: the dominant color, or null
@@ -45,10 +50,16 @@ function pickCondition(raw?: string): string {
 }
 
 function pickCategory(raw?: string): string {
-  const categories = ["Clothing", "Shoes", "Accessories", "Electronics", "Home", "Toys", "Sports", "Vintage", "Other"];
   const normalized = raw?.toLowerCase() ?? "";
-  const match = categories.find((c) => c.toLowerCase() === normalized);
+  const match = CATEGORIES.find((c) => c.toLowerCase() === normalized);
   return match ?? "Other";
+}
+
+function pickSubcategory(category: string, raw?: string | null): string | null {
+  const normalized = raw?.toLowerCase().trim() ?? "";
+  if (!normalized) return null;
+  const match = subcategoriesFor(category).find((s) => s.toLowerCase() === normalized);
+  return match ?? null;
 }
 
 function pickAudience(raw?: string | null): string | null {
@@ -100,14 +111,16 @@ export async function generateListingFromImage(imageBase64: string): Promise<Gen
     throw new Error("AI returned invalid JSON");
   }
 
+  const category = pickCategory(parsed.category);
+
   return {
     title: parsed.title?.slice(0, 80) || "Untitled listing",
     description: parsed.description || "",
     price: typeof parsed.price === "number" ? Math.max(0, parsed.price) : 0,
     quantity: typeof parsed.quantity === "number" ? Math.max(1, Math.round(parsed.quantity)) : 1,
     condition: pickCondition(parsed.condition),
-    category: pickCategory(parsed.category),
-    categoryDetail: parsed.categoryDetail?.trim().slice(0, 60) || null,
+    category,
+    categoryDetail: pickSubcategory(category, parsed.categoryDetail),
     audience: pickAudience(parsed.audience),
     brand: parsed.brand || null,
     size: parsed.size || null,

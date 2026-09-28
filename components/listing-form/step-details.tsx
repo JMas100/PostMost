@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { Controller, useFormContext } from "react-hook-form";
 import { ListingFormData } from "@/lib/schemas/listing";
 import { Button } from "@/components/ui/button";
@@ -16,14 +16,28 @@ import {
 } from "@/components/ui/select";
 import { Tag, Megaphone, AlertTriangle } from "lucide-react";
 import { OptimizingState } from "./types";
+import { CATEGORIES, subcategoriesFor, childrenFor } from "@/lib/category-taxonomy";
 
 const conditions = ["New with tags", "New without tags", "Like new", "Good", "Fair", "Poor"];
-const categories = ["Clothing", "Shoes", "Accessories", "Electronics", "Home", "Toys", "Sports", "Vintage", "Other"];
 const audiences = ["Women", "Men", "Kids", "Unisex", "Pets"];
 // Categories where audience is genuinely ambiguous from item type alone -- matches
-// DIRECT_CATEGORY_MAP in lib/marketplaces/adapters/poshmark.ts, which maps the rest (Electronics/
-// Home/Toys) straight across without needing this field at all.
-const CATEGORIES_NEEDING_AUDIENCE = new Set(["Clothing", "Shoes", "Accessories", "Sports", "Vintage", "Other"]);
+// DIRECT_CATEGORY_MAP in lib/marketplaces/adapters/poshmark-validation.ts, which maps the rest
+// (Electronics/Home & Garden/Baby & Kids) straight across without needing this field at all.
+const CATEGORIES_NEEDING_AUDIENCE = new Set([
+  "Clothing, Shoes, & Accessories",
+  "Sports & Outdoors",
+  "Collectibles & Vintage",
+  "Toys, Games, & Hobbies",
+  "Other",
+]);
+// Subcategories that already say who the item is for -- picking one auto-fills "Who's it for?"
+// instead of asking again, though it stays fully overridable.
+const AUDIENCE_BY_SUBCATEGORY: Record<string, string> = {
+  "Women's Clothing": "Women",
+  "Men's Clothing": "Men",
+  "Women's Shoes": "Women",
+  "Men's Shoes": "Men",
+};
 
 export function StepDetails({
   optimizing,
@@ -45,16 +59,74 @@ export function StepDetails({
     control,
     getValues,
     watch,
-    formState: { errors },
+    setValue,
+    formState: { errors, dirtyFields },
   } = useFormContext<ListingFormData>();
 
   const selectedCategory = watch("category");
+  const selectedSubcategory = watch("categoryDetail");
+  const categoryPath = watch("categoryPath") ?? [];
   const audienceValue = watch("audience");
   const needsAudience = CATEGORIES_NEEDING_AUDIENCE.has(selectedCategory ?? "");
+  const subcategoryOptions = subcategoriesFor(selectedCategory);
 
   useEffect(() => {
     if (audienceValue) onRequiredFieldResolved?.();
   }, [audienceValue, onRequiredFieldResolved]);
+
+  // Clears a stale subcategory (and anything deeper) left over from a previous category -- only
+  // on an actual change after mount, so this doesn't wipe out an existing listing's picks on
+  // first render.
+  const prevCategoryRef = useRef(selectedCategory);
+  useEffect(() => {
+    if (prevCategoryRef.current !== selectedCategory) {
+      setValue("categoryDetail", "", { shouldValidate: true });
+      setValue("categoryPath", [], { shouldValidate: true });
+      prevCategoryRef.current = selectedCategory;
+    }
+  }, [selectedCategory, setValue]);
+
+  // Same idea one level down: picking a different Subcategory invalidates anything deeper that
+  // was chosen under the old one.
+  const prevSubcategoryRef = useRef(selectedSubcategory);
+  useEffect(() => {
+    if (prevSubcategoryRef.current !== selectedSubcategory) {
+      setValue("categoryPath", [], { shouldValidate: true });
+      prevSubcategoryRef.current = selectedSubcategory;
+    }
+  }, [selectedSubcategory, setValue]);
+
+  // Builds one optional Select per level below Subcategory, for as long as the taxonomy actually
+  // has further children and the seller keeps choosing to go deeper -- never mandatory, and the
+  // chain stops the moment a level's pick has no children of its own (a real leaf) or hasn't been
+  // picked yet.
+  const deeperLevels: { depth: number; pathPrefix: string[]; options: string[]; value: string }[] = [];
+  {
+    let prefix = [selectedCategory, selectedSubcategory].filter((v): v is string => Boolean(v));
+    for (let depth = 0; prefix.length >= 2; depth++) {
+      const options = childrenFor(prefix);
+      if (options.length === 0) break;
+      const value = categoryPath[depth] ?? "";
+      deeperLevels.push({ depth, pathPrefix: prefix, options, value });
+      if (!value) break;
+      prefix = [...prefix, value];
+    }
+  }
+
+  function pickDeeperLevel(depth: number, value: string) {
+    const next = categoryPath.slice(0, depth);
+    if (value) next.push(value);
+    setValue("categoryPath", next, { shouldValidate: true });
+  }
+
+  // Some subcategories already say who the item is for -- auto-fill "Who's it for?" instead of
+  // asking again, but never override a value the seller already picked themselves.
+  useEffect(() => {
+    const suggested = AUDIENCE_BY_SUBCATEGORY[selectedSubcategory ?? ""];
+    if (suggested && !dirtyFields.audience) {
+      setValue("audience", suggested, { shouldValidate: true });
+    }
+  }, [selectedSubcategory, dirtyFields.audience, setValue]);
 
   return (
     <div className="space-y-6">
@@ -115,11 +187,14 @@ export function StepDetails({
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {categories.map((c) => (
+                  {CATEGORIES.map((c) => (
                     <SelectItem key={c} value={c}>
                       {c}
                     </SelectItem>
                   ))}
+                  {field.value && !CATEGORIES.includes(field.value) && (
+                    <SelectItem value={field.value}>{field.value} (legacy)</SelectItem>
+                  )}
                 </SelectContent>
               </Select>
             )}
@@ -128,12 +203,50 @@ export function StepDetails({
       </div>
 
       <div className="space-y-2">
-        <Label htmlFor="categoryDetail">Specific category (optional)</Label>
-        <Input id="categoryDetail" placeholder="e.g. Fins, Running shoes, Coffee table" {...register("categoryDetail")} />
+        <Label htmlFor="categoryDetail">Subcategory</Label>
+        <Controller
+          control={control}
+          name="categoryDetail"
+          render={({ field }) => (
+            <Select value={field.value ?? ""} onValueChange={(v) => field.onChange(v || "")}>
+              <SelectTrigger id="categoryDetail" className="w-full">
+                <SelectValue placeholder="Select..." />
+              </SelectTrigger>
+              <SelectContent>
+                {subcategoryOptions.map((s) => (
+                  <SelectItem key={s} value={s}>
+                    {s}
+                  </SelectItem>
+                ))}
+                {field.value && !subcategoryOptions.includes(field.value) && (
+                  <SelectItem value={field.value}>{field.value} (legacy)</SelectItem>
+                )}
+              </SelectContent>
+            </Select>
+          )}
+        />
         <p className="text-sm text-muted-foreground">
-          Used to auto-select the right subcategory on marketplaces that need one (like OfferUp).
+          Used to auto-select the right subcategory on marketplaces that need one (like Facebook and OfferUp).
         </p>
       </div>
+
+      {deeperLevels.map(({ depth, options, value }) => (
+        <div className="space-y-2" key={depth}>
+          <Label htmlFor={`categoryPath-${depth}`}>Get more specific (optional)</Label>
+          <Select value={value} onValueChange={(v) => pickDeeperLevel(depth, v || "")}>
+            <SelectTrigger id={`categoryPath-${depth}`} className="w-full">
+              <SelectValue placeholder="Select..." />
+            </SelectTrigger>
+            <SelectContent>
+              {options.map((o) => (
+                <SelectItem key={o} value={o}>
+                  {o}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+      ))}
 
       {needsAudience && (
         <div className="space-y-2">

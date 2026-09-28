@@ -20,12 +20,14 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Trash2 } from "lucide-react";
+import { CATEGORIES, subcategoriesFor, childrenFor } from "@/lib/category-taxonomy";
 
 // Same literal lists step-details.tsx and lib/ai/generate-listing.ts already use -- matching
 // existing project convention (small, stable, un-shared constants) rather than introducing a
-// shared file for two arrays that already exist independently in two other places.
+// shared file for two arrays that already exist independently in two other places. CATEGORIES is
+// the one exception -- at dozens of subcategory entries, duplicating it three times was a real
+// maintenance risk, so it lives in lib/category-taxonomy.ts and is imported here instead.
 const CONDITIONS = ["New with tags", "New without tags", "Like new", "Good", "Fair", "Poor"];
-const CATEGORIES = ["Clothing", "Shoes", "Accessories", "Electronics", "Home", "Toys", "Sports", "Vintage", "Other"];
 const AUDIENCES = ["Women", "Men", "Kids", "Unisex", "Pets"];
 const NO_SHIPPING_PROFILE = "__none__";
 
@@ -126,7 +128,17 @@ export function TemplateEditForm({ template, shippingProfiles, platforms }: Temp
             </div>
             <div className="space-y-2">
               <Label htmlFor="category">Category</Label>
-              <Select value={fields.category ?? ""} onValueChange={(v) => setField("category", v ?? "")}>
+              <Select
+                value={fields.category ?? ""}
+                onValueChange={(v) => {
+                  setField("category", v ?? "");
+                  // A template's saved subcategory (and anything deeper) only makes sense
+                  // alongside its own category -- clear it so a stale value can't silently
+                  // survive a category change.
+                  setField("categoryDetail", "");
+                  setField("categoryPath", []);
+                }}
+              >
                 <SelectTrigger id="category" className="w-full">
                   <SelectValue placeholder="Not set" />
                 </SelectTrigger>
@@ -136,20 +148,76 @@ export function TemplateEditForm({ template, shippingProfiles, platforms }: Temp
                       {c}
                     </SelectItem>
                   ))}
+                  {fields.category && !CATEGORIES.includes(fields.category) && (
+                    <SelectItem value={fields.category}>{fields.category} (legacy)</SelectItem>
+                  )}
                 </SelectContent>
               </Select>
             </div>
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="categoryDetail">Specific category (optional)</Label>
-            <Input
-              id="categoryDetail"
-              placeholder="e.g. Fins, Running shoes, Coffee table"
+            <Label htmlFor="categoryDetail">Subcategory</Label>
+            <Select
               value={fields.categoryDetail ?? ""}
-              onChange={(e) => setField("categoryDetail", e.target.value)}
-            />
+              onValueChange={(v) => {
+                setField("categoryDetail", v ?? "");
+                setField("categoryPath", []);
+              }}
+            >
+              <SelectTrigger id="categoryDetail" className="w-full">
+                <SelectValue placeholder="Not set" />
+              </SelectTrigger>
+              <SelectContent>
+                {subcategoriesFor(fields.category).map((s) => (
+                  <SelectItem key={s} value={s}>
+                    {s}
+                  </SelectItem>
+                ))}
+                {fields.categoryDetail && !subcategoriesFor(fields.category).includes(fields.categoryDetail) && (
+                  <SelectItem value={fields.categoryDetail}>{fields.categoryDetail} (legacy)</SelectItem>
+                )}
+              </SelectContent>
+            </Select>
           </div>
+
+          {(() => {
+            const categoryPath = fields.categoryPath ?? [];
+            const deeperLevels: { depth: number; options: string[]; value: string }[] = [];
+            let prefix = [fields.category, fields.categoryDetail].filter((v): v is string => Boolean(v));
+            for (let depth = 0; prefix.length >= 2; depth++) {
+              const options = childrenFor(prefix);
+              if (options.length === 0) break;
+              const value = categoryPath[depth] ?? "";
+              deeperLevels.push({ depth, options, value });
+              if (!value) break;
+              prefix = [...prefix, value];
+            }
+            return deeperLevels.map(({ depth, options, value }) => (
+              <div className="space-y-2" key={depth}>
+                <Label htmlFor={`categoryPath-${depth}`}>Get more specific (optional)</Label>
+                <Select
+                  value={value}
+                  onValueChange={(v) => {
+                    const next = categoryPath.slice(0, depth);
+                    if (v) next.push(v);
+                    setField("categoryPath", next);
+                  }}
+                >
+                  <SelectTrigger id={`categoryPath-${depth}`} className="w-full">
+                    <SelectValue placeholder="Not set" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {options.map((o) => (
+                      <SelectItem key={o} value={o}>
+                        {o}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            ));
+          })()}
 
           <div className="space-y-2">
             <Label htmlFor="audience">Who&apos;s it for?</Label>

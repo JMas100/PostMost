@@ -9,6 +9,7 @@ import { createListing, saveDraft, publishDraft, updateListing } from "@/lib/act
 import { crossPost } from "@/lib/actions/crosspost";
 import { saveTemplate, recordTemplateUsed } from "@/lib/actions/templates";
 import { generateListingFromPhoto } from "@/lib/actions/ai-generate";
+import { CATEGORIES } from "@/lib/category-taxonomy";
 import {
   optimizeTitle,
   optimizeDescription,
@@ -71,7 +72,8 @@ export function ListingForm({ mode = "create", draftId, editId, initialData, tem
 
   const defaultValues: Partial<ListingFormData> = {
     condition: "Good",
-    category: "Clothing",
+    category: CATEGORIES[0],
+    categoryPath: [],
     audience: null,
     quantity: 1,
     photos: [],

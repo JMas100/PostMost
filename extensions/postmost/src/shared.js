@@ -60,7 +60,16 @@
     );
     for (const text of texts) {
       const lower = text.toLowerCase();
-      const btn = buttons.find((b) => (b.textContent || "").toLowerCase().includes(lower));
+      // Checked both directions on purpose -- a real OfferUp category list showed our own name
+      // can be either the longer one ("Vehicles & Parts" needing to match OfferUp's plain
+      // "Vehicles") or the shorter one (a specific subcategory matching a longer real label), and
+      // only checking button-text-contains-search-term missed the first case entirely.
+      const btn = buttons.find((b) => {
+        const btnText = (b.textContent || "").toLowerCase().trim();
+        // The reverse-direction check requires a real minimum length so an icon-only button with
+        // a stray one-or-two-character text node can't spuriously "contain" whatever's searched.
+        return btnText.includes(lower) || (btnText.length >= 3 && lower.includes(btnText));
+      });
       if (btn) return btn;
     }
     return null;
@@ -202,15 +211,40 @@
     return ok;
   }
 
+  // For a site that uploads one photo at a time with its own per-photo side effect in between
+  // (Poshmark: a crop/confirm modal appears after each single upload and has to be dismissed
+  // before the next one, or before anything else on the page can be clicked) -- setFilesFromUrls
+  // above always sets every file on the input in one shot, which doesn't give the caller a chance
+  // to react between photos. This sets exactly one.
+  async function uploadSinglePhoto(input, url, index = 0) {
+    try {
+      const blob = await fetchBlob(url);
+      const name = url.startsWith("data:") ? `photo-${index}.jpg` : url.split("/").pop() || `photo-${index}.jpg`;
+      const ext = name.split(".").pop() || "jpg";
+      const fileName = name.includes(".") ? name : `photo-${index}.${ext}`;
+      const file = new File([blob], fileName, { type: blob.type || "image/jpeg" });
+      const dt = new DataTransfer();
+      dt.items.add(file);
+      input.files = dt.files;
+      dispatchEvents(input, ["change", "input"]);
+      return true;
+    } catch (err) {
+      console.warn("PostMost: could not fetch photo", url, err);
+      return false;
+    }
+  }
+
   window.PostMostUtils = {
     sleep,
     isVisible,
     waitForElement,
     findElement,
     findElements,
+    findFileInput,
     findButtonByText,
     simulateTyping,
     dispatchEvents,
     uploadPhotos,
+    uploadSinglePhoto,
   };
 })();
