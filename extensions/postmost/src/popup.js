@@ -188,7 +188,11 @@ async function renderPendingListing(pendingListing, pendingPlatforms, lastFillRe
   const buttons = platforms
     .map((p) => `<button class="platform" data-platform="${p}">${platformMeta(p).name}</button>`)
     .join("");
-  const openAll = platforms.length > 1 ? `<button class="platform open-all" id="open-all">Open all</button>` : "";
+  // Deliberately not named `openAll` -- that name collides with the async function of the same
+  // name below, and since this const lives in the same scope as the click handler that calls it,
+  // the call would resolve to this string instead of the real function (TypeError: openAll is not
+  // a function, silently swallowed since a popup's own errors have nowhere visible to surface).
+  const openAllButton = platforms.length > 1 ? `<button class="platform open-all" id="open-all">Open all</button>` : "";
 
   root.innerHTML = `
     <div class="header"><div class="brand"><span class="dot">P</span>PostMost</div></div>
@@ -197,7 +201,7 @@ async function renderPendingListing(pendingListing, pendingPlatforms, lastFillRe
         <div class="card-title">${escapeHtml(pendingListing.title)}</div>
         <div class="card-sub">$${Number(pendingListing.price).toFixed(2)}</div>
       </div>
-      <div class="platforms">${buttons}${openAll}</div>
+      <div class="platforms">${buttons}${openAllButton}</div>
       <div id="status"></div>
       <button class="btn btn-secondary" id="clear">Clear listing</button>
     </div>

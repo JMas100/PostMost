@@ -66,8 +66,10 @@ export function StepPricing({
     register,
     control,
     getValues,
+    setValue,
     formState: { errors },
   } = useFormContext<ListingFormData>();
+  const shippingProfileId = useWatch({ control, name: "shippingProfileId" });
 
   return (
     <div className="space-y-6">
@@ -107,7 +109,13 @@ export function StepPricing({
             render={({ field }) => (
               <Select
                 value={field.value || NO_SHIPPING_PROFILE}
-                onValueChange={(v) => field.onChange(!v || v === NO_SHIPPING_PROFILE ? null : v)}
+                onValueChange={(v) => {
+                  const next = !v || v === NO_SHIPPING_PROFILE ? null : v;
+                  field.onChange(next);
+                  // A weight only means anything alongside a shipping profile -- clear it the
+                  // same way categoryPath clears on an earlier category pick changing.
+                  if (!next) setValue("weightLbs", null);
+                }}
               >
                 <SelectTrigger id="shippingProfileId" className="w-full">
                   <SelectValue placeholder="None" />
@@ -123,6 +131,16 @@ export function StepPricing({
               </Select>
             )}
           />
+          {shippingProfileId && (
+            <div className="space-y-2 pt-2">
+              <Label htmlFor="weightLbs">Package weight (lbs)</Label>
+              <Input id="weightLbs" type="number" step="0.1" min="0.1" {...register("weightLbs")} />
+              {errors.weightLbs && <p className="text-sm text-destructive">{errors.weightLbs.message}</p>}
+              <p className="text-xs text-muted-foreground">
+                Required to offer shipping -- some marketplaces need this to generate a shipping label.
+              </p>
+            </div>
+          )}
         </div>
       )}
     </div>

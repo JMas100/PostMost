@@ -38,6 +38,7 @@ const GENERIC_ALIASES: FieldAliasMap = {
   sku: ["sku", "item number", "product id"],
   tags: ["tags", "hashtags"],
   shippingProfileId: ["shipping profile id", "shipping profile", "shipping id"],
+  weightLbs: ["weight", "weight (lbs)", "item weight", "weight lbs"],
   photos: ["photos", "images", "photo urls", "image urls", "pictures"],
 };
 
@@ -95,6 +96,7 @@ function rowToListingFormData(row: Record<string, string>, aliases: FieldAliasMa
   const price = getValue(row, aliases.price);
   const cost = getValue(row, aliases.cost);
   const quantity = getValue(row, aliases.quantity);
+  const weightLbs = getValue(row, aliases.weightLbs);
 
   return {
     title: getValue(row, aliases.title),
@@ -113,6 +115,7 @@ function rowToListingFormData(row: Record<string, string>, aliases: FieldAliasMa
     sku: getValue(row, aliases.sku),
     tags: getValue(row, aliases.tags),
     shippingProfileId: getValue(row, aliases.shippingProfileId),
+    weightLbs: weightLbs ? Number(weightLbs.replace(/[^0-9.]/g, "")) : undefined,
     photos: parsePhotos(row, aliases),
   };
 }

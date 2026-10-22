@@ -78,6 +78,7 @@ export function ListingForm({ mode = "create", draftId, editId, initialData, tem
     quantity: 1,
     photos: [],
     shippingProfileId: initialData?.shippingProfileId ?? null,
+    weightLbs: initialData?.weightLbs ?? null,
     ...initialData,
   };
 

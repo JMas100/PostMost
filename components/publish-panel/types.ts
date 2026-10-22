@@ -28,6 +28,14 @@ export interface ExtensionListingPayload {
   color: string | null;
   material: string | null;
   sku: string | null;
+  shippingProfileId: string | null;
+  weightLbs: number | null;
+  /** Resolved from listing.shippingProfile?.whoPays -- "seller" | "buyer" | null. Extension-only
+   *  (not part of ListingFieldsSource/ListingData, which the job-runner/API adapters also use and
+   *  have no need for this): the extension has no DB access, so it needs the profile's whoPays
+   *  handed to it directly rather than just the shippingProfileId, to answer Facebook's "Cover
+   *  the shipping cost so buyers see free shipping" checkbox. */
+  shippingWhoPays: string | null;
   photos: { id: string; url: string }[];
 }
 

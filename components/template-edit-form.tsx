@@ -303,7 +303,11 @@ export function TemplateEditForm({ template, shippingProfiles, platforms }: Temp
               <Label htmlFor="shippingProfileId">Shipping profile</Label>
               <Select
                 value={fields.shippingProfileId || NO_SHIPPING_PROFILE}
-                onValueChange={(v) => setField("shippingProfileId", v === NO_SHIPPING_PROFILE ? null : v)}
+                onValueChange={(v) => {
+                  const next = v === NO_SHIPPING_PROFILE ? null : v;
+                  setField("shippingProfileId", next);
+                  if (!next) setField("weightLbs", null);
+                }}
               >
                 <SelectTrigger id="shippingProfileId" className="w-full">
                   <SelectValue placeholder="None" />
@@ -317,6 +321,22 @@ export function TemplateEditForm({ template, shippingProfiles, platforms }: Temp
                   ))}
                 </SelectContent>
               </Select>
+              {fields.shippingProfileId && (
+                <div className="space-y-2 pt-2">
+                  <Label htmlFor="weightLbs">Package weight (lbs)</Label>
+                  <Input
+                    id="weightLbs"
+                    type="number"
+                    step="0.1"
+                    min="0.1"
+                    value={fields.weightLbs ?? ""}
+                    onChange={(e) => setField("weightLbs", e.target.value ? Number(e.target.value) : null)}
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Required to offer shipping -- carried into any listing built from this template.
+                  </p>
+                </div>
+              )}
             </div>
           )}
         </CardContent>

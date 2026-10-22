@@ -109,6 +109,9 @@ export default async function ListingDetailPage(props: { params: Promise<{ id: s
     color: listing.color,
     material: listing.material,
     sku: listing.sku,
+    shippingProfileId: listing.shippingProfileId,
+    weightLbs: listing.weightLbs,
+    shippingWhoPays: listing.shippingProfile?.whoPays ?? null,
     photos: listing.photos.map((p) => ({ id: p.id, url: p.url })),
   };
 

@@ -431,9 +431,11 @@
   // text instead. Category and Condition are role="combobox" elements that open a flat, single-
   // click list of real, specific option text (e.g. "Furniture", "Used - Like New") when clicked --
   // no multi-level drill-down like Poshmark/OfferUp. It's also a 3-step wizard (item details ->
-  // delivery method -> list in more places); steps 2 and 3 need nothing touched -- Facebook
-  // pre-fills Location from the seller's own profile, defaults Delivery method to "Local pickup
-  // only", and checks "List publicly to Marketplace" by default, with groups left optional.
+  // delivery method -> list in more places). Step 3 needs nothing touched -- Facebook checks
+  // "List publicly to Marketplace" by default, with groups left optional. Step 2 pre-fills
+  // Location from the seller's own profile and defaults Delivery method to "Local pickup only",
+  // which is left as-is unless the listing has a shipping profile set (see the step-2 handling
+  // in fill() below for what happens then).
 
   function findFacebookFieldByLabel(labelText, tagName) {
     const labels = Array.from(document.querySelectorAll("label"));
@@ -492,6 +494,85 @@
       await utils.sleep(250);
     }
     return null;
+  }
+
+  // Real DOM capture of Delivery method (step 2) shows the "Delivery method" combobox itself
+  // starts aria-disabled="true" -- there's no direct toggle to flip it to a shipping option.
+  // The real entry point is a promo card ("Offer shipping" / "Listings with shipping could
+  // reach 2x as many buyers") with a "Set up shipping" button. That same capture also contains
+  // a second, decorative "Set up shipping" element (aria-hidden="true" wrapper, aria-disabled
+  // ="true", tabindex="-1" -- looks like a Facebook animation/layout ghost, same pattern as a
+  // duplicated "How it works" link right next to it) sharing the identical aria-label and text,
+  // so aria-disabled alone (not just visibility/text, which both duplicates pass) is what rules
+  // it out here.
+  function findFacebookShippingSetupButton() {
+    const candidates = document.querySelectorAll('[aria-label="Set up shipping"][role="button"]');
+    return (
+      Array.from(candidates).find(
+        (el) =>
+          utils.isVisible(el) &&
+          el.getAttribute("aria-disabled") !== "true" &&
+          (el.textContent || "").trim() === "Set up shipping"
+      ) || null
+    );
+  }
+
+  // Once Facebook's one-time shipping/payout setup (above) is done, Delivery method unlocks to
+  // "Shipping & local pickup" (confirmed real capture) and a new required "Shipping label"
+  // section appears with a "Select shipping label" button, gating Next until it's completed.
+  // Opens the real "Change shipping method" dialog (confirmed real aria-modal) containing
+  // Package weight, Shipping carrier, and a "Cover the shipping cost..." checkbox.
+
+  // Confirmed real bracket format is "2-5 lbs"; "Under X lb(s)"/"Over X lbs" endpoints are the
+  // conventional phrasing for this kind of picker and are only ever opportunistically matched --
+  // an unrecognized label just returns null rather than being guessed at, so a format Facebook
+  // actually uses differently is never wrongly clicked.
+  function parseFacebookWeightRangeLbs(text) {
+    const t = String(text || "").trim().toLowerCase();
+    let m = t.match(/^(\d+(?:\.\d+)?)\s*-\s*(\d+(?:\.\d+)?)\s*lbs?$/);
+    if (m) return { min: Number(m[1]), max: Number(m[2]) };
+    m = t.match(/^under\s+(\d+(?:\.\d+)?)\s*lbs?$/);
+    if (m) return { min: 0, max: Number(m[1]) };
+    m = t.match(/^over\s+(\d+(?:\.\d+)?)\s*lbs?$/);
+    if (m) return { min: Number(m[1]), max: Infinity };
+    return null;
+  }
+
+  // Same "every leaf element on the page" style as findFacebookLeafByExactText, generalized to
+  // parse-and-contain instead of an exact known string -- there's no fixed list of bracket
+  // labels to match against (only one, "2-5 lbs", has actually been seen), so this keeps working
+  // if Facebook's bracket boundaries change. The field starts genuinely empty on a fresh listing
+  // (confirmed real capture), so there's no stale already-selected value for this to false-match
+  // against before the real listbox options render.
+  function findFacebookWeightBracketOption(weightLbs) {
+    const candidates = document.querySelectorAll("body *");
+    for (const el of candidates) {
+      if (el.children.length > 0 || !utils.isVisible(el)) continue;
+      const range = parseFacebookWeightRangeLbs(el.textContent);
+      if (range && weightLbs >= range.min && weightLbs <= range.max) return el;
+    }
+    return null;
+  }
+
+  // "Cover the shipping cost so buyers see free shipping." (confirmed real role="checkbox",
+  // aria-checked="false" is Facebook's own default) -- maps directly to ShippingProfile.whoPays:
+  // "seller" absorbs the cost (check it), "buyer" pays (leave Facebook's own default alone).
+  function findFacebookCoverShippingCheckbox() {
+    const candidates = document.querySelectorAll('[role="checkbox"]');
+    return (
+      Array.from(candidates).find(
+        (el) => utils.isVisible(el) && (el.textContent || "").includes("Cover the shipping cost")
+      ) || null
+    );
+  }
+
+  // The label span and the current displayed value live inside the same label[role="combobox"]
+  // element (see findFacebookComboboxByLabel) with no separator between them in textContent --
+  // stripping the known label prefix isolates just the value part, empty string when unset.
+  function facebookComboboxValueText(labelText) {
+    const trigger = findFacebookComboboxByLabel(labelText);
+    if (!trigger) return "";
+    return (trigger.textContent || "").replace(labelText, "").trim();
   }
 
   // Clothing/Shoes are split by gender on Facebook ("Women's clothing & shoes" / "Men's clothing
@@ -740,9 +821,86 @@
         }
         step1Next.click();
 
-        // Step 2 (delivery method) -> Step 3. Nothing here needs touching: Location is pre-filled
-        // from the seller's own profile and Delivery method already defaults to "Local pickup
-        // only".
+        // Step 2 (delivery method) -> Step 3. Location is pre-filled from the seller's own
+        // profile, and Delivery method already defaults to "Local pickup only", which is
+        // correct as-is for a listing with no shipping profile set (null = no profile picked
+        // in the Pricing step's Select, see lib/marketplaces/listing-fields.ts).
+        if (listing.shippingProfileId) {
+          const shippingBtn = findFacebookShippingSetupButton();
+          if (shippingBtn) {
+            // Still gated behind Facebook's one-time payout setup (confirmed real capture:
+            // Delivery method stays aria-disabled and shows "Local pickup only" until this is
+            // done) -- open it and hand off. What's inside (legal name, DOB, address, bank info,
+            // SSN/ITIN) is the seller's own responsibility, never PostMost's to touch or store.
+            shippingBtn.click();
+            result.missing.push("finish Facebook's shipping setup (opened for you), then click Next and Publish yourself");
+            result.submitted = false;
+            return;
+          }
+
+          const labelBtn = findFacebookActionButton("Select shipping label");
+          if (labelBtn) {
+            // Payout setup already done (confirmed real capture: Delivery method shows "Shipping
+            // & local pickup", unlocked) -- Facebook now requires a "Shipping label" (Package
+            // weight + Shipping carrier) before Next unlocks. Opens the real "Change shipping
+            // method" dialog (confirmed real aria-modal).
+            labelBtn.click();
+            await utils.sleep(500);
+
+            if (typeof listing.weightLbs === "number" && listing.weightLbs > 0) {
+              const weightTrigger = await waitForFacebookComboboxByLabel("Package weight", 4000);
+              if (weightTrigger) {
+                weightTrigger.click();
+                await utils.sleep(400);
+                const weightOption = findFacebookWeightBracketOption(listing.weightLbs);
+                if (weightOption) {
+                  weightOption.click();
+                  result.filled.push("package weight");
+                } else {
+                  result.missing.push("package weight (no matching bracket found -- pick manually, then click Update yourself)");
+                  return;
+                }
+              } else {
+                result.missing.push("package weight (pick manually, then click Update yourself)");
+                return;
+              }
+            } else {
+              result.missing.push("package weight (pick manually, then click Update yourself -- no weight set on the listing)");
+              return;
+            }
+
+            if (listing.shippingWhoPays === "seller") {
+              const coverCheckbox = findFacebookCoverShippingCheckbox();
+              if (coverCheckbox && coverCheckbox.getAttribute("aria-checked") !== "true") {
+                coverCheckbox.click();
+              }
+            }
+
+            // "Shipping carrier" shows a live-priced quote generated from the weight just picked
+            // (confirmed real value "USPS Ground Advantage ($13.18)") -- there's no fixed,
+            // predictable option text to match ahead of time, and its open-listbox structure has
+            // never been captured, so this only waits for Facebook to auto-populate it rather
+            // than guessing at an unconfirmed structure.
+            await utils.sleep(1500);
+            if (!facebookComboboxValueText("Shipping carrier")) {
+              result.missing.push("shipping carrier (pick manually, then click Update yourself)");
+              return;
+            }
+
+            const updateBtn = findFacebookActionButton("Update");
+            if (!updateBtn) {
+              result.missing.push("shipping label (click Update yourself)");
+              return;
+            }
+            updateBtn.click();
+            await utils.sleep(400);
+            result.filled.push("shipping label");
+          }
+          // Neither button found -- Facebook may already have a remembered default shipping
+          // label (see the confirmed "Set shipping & local pickup as default" toggle) with
+          // nothing left to fill in here. Fall through to Next either way.
+        }
+
         const step2Next = await waitForFacebookActionButton("Next", 6000);
         if (!step2Next) {
           result.missing.push("click Next on Delivery method, then Publish, yourself");

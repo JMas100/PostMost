@@ -2,10 +2,10 @@
 
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
-import { listingSchema, ListingFormData } from "@/lib/schemas/listing";
+import { listingObjectSchema, ListingFormData } from "@/lib/schemas/listing";
 import { requireWorkspace } from "@/lib/auth-helpers";
 
-const templateSchema = listingSchema.partial();
+const templateSchema = listingObjectSchema.partial();
 
 export async function getTemplates() {
   const { workspaceUserId: userId } = await requireWorkspace();

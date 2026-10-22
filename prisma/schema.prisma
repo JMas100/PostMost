@@ -86,6 +86,13 @@ model Listing {
   jobs            CrossPostJob[]
   shippingProfileId String?
   shippingProfile ShippingProfile?  @relation(fields: [shippingProfileId], references: [id], onDelete: SetNull)
+  /// The item's actual weight, required whenever shippingProfileId is set (see the superRefine in
+  /// lib/schemas/listing.ts). Distinct from ShippingProfile.maxWeightLbs, which is a reusable
+  /// policy's eligibility ceiling, not any one item's real weight -- a couch and a phone case can
+  /// share a shipping profile but can't share a weight. Exists to auto-fill marketplace shipping
+  /// forms that ask for it directly (see Facebook's "Package weight" bracket picker in
+  /// extensions/postmost/src/platforms.js) instead of asking the seller again at post time.
+  weightLbs       Float?
   status          String           @default("DRAFT")
   isDraft         Boolean          @default(false)
   createdAt       DateTime         @default(now())

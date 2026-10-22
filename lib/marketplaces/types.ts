@@ -21,6 +21,15 @@ export interface ListingData {
   color?: string | null;
   material?: string | null;
   sku?: string | null;
+  /** PostMost's own per-listing shipping profile id -- null when the seller left it unset. Not
+   *  to be confused with Etsy's own `account.settings.shippingProfileId` (an Etsy-side shipping
+   *  profile configured once per account in lib/marketplaces/adapters/etsy.ts), which is
+   *  unrelated. See the ShippingProfile model and lib/marketplaces/listing-fields.ts. */
+  shippingProfileId?: string | null;
+  /** The item's real weight, required whenever shippingProfileId is set. Distinct from
+   *  ShippingProfile.maxWeightLbs (a reusable policy's eligibility ceiling, not any one item's
+   *  actual weight). See the Listing model's own field comment. */
+  weightLbs?: number | null;
   tags?: string[];
   photos: string[];
 }

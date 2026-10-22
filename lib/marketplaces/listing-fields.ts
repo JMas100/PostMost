@@ -21,6 +21,14 @@ export interface ListingFieldsSource {
   color: string | null;
   material: string | null;
   sku: string | null;
+  /** Null when the seller picked "None" on the Pricing step's Shipping profile Select --
+   *  doubles as the "does this item ship" signal for marketplace posting, not just the
+   *  profit-margin estimate it originally existed for. See the ShippingProfile model. */
+  shippingProfileId: string | null;
+  /** The item's real weight -- required whenever shippingProfileId is set (see the superRefine
+   *  in lib/schemas/listing.ts). Distinct from ShippingProfile.maxWeightLbs, a reusable policy's
+   *  eligibility ceiling, not any one item's actual weight. See the Listing model's own comment. */
+  weightLbs: number | null;
 }
 
 export function listingDescriptionFields(listing: ListingFieldsSource) {
@@ -39,5 +47,7 @@ export function listingDescriptionFields(listing: ListingFieldsSource) {
     color: listing.color,
     material: listing.material,
     sku: listing.sku,
+    shippingProfileId: listing.shippingProfileId,
+    weightLbs: listing.weightLbs,
   };
 }

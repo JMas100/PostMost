@@ -6,7 +6,7 @@ export type StepId = (typeof STEPS)[number];
 export const STEP_FIELDS: Record<StepId, (keyof ListingFormData)[]> = {
   photos: ["photos"],
   details: ["title", "description", "condition", "category"],
-  pricing: ["price", "cost", "quantity"],
+  pricing: ["price", "cost", "quantity", "weightLbs"],
   review: [],
 };
 

@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
-import { listingSchema, ListingFormData } from "@/lib/schemas/listing";
+import { listingSchema, listingObjectSchema, ListingFormData } from "@/lib/schemas/listing";
 import { reserveListingUsage, releaseListingUsage } from "@/lib/actions/usage";
 import { track } from "@/lib/analytics/track";
 import { requireWorkspace, requireRole } from "@/lib/auth-helpers";
@@ -101,7 +101,7 @@ export async function createListing(data: ListingFormData) {
   return { success: true, listing };
 }
 
-const draftSchema = listingSchema.partial();
+const draftSchema = listingObjectSchema.partial();
 
 function normalizeDraft(data: Partial<ListingFormData>) {
   const parsed = draftSchema.safeParse(data);
@@ -241,7 +241,7 @@ export async function updateListing(id: string, data: Partial<ListingFormData>) 
   const existing = await prisma.listing.findFirst({ where: { id, userId: workspaceUserId } });
   if (!existing) return { error: "Listing not found" };
 
-  const parsed = listingSchema.partial().safeParse(data);
+  const parsed = listingObjectSchema.partial().safeParse(data);
   if (!parsed.success) {
     return { error: parsed.error.format() };
   }
@@ -303,6 +303,7 @@ export async function duplicateListing(id: string) {
         sku: null,
         tags: existing.tags,
         shippingProfileId: existing.shippingProfileId,
+        weightLbs: existing.weightLbs,
         userId: workspaceUserId,
         status: "PUBLISHED",
         isDraft: false,

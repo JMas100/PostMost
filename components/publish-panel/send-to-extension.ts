@@ -12,6 +12,9 @@ export function sendToExtension(listing: ExtensionListingPayload, platformIds: s
   const payload = {
     id: listing.id,
     ...listingDescriptionFields(listing),
+    // Extension-only, not part of ListingFieldsSource -- see ExtensionListingPayload's own
+    // comment on shippingWhoPays for why.
+    shippingWhoPays: listing.shippingWhoPays,
     photos: listing.photos.map((p) => p.url),
   };
 
